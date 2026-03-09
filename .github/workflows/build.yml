@@ -1,34 +1,51 @@
-name: Build APK
+name: Build & Release APK
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ master ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.22.0'
 
       - name: Create Flutter project
         run: |
-          flutter create --org com.kamichat --project-name kami_chat /tmp/kami_chat
-          cp $GITHUB_WORKSPACE/lib/main.dart /tmp/kami_chat/lib/main.dart
+          flutter create --org com.thekami --project-name convo /tmp/convo
+          cp $GITHUB_WORKSPACE/lib/main.dart /tmp/convo/lib/main.dart
+          cp $GITHUB_WORKSPACE/pubspec.yaml /tmp/convo/pubspec.yaml
+
+      - name: Add Android permissions
+        run: |
+          sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
+
+      - name: Set min SDK to 24 (Android 7+)
+        run: |
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' /tmp/convo/android/app/build.gradle
 
       - name: Build APK
         run: |
-          cd /tmp/kami_chat
+          cd /tmp/convo
+          flutter pub get
           flutter build apk --release
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: kami-chat-apk
-          path: /tmp/kami_chat/build/app/outputs/flutter-apk/app-release.apk
+          tag_name: v1.0.0.2
+          name: Convo v1.0.0.2
+          body: |
+            ## Convo v1.0.0.2
+            First release by TheKami
+            - Dark/Light theme (device auto)
+            - Login screen (Email, GitHub, Google)
+            - Chats, Friends, Profile, Settings
+            - Powered by TheKami
+          files: /tmp/convo/build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

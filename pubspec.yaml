@@ -1,0 +1,15 @@
+name: convo
+description: Convo - Chat App by TheKami
+publish_to: 'none'
+version: 1.0.0+2
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  url_launcher: ^6.2.5
+
+flutter:
+  uses-material-design: true
