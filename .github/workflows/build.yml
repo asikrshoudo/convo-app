@@ -30,27 +30,42 @@ jobs:
           GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: echo "$GOOGLE_SERVICES" > /tmp/convo/android/app/google-services.json
 
-      - name: Setup Firebase in Gradle
+      - name: Show original gradle files
+        run: |
+          echo "=== PROJECT build.gradle ==="
+          cat /tmp/convo/android/build.gradle
+          echo "=== APP build.gradle ==="
+          cat /tmp/convo/android/app/build.gradle
+
+      - name: Rewrite project build.gradle
         run: |
           python3 - << 'PYEOF'
-          # Fix project-level build.gradle
-          proj = open('/tmp/convo/android/build.gradle').read()
-          proj = proj.replace(
-              'dependencies {',
-              'dependencies {\n        classpath "com.google.gms:google-services:4.4.0"',
-              1
+          content = open('/tmp/convo/android/build.gradle').read()
+          print("ORIGINAL:")
+          print(content)
+          # Add google services classpath
+          content = content.replace(
+              'classpath "com.android.tools.build:gradle:',
+              'classpath "com.google.gms:google-services:4.4.0"\n        classpath "com.android.tools.build:gradle:'
           )
-          open('/tmp/convo/android/build.gradle', 'w').write(proj)
+          open('/tmp/convo/android/build.gradle', 'w').write(content)
+          print("MODIFIED:")
+          print(content)
+          PYEOF
 
-          # Fix app-level build.gradle - add apply AFTER plugins block
-          app = open('/tmp/convo/android/app/build.gradle').read()
-          # Find end of plugins block and add apply plugin after it
-          plugins_end = app.find('\n}', app.find('plugins {')) + 2
-          app = app[:plugins_end] + '\napply plugin: "com.google.gms.google-services"\n' + app[plugins_end:]
+      - name: Rewrite app build.gradle
+        run: |
+          python3 - << 'PYEOF'
+          content = open('/tmp/convo/android/app/build.gradle').read()
+          print("ORIGINAL:")
+          print(content)
           # Fix minSdk
-          app = app.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
-          open('/tmp/convo/android/app/build.gradle', 'w').write(app)
-          print("Done!")
+          content = content.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+          # Add google services at the very end
+          content = content + '\napply plugin: "com.google.gms.google-services"\n'
+          open('/tmp/convo/android/app/build.gradle', 'w').write(content)
+          print("MODIFIED:")
+          print(content)
           PYEOF
 
       - name: Add Internet permission
@@ -71,7 +86,7 @@ jobs:
         with:
           tag_name: v1.0.0.4
           name: Convo v1.0.0.4
-          body: "Convo v1.0.0.4 - Firebase live, Create Account, User Search"
+          body: "Convo v1.0.0.4 - Firebase live"
           files: /tmp/convo/build/app/outputs/flutter-apk/convo.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
