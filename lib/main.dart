@@ -441,7 +441,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     borderRadius: BorderRadius.circular(24),
                     border: Border.all(color: _gender == g ? kGreen : Colors.grey.withOpacity(0.3))),
                   child: Text(g, style: TextStyle(color: _gender == g ? Colors.white : Colors.grey[400], fontWeight: FontWeight.w600))))
-            ).toList()),
+            )).toList()),
             const SizedBox(height: 20),
             GestureDetector(
               onTap: () => setState(() => _ageConfirmed = !_ageConfirmed),
@@ -742,7 +742,7 @@ class MessageRequestsScreen extends StatelessWidget {
                     child: const Icon(Icons.close_rounded, color: Colors.red, size: 22))),
               ]),
               onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: d['from']))));
-          }).toList()));
+          }).toList());
         }));
   }
 }
@@ -1486,7 +1486,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             await _auth.currentUser?.updateDisplayName(nc.text.trim());
             if (mounted) { Navigator.pop(context); _load(); }
           }),
-        ]))));
+        ])));
   }
   Widget _ef(String label, TextEditingController ctrl, {int lines = 1}) => TextField(controller: ctrl, maxLines: lines,
     decoration: InputDecoration(labelText: label, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
