@@ -20,6 +20,10 @@ jobs:
       - name: Create Flutter project
         run: flutter create --org com.thekami --project-name convo /tmp/convo
 
+      - name: Create local.properties
+        run: |
+          echo "flutter.sdk=$FLUTTER_ROOT" > /tmp/convo/android/local.properties
+
       - name: Copy all source files
         run: |
           cp $GITHUB_WORKSPACE/lib/main.dart /tmp/convo/lib/main.dart
