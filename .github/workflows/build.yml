@@ -19,15 +19,13 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
-      # Flutter scaffold তৈরি করে — res/, kotlin/, MainActivity.kt সব generate হয়
+      # Flutter scaffold তৈরি করে + local.properties এ flutter.sdk automatically লেখে
       - name: Create Flutter scaffold
         run: flutter create --org com.thekami --project-name convo /tmp/convo
 
-      # which flutter দিয়ে সঠিক path বের করা — $FLUTTER_ROOT empty থাকলেও কাজ করবে
+      # flutter create already flutter.sdk লিখে দেয় — শুধু sdk.dir append করো, overwrite করো না!
       - name: Set up local.properties
         run: |
-          FLUTTER_SDK=$(dirname $(dirname $(which flutter)))
-          echo "flutter.sdk=$FLUTTER_SDK" > /tmp/convo/android/local.properties
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> /tmp/convo/android/local.properties
           echo "--- local.properties content ---"
           cat /tmp/convo/android/local.properties
@@ -43,7 +41,7 @@ jobs:
           cp $GITHUB_WORKSPACE/android/app/src/main/AndroidManifest.xml /tmp/convo/android/app/src/main/AndroidManifest.xml
           cp $GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.properties /tmp/convo/android/gradle/wrapper/gradle-wrapper.properties
 
-      # Secret থাকলে secret ব্যবহার করবে, না থাকলে repo থেকে copy করবে
+      # Secret থাকলে secret, না থাকলে repo থেকে copy
       - name: Write google-services.json
         env:
           GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON }}
@@ -54,7 +52,7 @@ jobs:
             cp $GITHUB_WORKSPACE/android/app/google-services.json /tmp/convo/android/app/google-services.json
           fi
 
-      # build.gradle এ proguard-rules.pro reference আছে, file না থাকলে build fail করে
+      # build.gradle এ proguard-rules.pro reference আছে
       - name: Create proguard-rules.pro
         run: touch /tmp/convo/android/app/proguard-rules.pro
 
@@ -64,7 +62,6 @@ jobs:
           flutter pub get
           flutter build apk --release --target-platform android-arm64 --split-per-abi
 
-      # Dynamic tag — run number দিয়ে প্রতিবার unique tag তৈরি হবে
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
