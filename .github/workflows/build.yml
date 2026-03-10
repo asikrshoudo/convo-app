@@ -46,34 +46,24 @@ jobs:
         run: |
           echo "$KEYSTORE_BASE64" | base64 -d > android/app/convo.jks
 
-      - name: Build APK
+      - name: Write key.properties
         env:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          cat > android/key.properties << EOL
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=convo.jks
+          EOL
+
+      - name: Build APK
         run: |
           flutter pub get
           dart run flutter_launcher_icons
-          flutter build apk --release --target-platform android-arm64 --split-per-abi \
-            --dart-define=KEY_ALIAS=$KEY_ALIAS \
-            --dart-define=KEY_PASSWORD=$KEY_PASSWORD \
-            --dart-define=STORE_PASSWORD=$STORE_PASSWORD
-
-      - name: Sign APK
-        env:
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-        run: |
-          for apk in build/app/outputs/flutter-apk/*.apk; do
-            jarsigner -verbose \
-              -sigalg SHA256withRSA \
-              -digestalg SHA-256 \
-              -keystore android/app/convo.jks \
-              -storepass "$STORE_PASSWORD" \
-              -keypass "$KEY_PASSWORD" \
-              "$apk" "$KEY_ALIAS"
-          done
+          flutter build apk --release --target-platform android-arm64 --split-per-abi
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

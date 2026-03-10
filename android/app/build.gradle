@@ -23,6 +23,14 @@ if (flutterVersionName == null) {
     flutterVersionName = '1.0'
 }
 
+def keyProperties = new Properties()
+def keyPropertiesFile = rootProject.file('key.properties')
+if (keyPropertiesFile.exists()) {
+    keyPropertiesFile.withReader('UTF-8') { reader ->
+        keyProperties.load(reader)
+    }
+}
+
 android {
     namespace "com.thekami.convo"
     compileSdk 34
@@ -40,6 +48,15 @@ android {
         main.java.srcDirs += 'src/main/kotlin'
     }
 
+    signingConfigs {
+        release {
+            keyAlias keyProperties['keyAlias']
+            keyPassword keyProperties['keyPassword']
+            storeFile keyProperties['storeFile'] ? file("${keyProperties['storeFile']}") : null
+            storePassword keyProperties['storePassword']
+        }
+    }
+
     defaultConfig {
         applicationId "com.thekami.convo"
         minSdkVersion 23
@@ -53,7 +70,7 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
         }
     }
 }
