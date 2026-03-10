@@ -1,28 +1,18 @@
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.0'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.0'
+        classpath 'com.google.gms:google-services:4.4.0'
+    }
+}
+
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
-
-    // Fix for plugins (like geolocator_android) that use flutter.compileSdkVersion
-    project.ext {
-        flutter = [
-            compileSdkVersion: 34,
-            minSdkVersion    : 21,
-            targetSdkVersion : 34,
-            ndkVersion       : "25.1.8937393"
-        ]
-    }
-}
-
-rootProject.buildDir = "../build"
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(":app")
-}
-
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
 }
