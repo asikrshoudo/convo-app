@@ -602,39 +602,9 @@ class ChatsScreen extends StatelessWidget {
               ]);
             }),
           IconButton(icon: const Icon(Icons.edit_rounded),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen(startChat: true)))),
+            onPressed: () => _showNewChatOptions(context, myUid)),
         ]),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _db.collection('chats').where('participants', arrayContains: myUid).snapshots(),
-        builder: (_, snap) {
-          if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: kGreen));
-          if (!snap.hasData || snap.data!.docs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Container(width: 80, height: 80, decoration: BoxDecoration(color: kGreen.withOpacity(0.1), shape: BoxShape.circle),
-              child: const Icon(Icons.chat_bubble_outline_rounded, size: 40, color: kGreen)),
-            const SizedBox(height: 16),
-            const Text('No conversations yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('Find friends and start chatting!', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
-          ]));
-
-          final docs = snap.data!.docs.toList()..sort((a, b) {
-            final aTs = (a.data() as Map)['lastTimestamp'];
-            final bTs = (b.data() as Map)['lastTimestamp'];
-            if (aTs == null && bTs == null) return 0;
-            if (aTs == null) return 1; if (bTs == null) return -1;
-            return (bTs as dynamic).compareTo(aTs);
-          });
-
-          return ListView.separated(
-            itemCount: docs.length,
-            separatorBuilder: (_, __) => Divider(height: 0, color: Colors.grey.withOpacity(0.08), indent: 76),
-            itemBuilder: (_, i) {
-              final data = docs[i].data() as Map<String, dynamic>;
-              final parts = List<String>.from(data['participants'] ?? []);
-              final other = parts.firstWhere((u) => u != myUid, orElse: () => '');
-              return _ChatTile(chatData: data, otherUid: other, myUid: myUid, chatId: docs[i].id);
-            });
-        }));
+      body: _CombinedChatList(myUid: myUid));
   }
 }
 
@@ -1695,3 +1665,766 @@ Widget _btn(String label, VoidCallback? onTap, {bool loading = false}) => SizedB
     onPressed: onTap,
     child: loading ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
       : Text(label, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))));
+
+// ════════════════════════════════════════════════════════
+// ─── GROUP CHAT FEATURES ────────────────────────────────
+// ════════════════════════════════════════════════════════
+
+void _showNewChatOptions(BuildContext context, String myUid) {
+  showModalBottomSheet(context: context,
+    backgroundColor: const Color(0xFF1A1A1A),
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+    builder: (_) => Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[700], borderRadius: BorderRadius.circular(2))),
+      const SizedBox(height: 20),
+      ListTile(
+        leading: Container(width: 46, height: 46, decoration: BoxDecoration(color: kGreen.withOpacity(0.15), shape: BoxShape.circle),
+          child: const Icon(Icons.person_rounded, color: kGreen)),
+        title: const Text('New Message', style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('Start a DM', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen(startChat: true))); }),
+      const SizedBox(height: 8),
+      ListTile(
+        leading: Container(width: 46, height: 46, decoration: BoxDecoration(color: kGreen.withOpacity(0.15), shape: BoxShape.circle),
+          child: const Icon(Icons.group_rounded, color: kGreen)),
+        title: const Text('New Group', style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Text('Create a group chat', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+        onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateGroupScreen())); }),
+      const SizedBox(height: 8),
+    ])));
+}
+
+// ─── COMBINED CHAT LIST (DMs + Groups) ────────────────
+class _CombinedChatList extends StatelessWidget {
+  final String myUid;
+  const _CombinedChatList({required this.myUid});
+
+  String _timeAgo(Timestamp? ts) {
+    if (ts == null) return '';
+    final d = DateTime.now().difference(ts.toDate());
+    if (d.inMinutes < 1) return 'now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m';
+    if (d.inHours < 24) return '${d.inHours}h';
+    if (d.inDays < 7) return '${d.inDays}d';
+    return '${(d.inDays / 7).floor()}w';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _db.collection('chats').where('participants', arrayContains: myUid).snapshots(),
+      builder: (_, dmSnap) {
+        return StreamBuilder<QuerySnapshot>(
+          stream: _db.collection('groups').where('members', arrayContains: myUid).snapshots(),
+          builder: (_, grpSnap) {
+            final List<Map<String, dynamic>> items = [];
+
+            for (final doc in dmSnap.data?.docs ?? []) {
+              final data = doc.data() as Map<String, dynamic>;
+              items.add({...data, '_id': doc.id, '_type': 'dm'});
+            }
+            for (final doc in grpSnap.data?.docs ?? []) {
+              final data = doc.data() as Map<String, dynamic>;
+              items.add({...data, '_id': doc.id, '_type': 'group'});
+            }
+
+            items.sort((a, b) {
+              final aTs = a['lastTimestamp'] as Timestamp?;
+              final bTs = b['lastTimestamp'] as Timestamp?;
+              if (aTs == null && bTs == null) return 0;
+              if (aTs == null) return 1;
+              if (bTs == null) return -1;
+              return bTs.compareTo(aTs);
+            });
+
+            if (items.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(width: 80, height: 80, decoration: BoxDecoration(color: kGreen.withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.chat_bubble_outline_rounded, size: 40, color: kGreen)),
+              const SizedBox(height: 16),
+              const Text('No conversations yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text('Start a DM or create a group!', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+            ]));
+
+            return ListView.separated(
+              itemCount: items.length,
+              separatorBuilder: (_, __) => Divider(height: 0, color: Colors.grey.withOpacity(0.08), indent: 76),
+              itemBuilder: (_, i) {
+                final item = items[i];
+                if (item['_type'] == 'group') {
+                  return _GroupTile(groupData: item, groupId: item['_id'], myUid: myUid, timeAgo: _timeAgo);
+                }
+                final parts = List<String>.from(item['participants'] ?? []);
+                final other = parts.firstWhere((u) => u != myUid, orElse: () => '');
+                return _ChatTile(chatData: item, otherUid: other, myUid: myUid, chatId: item['_id']);
+              });
+          });
+      });
+  }
+}
+
+// ─── GROUP TILE ───────────────────────────────────────
+class _GroupTile extends StatelessWidget {
+  final Map<String, dynamic> groupData;
+  final String groupId, myUid;
+  final String Function(Timestamp?) timeAgo;
+  const _GroupTile({required this.groupData, required this.groupId, required this.myUid, required this.timeAgo});
+
+  @override
+  Widget build(BuildContext context) {
+    final name = groupData['name'] ?? 'Group';
+    final avatar = groupData['avatar'] ?? '?';
+    final lastMsg = groupData['lastMessage'] ?? '';
+    final lastSenderName = groupData['lastSenderName'] ?? '';
+    final lastTs = groupData['lastTimestamp'] as Timestamp?;
+    final unread = (groupData['unread_$myUid'] ?? 0) as int;
+    final memberCount = (groupData['members'] as List?)?.length ?? 0;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: Container(width: 52, height: 52,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          shape: BoxShape.circle),
+        child: Center(child: Text(avatar, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20)))),
+      title: Row(children: [
+        Expanded(child: Row(children: [
+          Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+          const SizedBox(width: 6),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(color: kGreen.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+            child: Text('$memberCount', style: const TextStyle(color: kGreen, fontSize: 10, fontWeight: FontWeight.bold))),
+        ])),
+        Text(timeAgo(lastTs), style: TextStyle(color: unread > 0 ? kGreen : Colors.grey[500], fontSize: 12,
+          fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal)),
+      ]),
+      subtitle: Row(children: [
+        Expanded(child: Text(
+          lastSenderName.isNotEmpty ? '$lastSenderName: $lastMsg' : lastMsg,
+          maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: TextStyle(color: unread > 0 ? Theme.of(context).textTheme.bodyLarge?.color : Colors.grey[500],
+            fontSize: 13, fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.normal))),
+        if (unread > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          decoration: BoxDecoration(color: kGreen, borderRadius: BorderRadius.circular(10)),
+          child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
+      ]),
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: groupId))));
+  }
+}
+
+// ─── CREATE GROUP SCREEN ──────────────────────────────
+class CreateGroupScreen extends StatefulWidget {
+  const CreateGroupScreen({super.key});
+  @override State<CreateGroupScreen> createState() => _CreateGroupScreenState();
+}
+class _CreateGroupScreenState extends State<CreateGroupScreen> {
+  final _nameCtrl = TextEditingController();
+  final _myUid = _auth.currentUser!.uid;
+  List<Map<String, dynamic>> _friends = [];
+  final Set<String> _selected = {};
+  bool _loading = false, _creating = false;
+
+  @override void initState() { super.initState(); _loadFriends(); }
+
+  Future<void> _loadFriends() async {
+    setState(() => _loading = true);
+    final snap = await _db.collection('users').doc(_myUid).collection('friends').get();
+    final friends = <Map<String, dynamic>>[];
+    for (final doc in snap.docs) {
+      final u = await _db.collection('users').doc(doc.id).get();
+      if (u.exists) friends.add({...u.data()!, 'uid': doc.id});
+    }
+    if (mounted) setState(() { _friends = friends; _loading = false; });
+  }
+
+  Future<void> _createGroup() async {
+    final gName = _nameCtrl.text.trim();
+    if (gName.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a group name'))); return; }
+    if (_selected.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Select at least 1 member'))); return; }
+    setState(() => _creating = true);
+    try {
+      final myDoc = await _db.collection('users').doc(_myUid).get();
+      final myName = myDoc.data()?['name'] ?? 'Someone';
+      final members = [_myUid, ..._selected];
+      final ref = await _db.collection('groups').add({
+        'name': gName, 'avatar': gName[0].toUpperCase(),
+        'createdBy': _myUid, 'admins': [_myUid], 'members': members,
+        'createdAt': FieldValue.serverTimestamp(),
+        'lastMessage': 'Group created', 'lastTimestamp': FieldValue.serverTimestamp(),
+        'lastSender': _myUid, 'lastSenderName': myName,
+        'inviteLink': 'convo://group/${DateTime.now().millisecondsSinceEpoch}',
+      });
+      await _db.collection('groups').doc(ref.id).collection('messages').add({
+        'text': '$myName created the group "$gName"',
+        'senderId': 'system', 'senderName': 'System',
+        'timestamp': FieldValue.serverTimestamp(), 'type': 'system', 'deleted': false,
+      });
+      if (mounted) { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => GroupChatScreen(groupId: ref.id))); }
+    } finally { if (mounted) setState(() => _creating = false); }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? kCard : Colors.grey[100]!;
+    return Scaffold(
+      backgroundColor: isDark ? kDark : Colors.white,
+      appBar: AppBar(
+        title: const Text('New Group', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [TextButton(onPressed: _creating ? null : _createGroup,
+          child: _creating
+            ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kGreen))
+            : const Text('Create', style: TextStyle(color: kGreen, fontWeight: FontWeight.bold, fontSize: 16)))]),
+      body: Column(children: [
+        Padding(padding: const EdgeInsets.all(20), child: Column(children: [
+          Container(width: 72, height: 72,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              shape: BoxShape.circle),
+            child: Center(child: Text(
+              _nameCtrl.text.isEmpty ? 'G' : _nameCtrl.text[0].toUpperCase(),
+              style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)))),
+          const SizedBox(height: 16),
+          TextField(controller: _nameCtrl, onChanged: (_) => setState(() {}),
+            style: TextStyle(color: isDark ? Colors.white : Colors.black),
+            decoration: InputDecoration(
+              hintText: 'Group name', hintStyle: TextStyle(color: Colors.grey[500]),
+              prefixIcon: const Icon(Icons.group_rounded, color: kGreen),
+              filled: true, fillColor: bg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: kGreen, width: 1.5)))),
+        ])),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Row(children: [
+          Text('SELECT MEMBERS', style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          const Spacer(),
+          if (_selected.isNotEmpty) Text('${_selected.length} selected', style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w600)),
+        ])),
+        Expanded(child: _loading
+          ? const Center(child: CircularProgressIndicator(color: kGreen))
+          : _friends.isEmpty
+            ? Center(child: Text('Add friends first to create a group', style: TextStyle(color: Colors.grey[500])))
+            : ListView.builder(itemCount: _friends.length, itemBuilder: (_, i) {
+                final u = _friends[i]; final uid = u['uid'] as String;
+                final sel = _selected.contains(uid);
+                return ListTile(
+                  leading: CircleAvatar(backgroundColor: kGreen,
+                    child: Text(u['avatar'] ?? '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                  title: Text(u['name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text('@${u['username'] ?? ''}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                  trailing: AnimatedContainer(duration: const Duration(milliseconds: 150),
+                    width: 26, height: 26,
+                    decoration: BoxDecoration(color: sel ? kGreen : Colors.transparent, shape: BoxShape.circle,
+                      border: Border.all(color: sel ? kGreen : Colors.grey.withOpacity(0.4), width: 2)),
+                    child: sel ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null),
+                  onTap: () => setState(() { if (sel) _selected.remove(uid); else _selected.add(uid); }));
+              })),
+      ]));
+  }
+}
+
+// ─── GROUP CHAT SCREEN ────────────────────────────────
+class GroupChatScreen extends StatefulWidget {
+  final String groupId;
+  const GroupChatScreen({super.key, required this.groupId});
+  @override State<GroupChatScreen> createState() => _GroupChatScreenState();
+}
+class _GroupChatScreenState extends State<GroupChatScreen> {
+  final _msgCtrl = TextEditingController();
+  final _scrollCtrl = ScrollController();
+  final _myUid = _auth.currentUser!.uid;
+  String? _replyToId, _replyToText, _replyToSender;
+  bool _showEmoji = false;
+  Map<String, dynamic> _groupData = {};
+
+  static const _emojis = ['😀','😂','❤️','👍','🔥','😭','🙏','😎','🥰','😡','💯','🤔','👀','✅','🎉','😴','💀','🤣','😍','🥲'];
+
+  @override void initState() { super.initState(); _listenGroup(); _clearUnread(); }
+
+  void _listenGroup() {
+    _db.collection('groups').doc(widget.groupId).snapshots().listen((s) {
+      if (mounted && s.exists) setState(() => _groupData = s.data()!);
+    });
+  }
+
+  Future<void> _clearUnread() async {
+    await _db.collection('groups').doc(widget.groupId).update({'unread_$_myUid': 0}).catchError((_) {});
+  }
+
+  Future<void> _send(String text) async {
+    final t = text.trim(); if (t.isEmpty) return;
+    _msgCtrl.clear();
+    final reply = _replyToId != null ? {'id': _replyToId, 'text': _replyToText, 'sender': _replyToSender} : null;
+    if (mounted) setState(() { _replyToId = null; _replyToText = null; _replyToSender = null; _showEmoji = false; });
+
+    final myDoc = await _db.collection('users').doc(_myUid).get();
+    final myName = myDoc.data()?['name'] ?? 'User';
+    final myAvatar = myDoc.data()?['avatar'] ?? 'U';
+
+    await _db.collection('groups').doc(widget.groupId).collection('messages').add({
+      'text': t, 'senderId': _myUid, 'senderName': myName, 'senderAvatar': myAvatar,
+      'timestamp': FieldValue.serverTimestamp(), 'deleted': false, 'type': 'text',
+      if (reply != null) 'reply': reply,
+    });
+
+    final members = List<String>.from(_groupData['members'] ?? []);
+    final Map<String, dynamic> upd = {
+      'lastMessage': t, 'lastTimestamp': FieldValue.serverTimestamp(),
+      'lastSender': _myUid, 'lastSenderName': myName, 'unread_$_myUid': 0,
+    };
+    for (final uid in members) { if (uid != _myUid) upd['unread_$uid'] = FieldValue.increment(1); }
+    await _db.collection('groups').doc(widget.groupId).update(upd);
+
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (_scrollCtrl.hasClients) _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent, duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final name = _groupData['name'] ?? 'Group';
+    final avatar = _groupData['avatar'] ?? '?';
+    final memberCount = (_groupData['members'] as List?)?.length ?? 0;
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: isDark ? kDark : Colors.white, titleSpacing: 0, elevation: 0.5,
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context)),
+        title: GestureDetector(
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoScreen(groupId: widget.groupId, groupData: _groupData))),
+          child: Row(children: [
+            Container(width: 40, height: 40,
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen], begin: Alignment.topLeft, end: Alignment.bottomRight), shape: BoxShape.circle),
+              child: Center(child: Text(avatar, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)))),
+            const SizedBox(width: 10),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Text('$memberCount members', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+            ]),
+          ])),
+        actions: [
+          IconButton(icon: const Icon(Icons.info_outline_rounded),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GroupInfoScreen(groupId: widget.groupId, groupData: _groupData)))),
+        ]),
+      body: Column(children: [
+        Expanded(child: StreamBuilder<QuerySnapshot>(
+          stream: _db.collection('groups').doc(widget.groupId).collection('messages').orderBy('timestamp').snapshots(),
+          builder: (_, snap) {
+            if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: kGreen));
+            final msgs = snap.data!.docs;
+            if (msgs.isEmpty) return Center(child: Text('No messages yet 👋', style: TextStyle(color: Colors.grey[500])));
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
+            });
+            return ListView.builder(
+              controller: _scrollCtrl,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+              itemCount: msgs.length,
+              itemBuilder: (_, i) {
+                final data = msgs[i].data() as Map<String, dynamic>;
+                if (data['type'] == 'system') return _systemMsg(data['text'] ?? '');
+                final isMe = data['senderId'] == _myUid;
+                final prev = i > 0 ? msgs[i-1].data() as Map<String, dynamic> : null;
+                final showName = !isMe && prev?['senderId'] != data['senderId'];
+                return _bubble(msgs[i].id, data, isMe, showName);
+              });
+          })),
+
+        if (_replyToId != null) Container(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.grey[200],
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(children: [
+            Container(width: 3, height: 40, decoration: BoxDecoration(color: kGreen, borderRadius: BorderRadius.circular(4))),
+            const SizedBox(width: 10),
+            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(_replyToSender ?? '', style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.bold)),
+              Text(_replyToText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+            ])),
+            IconButton(icon: const Icon(Icons.close_rounded, size: 18, color: Colors.grey),
+              onPressed: () => setState(() { _replyToId = null; _replyToText = null; _replyToSender = null; })),
+          ])),
+
+        if (_showEmoji) Container(height: 200, color: isDark ? kCard : Colors.grey[100],
+          child: GridView.builder(padding: const EdgeInsets.all(8),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 8, mainAxisSpacing: 4, crossAxisSpacing: 4),
+            itemCount: _emojis.length,
+            itemBuilder: (_, i) => GestureDetector(onTap: () => _send(_emojis[i]),
+              child: Center(child: Text(_emojis[i], style: const TextStyle(fontSize: 26)))))),
+
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(color: isDark ? const Color(0xFF141414) : Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.15)))),
+          child: Row(children: [
+            IconButton(icon: Icon(_showEmoji ? Icons.keyboard_rounded : Icons.emoji_emotions_outlined, color: kGreen, size: 26),
+              onPressed: () => setState(() => _showEmoji = !_showEmoji)),
+            Expanded(child: Container(
+              decoration: BoxDecoration(color: isDark ? kCard2 : Colors.grey[100], borderRadius: BorderRadius.circular(24)),
+              child: TextField(controller: _msgCtrl, textCapitalization: TextCapitalization.sentences,
+                onSubmitted: _send, maxLines: 4, minLines: 1,
+                style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 15),
+                decoration: InputDecoration(hintText: 'Message group...', hintStyle: TextStyle(color: Colors.grey[500]),
+                  border: InputBorder.none, contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10))))),
+            const SizedBox(width: 8),
+            GestureDetector(onTap: () => _send(_msgCtrl.text),
+              child: Container(width: 46, height: 46,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  shape: BoxShape.circle, boxShadow: [BoxShadow(color: kGreen.withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 3))]),
+                child: const Icon(Icons.send_rounded, color: Colors.white, size: 20))),
+          ])),
+      ]));
+  }
+
+  Widget _systemMsg(String text) => Center(child: Container(
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+    decoration: BoxDecoration(color: Colors.grey.withOpacity(0.12), borderRadius: BorderRadius.circular(12)),
+    child: Text(text, style: TextStyle(color: Colors.grey[400], fontSize: 12))));
+
+  Widget _bubble(String id, Map<String, dynamic> data, bool isMe, bool showName) {
+    final text = data['text'] ?? '';
+    final deleted = data['deleted'] == true;
+    final reply = data['reply'] as Map<String, dynamic>?;
+    final senderName = data['senderName'] ?? '';
+    final senderAvatar = data['senderAvatar'] ?? '?';
+    final ts = data['timestamp'] as Timestamp?;
+    final timeStr = ts != null
+      ? '${ts.toDate().hour.toString().padLeft(2,'0')}:${ts.toDate().minute.toString().padLeft(2,'0')}'
+      : '';
+    final isAdmin = List<String>.from(_groupData['admins'] ?? []).contains(_myUid);
+
+    return GestureDetector(
+      onHorizontalDragEnd: (d) {
+        if (!deleted && (d.primaryVelocity ?? 0) < -100)
+          setState(() { _replyToId = id; _replyToText = text; _replyToSender = senderName; });
+      },
+      onLongPress: () {
+        if ((isMe || isAdmin) && !deleted) {
+          showModalBottomSheet(context: context, backgroundColor: kCard,
+            shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+            builder: (_) => Padding(padding: const EdgeInsets.symmetric(vertical: 16), child: Column(mainAxisSize: MainAxisSize.min, children: [
+              ListTile(leading: const Icon(Icons.reply_rounded, color: kGreen),
+                title: const Text('Reply'),
+                onTap: () { Navigator.pop(context); setState(() { _replyToId = id; _replyToText = text; _replyToSender = senderName; }); }),
+              ListTile(leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                title: const Text('Delete', style: TextStyle(color: Colors.red)),
+                onTap: () { Navigator.pop(context);
+                  _db.collection('groups').doc(widget.groupId).collection('messages').doc(id)
+                    .update({'deleted': true, 'text': 'Message deleted'}); }),
+            ])));
+        }
+      },
+      child: Padding(
+        padding: EdgeInsets.only(top: 2, bottom: 2, left: isMe ? 48 : 0, right: isMe ? 0 : 48),
+        child: Row(mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (!isMe) SizedBox(width: 32, child: showName
+              ? CircleAvatar(radius: 13, backgroundColor: kGreen,
+                  child: Text(senderAvatar, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)))
+              : null),
+            if (!isMe) const SizedBox(width: 6),
+            Flexible(child: Column(crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start, children: [
+              if (showName && !isMe) Padding(padding: const EdgeInsets.only(left: 4, bottom: 2),
+                child: Text(senderName, style: const TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.bold))),
+              Container(
+                decoration: BoxDecoration(
+                  color: isMe ? kGreen : (Theme.of(context).brightness == Brightness.dark ? const Color(0xFF262626) : Colors.grey[200]),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(18), topRight: const Radius.circular(18),
+                    bottomLeft: Radius.circular(isMe ? 18 : 4), bottomRight: Radius.circular(isMe ? 4 : 18)),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]),
+                child: Padding(padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (reply != null) Container(margin: const EdgeInsets.only(bottom: 7),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(color: Colors.black.withOpacity(0.15), borderRadius: BorderRadius.circular(10),
+                        border: Border(left: BorderSide(color: isMe ? Colors.white54 : kGreen, width: 3))),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(reply['sender'] ?? '', style: TextStyle(color: isMe ? Colors.white70 : kGreen, fontSize: 11, fontWeight: FontWeight.bold)),
+                        Text(reply['text'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: isMe ? Colors.white54 : Colors.grey[600], fontSize: 12)),
+                      ])),
+                    Text(text, style: TextStyle(
+                      color: deleted ? (isMe ? Colors.white54 : Colors.grey[500])
+                        : (isMe ? Colors.white : (Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87)),
+                      fontSize: 15, fontStyle: deleted ? FontStyle.italic : FontStyle.normal)),
+                  ]))),
+              if (timeStr.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
+                child: Text(timeStr, style: TextStyle(color: Colors.grey[500], fontSize: 10))),
+            ])),
+          ])));
+  }
+}
+
+// ─── GROUP INFO SCREEN ────────────────────────────────
+class GroupInfoScreen extends StatefulWidget {
+  final String groupId;
+  final Map<String, dynamic> groupData;
+  const GroupInfoScreen({super.key, required this.groupId, required this.groupData});
+  @override State<GroupInfoScreen> createState() => _GroupInfoScreenState();
+}
+class _GroupInfoScreenState extends State<GroupInfoScreen> {
+  final _myUid = _auth.currentUser!.uid;
+  late Map<String, dynamic> _data;
+  List<Map<String, dynamic>> _members = [];
+  bool _loading = true;
+
+  @override void initState() { super.initState(); _data = widget.groupData; _loadMembers(); _listen(); }
+
+  void _listen() {
+    _db.collection('groups').doc(widget.groupId).snapshots().listen((s) {
+      if (mounted && s.exists) { setState(() => _data = s.data()!); _loadMembers(); }
+    });
+  }
+
+  Future<void> _loadMembers() async {
+    final memberIds = List<String>.from(_data['members'] ?? []);
+    final List<Map<String, dynamic>> members = [];
+    for (final uid in memberIds) {
+      final u = await _db.collection('users').doc(uid).get();
+      if (u.exists) members.add({...u.data()!, 'uid': uid});
+    }
+    if (mounted) setState(() { _members = members; _loading = false; });
+  }
+
+  bool get _isAdmin => List<String>.from(_data['admins'] ?? []).contains(_myUid);
+
+  Future<void> _removeMember(String uid, String name) async {
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text('Remove Member'),
+      content: Text('Remove $name from this group?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Remove', style: TextStyle(color: Colors.red))),
+      ]));
+    if (confirm != true) return;
+    await _db.collection('groups').doc(widget.groupId).update({'members': FieldValue.arrayRemove([uid]), 'admins': FieldValue.arrayRemove([uid])});
+    await _db.collection('groups').doc(widget.groupId).collection('messages').add({
+      'text': '$name was removed from the group', 'senderId': 'system', 'senderName': 'System',
+      'timestamp': FieldValue.serverTimestamp(), 'type': 'system', 'deleted': false,
+    });
+  }
+
+  Future<void> _makeAdmin(String uid, String name) async {
+    await _db.collection('groups').doc(widget.groupId).update({'admins': FieldValue.arrayUnion([uid])});
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name is now an admin'), backgroundColor: kGreen));
+  }
+
+  Future<void> _leaveGroup() async {
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text('Leave Group'),
+      content: Text('Leave "${_data['name']}"?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Leave', style: TextStyle(color: Colors.red))),
+      ]));
+    if (confirm != true) return;
+    final myDoc = await _db.collection('users').doc(_myUid).get();
+    final myName = myDoc.data()?['name'] ?? 'Someone';
+    await _db.collection('groups').doc(widget.groupId).update({
+      'members': FieldValue.arrayRemove([_myUid]),
+      'admins': FieldValue.arrayRemove([_myUid]),
+    });
+    await _db.collection('groups').doc(widget.groupId).collection('messages').add({
+      'text': '$myName left the group', 'senderId': 'system', 'senderName': 'System',
+      'timestamp': FieldValue.serverTimestamp(), 'type': 'system', 'deleted': false,
+    });
+    if (mounted) { Navigator.pop(context); Navigator.pop(context); }
+  }
+
+  Future<void> _addMembers() async {
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => AddMembersScreen(groupId: widget.groupId, groupData: _data)));
+  }
+
+  Future<void> _copyInviteLink() async {
+    final link = _data['inviteLink'] ?? 'convo://group/${widget.groupId}';
+    await Clipboard.setData(ClipboardData(text: link));
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Invite link copied!'), backgroundColor: kGreen));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final name = _data['name'] ?? 'Group';
+    final avatar = _data['avatar'] ?? '?';
+    final admins = List<String>.from(_data['admins'] ?? []);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Group Info', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [if (_isAdmin) IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _editGroupName)]),
+      body: _loading ? const Center(child: CircularProgressIndicator(color: kGreen)) : ListView(children: [
+        // Group avatar + name
+        Container(padding: const EdgeInsets.all(28), child: Column(children: [
+          Container(width: 90, height: 90,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen], begin: Alignment.topLeft, end: Alignment.bottomRight),
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: kGreen.withOpacity(0.3), blurRadius: 16, offset: const Offset(0, 6))]),
+            child: Center(child: Text(avatar, style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.bold)))),
+          const SizedBox(height: 14),
+          Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text('${_members.length} members', style: TextStyle(color: Colors.grey[500])),
+        ])),
+
+        // Action buttons
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Row(children: [
+          if (_isAdmin) Expanded(child: _actionBtn(Icons.person_add_rounded, 'Add Member', _addMembers)),
+          if (_isAdmin) const SizedBox(width: 12),
+          Expanded(child: _actionBtn(Icons.link_rounded, 'Invite Link', _copyInviteLink)),
+        ])),
+        const SizedBox(height: 20),
+
+        // Members section
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Text('MEMBERS', style: TextStyle(color: Colors.grey[400], fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1))),
+
+        ..._members.map((u) {
+          final uid = u['uid'] as String;
+          final isThisAdmin = admins.contains(uid);
+          final isMe = uid == _myUid;
+          return ListTile(
+            leading: CircleAvatar(backgroundColor: kGreen,
+              child: Text(u['avatar'] ?? '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+            title: Row(children: [
+              Text(u['name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.w600)),
+              if (isThisAdmin) ...[const SizedBox(width: 6),
+                Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  decoration: BoxDecoration(color: kGreen.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+                  child: const Text('admin', style: TextStyle(color: kGreen, fontSize: 10, fontWeight: FontWeight.bold)))],
+              if (isMe) ...[const SizedBox(width: 6),
+                Text('(you)', style: TextStyle(color: Colors.grey[500], fontSize: 12))],
+            ]),
+            subtitle: Text('@${u['username'] ?? ''}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+            trailing: (_isAdmin && !isMe) ? PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert_rounded, color: Colors.grey),
+              onSelected: (val) {
+                if (val == 'remove') _removeMember(uid, u['name'] ?? 'User');
+                if (val == 'admin') _makeAdmin(uid, u['name'] ?? 'User');
+              },
+              itemBuilder: (_) => [
+                if (!isThisAdmin) const PopupMenuItem(value: 'admin', child: Text('Make Admin')),
+                const PopupMenuItem(value: 'remove', child: Text('Remove', style: TextStyle(color: Colors.red))),
+              ]) : null);
+        }),
+
+        const Divider(height: 32),
+
+        // Leave button
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1), elevation: 0,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            icon: const Icon(Icons.exit_to_app_rounded, color: Colors.red),
+            label: const Text('Leave Group', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+            onPressed: _leaveGroup)),
+        const SizedBox(height: 32),
+      ]));
+  }
+
+  Widget _actionBtn(IconData icon, String label, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(14)),
+      child: Column(children: [
+        Icon(icon, color: kGreen, size: 24),
+        const SizedBox(height: 6),
+        Text(label, style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w600)),
+      ])));
+
+  void _editGroupName() {
+    final ctrl = TextEditingController(text: _data['name'] ?? '');
+    showDialog(context: context, builder: (_) => AlertDialog(
+      title: const Text('Edit Group Name'),
+      content: TextField(controller: ctrl, decoration: const InputDecoration(border: OutlineInputBorder())),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: () async {
+          if (ctrl.text.trim().isNotEmpty) {
+            await _db.collection('groups').doc(widget.groupId).update({
+              'name': ctrl.text.trim(), 'avatar': ctrl.text.trim()[0].toUpperCase()});
+            Navigator.pop(context);
+          }
+        }, child: const Text('Save', style: TextStyle(color: kGreen))),
+      ]));
+  }
+}
+
+// ─── ADD MEMBERS SCREEN ───────────────────────────────
+class AddMembersScreen extends StatefulWidget {
+  final String groupId;
+  final Map<String, dynamic> groupData;
+  const AddMembersScreen({super.key, required this.groupId, required this.groupData});
+  @override State<AddMembersScreen> createState() => _AddMembersScreenState();
+}
+class _AddMembersScreenState extends State<AddMembersScreen> {
+  final _myUid = _auth.currentUser!.uid;
+  List<Map<String, dynamic>> _friends = [];
+  final Set<String> _selected = {};
+  bool _loading = true, _adding = false;
+
+  @override void initState() { super.initState(); _loadFriends(); }
+
+  Future<void> _loadFriends() async {
+    final existing = List<String>.from(widget.groupData['members'] ?? []);
+    final snap = await _db.collection('users').doc(_myUid).collection('friends').get();
+    final friends = <Map<String, dynamic>>[];
+    for (final doc in snap.docs) {
+      if (!existing.contains(doc.id)) {
+        final u = await _db.collection('users').doc(doc.id).get();
+        if (u.exists) friends.add({...u.data()!, 'uid': doc.id});
+      }
+    }
+    if (mounted) setState(() { _friends = friends; _loading = false; });
+  }
+
+  Future<void> _addMembers() async {
+    if (_selected.isEmpty) return;
+    setState(() => _adding = true);
+    final myDoc = await _db.collection('users').doc(_myUid).get();
+    final myName = myDoc.data()?['name'] ?? 'Admin';
+    final names = <String>[];
+    for (final uid in _selected) {
+      await _db.collection('groups').doc(widget.groupId).update({'members': FieldValue.arrayUnion([uid])});
+      final u = _friends.firstWhere((f) => f['uid'] == uid, orElse: () => {});
+      if (u['name'] != null) names.add(u['name']);
+    }
+    await _db.collection('groups').doc(widget.groupId).collection('messages').add({
+      'text': '$myName added ${names.join(', ')} to the group',
+      'senderId': 'system', 'senderName': 'System',
+      'timestamp': FieldValue.serverTimestamp(), 'type': 'system', 'deleted': false,
+    });
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Add Members', style: TextStyle(fontWeight: FontWeight.bold)),
+      actions: [TextButton(onPressed: _adding ? null : _addMembers,
+        child: _adding
+          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: kGreen))
+          : const Text('Add', style: TextStyle(color: kGreen, fontWeight: FontWeight.bold, fontSize: 16)))]),
+    body: _loading ? const Center(child: CircularProgressIndicator(color: kGreen))
+      : _friends.isEmpty ? Center(child: Text('All your friends are already in this group!', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[500])))
+      : ListView.builder(itemCount: _friends.length, itemBuilder: (_, i) {
+          final u = _friends[i]; final uid = u['uid'] as String;
+          final sel = _selected.contains(uid);
+          return ListTile(
+            leading: CircleAvatar(backgroundColor: kGreen,
+              child: Text(u['avatar'] ?? '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+            title: Text(u['name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text('@${u['username'] ?? ''}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+            trailing: AnimatedContainer(duration: const Duration(milliseconds: 150),
+              width: 26, height: 26,
+              decoration: BoxDecoration(color: sel ? kGreen : Colors.transparent, shape: BoxShape.circle,
+                border: Border.all(color: sel ? kGreen : Colors.grey.withOpacity(0.4), width: 2)),
+              child: sel ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null),
+            onTap: () => setState(() { if (sel) _selected.remove(uid); else _selected.add(uid); }));
+        }));
+}
