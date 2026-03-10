@@ -22,14 +22,18 @@ jobs:
           flutter create --org com.thekami --project-name convo /tmp/convo
           cp $GITHUB_WORKSPACE/lib/main.dart /tmp/convo/lib/main.dart
           cp $GITHUB_WORKSPACE/pubspec.yaml /tmp/convo/pubspec.yaml
+          mkdir -p /tmp/convo/android/app
+          cp $GITHUB_WORKSPACE/android/app/google-services.json /tmp/convo/android/app/google-services.json
 
-      - name: Add permissions
+      - name: Configure Android
         run: |
-          sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
-
-      - name: Set min SDK 24
-        run: |
+          sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' /tmp/convo/android/app/build.gradle
+
+      - name: Add Google Services plugin
+        run: |
+          sed -i '/^plugins {/a\    id("com.google.gms.google-services") version "4.4.0" apply false' /tmp/convo/android/build.gradle
+          sed -i '/^plugins {/a\    id("com.google.gms.google-services")' /tmp/convo/android/app/build.gradle
 
       - name: Build APK
         run: |
@@ -44,16 +48,16 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0.3
-          name: Convo v1.0.0.3
+          tag_name: v1.0.0.4
+          name: Convo v1.0.0.4
           body: |
-            ## Convo v1.0.0.3
-            - Better login UI
-            - Dynamic search bar
-            - Profile with cover + stats
-            - Verification badge option
-            - Settings improved
-            - APK size optimized
+            ## Convo v1.0.0.4
+            - Firebase Auth live (Email/Password)
+            - Create Account screen
+            - Real user search (Firestore)
+            - Account suggestion toggle
+            - Profile: bio, city, education, social links
+            - Sign Out button
             - Powered by TheKami
           files: /tmp/convo/build/app/outputs/flutter-apk/convo.apk
         env:
