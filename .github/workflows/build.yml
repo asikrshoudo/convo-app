@@ -43,6 +43,7 @@ jobs:
       - name: Build APK
         run: |
           flutter pub get
+          dart run flutter_launcher_icons
           flutter build apk --release --target-platform android-arm64 --split-per-abi
 
       - name: Create Release
