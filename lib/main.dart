@@ -1490,7 +1490,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             await _auth.currentUser?.updateDisplayName(nc.text.trim());
             if (mounted) { Navigator.pop(context); _load(); }
           }),
-        ])));
+        ]))));
   }
   Widget _ef(String label, TextEditingController ctrl, {int lines = 1}) => TextField(controller: ctrl, maxLines: lines,
     decoration: InputDecoration(labelText: label, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
