@@ -331,12 +331,13 @@ class RegisterScreen extends StatefulWidget {
   @override State<RegisterScreen> createState() => _RegisterScreenState();
 }
 class _RegisterScreenState extends State<RegisterScreen> {
-  int _step = 0; // 0=info, 1=username+pass
+  int _step = 0;
   bool _obscure = true, _loading = false, _ageConfirmed = false;
   String? _error, _uStatus = '';
   String _gender = '';
-  Timer? _debounce;
   final List<String> _suggestions = [];
+  final Map<String, String> _uCache = {}; // cache: username → 'ok'|'taken'
+  int _reqId = 0; // increments on every keystroke; stale responses are dropped
 
   final _nameCtrl  = TextEditingController();
   final _uCtrl     = TextEditingController();
@@ -345,26 +346,39 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _phoneCtrl = TextEditingController();
 
   void _onUChange(String val) {
-    _debounce?.cancel();
     if (val.isEmpty) { setState(() { _uStatus = ''; _suggestions.clear(); }); return; }
-    setState(() => _uStatus = 'checking');
-    _debounce = Timer(const Duration(milliseconds: 300), () => _checkU(val));
-  }
-
-  Future<void> _checkU(String u) async {
-    final clean = u.trim().toLowerCase();
+    final clean = val.trim().toLowerCase();
+    // Instant local checks — zero network needed
+    if (!RegExp(r'^[a-z0-9_]*$').hasMatch(clean)) { setState(() { _uStatus = 'invalid'; _suggestions.clear(); }); return; }
     if (clean.length < 3) { setState(() { _uStatus = 'short'; _suggestions.clear(); }); return; }
     if (clean.length > 20) { setState(() { _uStatus = 'long'; _suggestions.clear(); }); return; }
-    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(clean)) { setState(() { _uStatus = 'invalid'; _suggestions.clear(); }); return; }
-    final snap = await _db.collection('users').where('username', isEqualTo: clean).get();
-    if (!mounted) return;
-    if (snap.docs.isEmpty) {
+    // Cache hit → show result immediately, zero wait
+    if (_uCache.containsKey(clean)) { _applyResult(clean, _uCache[clean]!); return; }
+    // Fire Firestore immediately, no debounce
+    setState(() => _uStatus = 'checking');
+    _checkU(clean);
+  }
+
+  void _applyResult(String clean, String result) {
+    if (result == 'ok') {
       setState(() { _uStatus = 'ok'; _suggestions.clear(); });
     } else {
       final base = clean.replaceAll(RegExp(r'\d+$'), '');
-      setState(() { _uStatus = 'taken'; _suggestions.clear();
-        _suggestions.addAll(['${base}_official', '${base}__', '${base}x', '${base}real', '${base}${DateTime.now().year % 100}']); });
+      setState(() { _uStatus = 'taken'; _suggestions
+        ..clear()
+        ..addAll(['${base}_official', '${base}x', '${base}real', '${base}${DateTime.now().year % 100}', '${base}__']); });
     }
+  }
+
+  Future<void> _checkU(String clean) async {
+    if (_uCache.containsKey(clean)) { _applyResult(clean, _uCache[clean]!); return; }
+    final myId = ++_reqId;
+    final snap = await _db.collection('users').where('username', isEqualTo: clean)
+      .limit(1).get(const GetOptions(source: Source.serverAndCache));
+    if (!mounted || myId != _reqId) return;
+    final result = snap.docs.isEmpty ? 'ok' : 'taken';
+    _uCache[clean] = result;
+    _applyResult(clean, result);
   }
 
   Future<void> _register() async {
@@ -534,32 +548,43 @@ class UsernameSetupScreen extends StatefulWidget {
 class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
   final _uCtrl = TextEditingController();
   String? _uStatus = '';
-  Timer? _debounce;
   final List<String> _suggestions = [];
+  final Map<String, String> _uCache = {};
+  int _reqId = 0;
   bool _loading = false;
   String? _error;
 
   void _onUChange(String val) {
-    _debounce?.cancel();
     if (val.isEmpty) { setState(() { _uStatus = ''; _suggestions.clear(); }); return; }
-    setState(() => _uStatus = 'checking');
-    _debounce = Timer(const Duration(milliseconds: 300), () => _checkU(val));
-  }
-
-  Future<void> _checkU(String u) async {
-    final clean = u.trim().toLowerCase();
+    final clean = val.trim().toLowerCase();
+    if (!RegExp(r'^[a-z0-9_]*$').hasMatch(clean)) { setState(() { _uStatus = 'invalid'; _suggestions.clear(); }); return; }
     if (clean.length < 3) { setState(() { _uStatus = 'short'; _suggestions.clear(); }); return; }
     if (clean.length > 20) { setState(() { _uStatus = 'long'; _suggestions.clear(); }); return; }
-    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(clean)) { setState(() { _uStatus = 'invalid'; _suggestions.clear(); }); return; }
-    final snap = await _db.collection('users').where('username', isEqualTo: clean).get();
-    if (!mounted) return;
-    if (snap.docs.isEmpty) {
+    if (_uCache.containsKey(clean)) { _applyResult(clean, _uCache[clean]!); return; }
+    setState(() => _uStatus = 'checking');
+    _checkU(clean);
+  }
+
+  void _applyResult(String clean, String result) {
+    if (result == 'ok') {
       setState(() { _uStatus = 'ok'; _suggestions.clear(); });
     } else {
       final base = clean.replaceAll(RegExp(r'\d+$'), '');
-      setState(() { _uStatus = 'taken'; _suggestions.clear();
-        _suggestions.addAll(['${base}_official', '${base}__', '${base}x', '${base}real', '${base}${DateTime.now().year % 100}']); });
+      setState(() { _uStatus = 'taken'; _suggestions
+        ..clear()
+        ..addAll(['${base}_official', '${base}x', '${base}real', '${base}${DateTime.now().year % 100}', '${base}__']); });
     }
+  }
+
+  Future<void> _checkU(String clean) async {
+    if (_uCache.containsKey(clean)) { _applyResult(clean, _uCache[clean]!); return; }
+    final myId = ++_reqId;
+    final snap = await _db.collection('users').where('username', isEqualTo: clean)
+      .limit(1).get(const GetOptions(source: Source.serverAndCache));
+    if (!mounted || myId != _reqId) return;
+    final result = snap.docs.isEmpty ? 'ok' : 'taken';
+    _uCache[clean] = result;
+    _applyResult(clean, result);
   }
 
   Future<void> _save() async {
@@ -596,7 +621,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
     } finally { if (mounted) setState(() => _loading = false); }
   }
 
-  @override void dispose() { _uCtrl.dispose(); _debounce?.cancel(); super.dispose(); }
+  @override void dispose() { _uCtrl.dispose(); super.dispose(); }
 
   @override
   Widget build(BuildContext context) {
