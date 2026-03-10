@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../../widgets/chat_bubble.dart';
 import '../../widgets/typing_dots.dart';
@@ -25,6 +27,8 @@ class _ChatScreenState extends State<ChatScreen> {
   int?    _disappearSeconds;
   late String _myUid;
   Timer? _typingTimer;
+
+  static const _notifyUrl = 'https://convo-notify.onrender.com/notify/dm';
 
   static const _disappearOptions = [
     {'label': 'Off',      'seconds': null},
@@ -87,7 +91,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ? Timestamp.fromDate(DateTime.now().add(Duration(seconds: _disappearSeconds!)))
       : null;
 
-    await db.collection('chats').doc(widget.chatId).collection('messages').add({
+    final msgRef = await db.collection('chats').doc(widget.chatId).collection('messages').add({
       'text': t, 'senderId': _myUid,
       'senderName': auth.currentUser?.displayName ?? 'User',
       'timestamp': FieldValue.serverTimestamp(), 'deleted': false,
@@ -99,6 +103,22 @@ class _ChatScreenState extends State<ChatScreen> {
       'lastMessage': t, 'lastTimestamp': FieldValue.serverTimestamp(), 'lastSender': _myUid,
       'unread_${widget.otherUid}': FieldValue.increment(1), 'unread_$_myUid': 0,
     }, SetOptions(merge: true));
+
+    // ── Notify receiver ───────────────────────────────────────────────────────
+    try {
+      await http.post(
+        Uri.parse(_notifyUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'chatId':    widget.chatId,
+          'messageId': msgRef.id,
+          'senderId':  _myUid,
+          'text':      t,
+        }),
+      );
+    } catch (_) {
+      // Notification failure shouldn't block the user
+    }
 
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollCtrl.hasClients) {
