@@ -15,66 +15,24 @@ jobs:
 
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.0'
+          flutter-version: '3.24.0'
 
       - name: Create Flutter project
         run: flutter create --org com.thekami --project-name convo /tmp/convo
 
-      - name: Copy source files
+      - name: Copy all source files
         run: |
           cp $GITHUB_WORKSPACE/lib/main.dart /tmp/convo/lib/main.dart
           cp $GITHUB_WORKSPACE/pubspec.yaml /tmp/convo/pubspec.yaml
+          cp $GITHUB_WORKSPACE/android/settings.gradle /tmp/convo/android/settings.gradle
+          cp $GITHUB_WORKSPACE/android/build.gradle /tmp/convo/android/build.gradle
+          cp $GITHUB_WORKSPACE/android/app/build.gradle /tmp/convo/android/app/build.gradle
+          cp $GITHUB_WORKSPACE/android/app/src/main/AndroidManifest.xml /tmp/convo/android/app/src/main/AndroidManifest.xml
 
       - name: Write google-services.json
         env:
           GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: echo "$GOOGLE_SERVICES" > /tmp/convo/android/app/google-services.json
-
-      - name: Fix settings.gradle for Firebase
-        run: |
-          python3 - << 'PYEOF'
-          content = open('/tmp/convo/android/settings.gradle').read()
-          content = content.replace(
-              'plugins {',
-              'plugins {\n    id "com.google.gms.google-services" version "4.4.0" apply false'
-          )
-          open('/tmp/convo/android/settings.gradle', 'w').write(content)
-          print(content)
-          PYEOF
-
-      - name: Fix app build.gradle
-        run: |
-          python3 - << 'PYEOF'
-          content = open('/tmp/convo/android/app/build.gradle').read()
-          content = content.replace(
-              'id "dev.flutter.flutter-gradle-plugin"',
-              'id "dev.flutter.flutter-gradle-plugin"\n    id "com.google.gms.google-services"'
-          )
-          content = content.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
-          open('/tmp/convo/android/app/build.gradle', 'w').write(content)
-          print(content)
-          PYEOF
-
-      - name: Fix Kotlin version
-        run: |
-          python3 - << 'PYEOF'
-          content = open('/tmp/convo/android/build.gradle').read()
-          print("BEFORE:", content)
-          content = content.replace(
-              "ext.kotlin_version = '1.7.10'",
-              "ext.kotlin_version = '1.9.0'"
-          )
-          content = content.replace(
-              'ext.kotlin_version = "1.7.10"',
-              'ext.kotlin_version = "1.9.0"'
-          )
-          open('/tmp/convo/android/build.gradle', 'w').write(content)
-          print("AFTER:", content)
-          PYEOF
-
-      - name: Add Internet permission
-        run: |
-          sed -i 's|</manifest>|    <uses-permission android:name="android.permission.INTERNET"/>\n</manifest>|' /tmp/convo/android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
         run: |
