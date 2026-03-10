@@ -23,11 +23,14 @@ jobs:
       - name: Create Flutter scaffold
         run: flutter create --org com.thekami --project-name convo /tmp/convo
 
-      # flutter.sdk AND sdk.dir দুটোই set করতে হবে
+      # which flutter দিয়ে সঠিক path বের করা — $FLUTTER_ROOT empty থাকলেও কাজ করবে
       - name: Set up local.properties
         run: |
-          echo "flutter.sdk=$FLUTTER_ROOT" > /tmp/convo/android/local.properties
+          FLUTTER_SDK=$(dirname $(dirname $(which flutter)))
+          echo "flutter.sdk=$FLUTTER_SDK" > /tmp/convo/android/local.properties
           echo "sdk.dir=$ANDROID_SDK_ROOT" >> /tmp/convo/android/local.properties
+          echo "--- local.properties content ---"
+          cat /tmp/convo/android/local.properties
 
       # repo থেকে সব source file copy
       - name: Copy project files
