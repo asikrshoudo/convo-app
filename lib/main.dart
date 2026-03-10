@@ -10,9 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 @pragma('vm:entry-point')
-Future<void> _bgHandler(RemoteMessage msg) async {
-  await Firebase.initializeApp();
-}
+Future<void> _bgHandler(RemoteMessage msg) async => await Firebase.initializeApp();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,10 +19,11 @@ void main() async {
   runApp(const ConvoApp());
 }
 
-const kGreen  = Color(0xFF00C853);
-const kDark   = Color(0xFF0A0A0A);
-const kCard   = Color(0xFF1A1A1A);
-const kCard2  = Color(0xFF222222);
+// ─── CONSTANTS ────────────────────────────────────────
+const kGreen = Color(0xFF00C853);
+const kDark  = Color(0xFF0A0A0A);
+const kCard  = Color(0xFF1A1A1A);
+const kCard2 = Color(0xFF222222);
 
 final _db   = FirebaseFirestore.instance;
 final _auth = FirebaseAuth.instance;
@@ -36,15 +35,10 @@ class ConvoApp extends StatelessWidget {
   Widget build(BuildContext context) => MaterialApp(
     title: 'Convo', debugShowCheckedModeBanner: false,
     themeMode: ThemeMode.system,
-    theme: ThemeData(
-      useMaterial3: true, colorSchemeSeed: kGreen, brightness: Brightness.light,
-      fontFamily: 'Roboto',
-    ),
-    darkTheme: ThemeData(
-      useMaterial3: true, colorSchemeSeed: kGreen, brightness: Brightness.dark,
-      scaffoldBackgroundColor: kDark, fontFamily: 'Roboto',
-      navigationBarTheme: const NavigationBarThemeData(backgroundColor: Color(0xFF111111)),
-    ),
+    theme: ThemeData(useMaterial3: true, colorSchemeSeed: kGreen, brightness: Brightness.light),
+    darkTheme: ThemeData(useMaterial3: true, colorSchemeSeed: kGreen, brightness: Brightness.dark,
+      scaffoldBackgroundColor: kDark,
+      navigationBarTheme: const NavigationBarThemeData(backgroundColor: Color(0xFF111111))),
     home: const SplashScreen(),
   );
 }
@@ -79,17 +73,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ScaleTransition(scale: _scale, child: Container(
           width: 100, height: 100,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen],
-              begin: Alignment.topLeft, end: Alignment.bottomRight),
+            gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen], begin: Alignment.topLeft, end: Alignment.bottomRight),
             borderRadius: BorderRadius.circular(28),
             boxShadow: [BoxShadow(color: kGreen.withOpacity(0.4), blurRadius: 30, offset: const Offset(0, 8))]),
           child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 54))),
         const SizedBox(height: 24),
         const Text('Convo', style: TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
         const SizedBox(height: 8),
-        const Text('powered by TheKami', style: TextStyle(color: Colors.grey, fontSize: 13, letterSpacing: 0.5)),
-      ]))),
-  );
+        const Text('powered by TheKami', style: TextStyle(color: Colors.grey, fontSize: 13)),
+      ]))));
 }
 
 // ─── LOGIN ────────────────────────────────────────────
@@ -106,17 +98,13 @@ class _LoginScreenState extends State<LoginScreen> {
   String? _error, _verificationId;
 
   Future<void> _signIn() async {
-    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
-      setState(() => _error = 'Please fill all fields'); return;
-    }
+    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) { setState(() => _error = 'Fill all fields'); return; }
     setState(() { _loading = true; _error = null; });
     try {
-      await _auth.signInWithEmailAndPassword(
-        email: _emailCtrl.text.trim(), password: _passCtrl.text.trim());
+      await _auth.signInWithEmailAndPassword(email: _emailCtrl.text.trim(), password: _passCtrl.text.trim());
       await _afterLogin();
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = _friendlyError(e.code));
-    } finally { if (mounted) setState(() => _loading = false); }
+    } on FirebaseAuthException catch (e) { setState(() => _error = _err(e.code)); }
+    finally { if (mounted) setState(() => _loading = false); }
   }
 
   Future<void> _googleSignIn() async {
@@ -129,9 +117,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await _auth.signInWithCredential(cred);
       await _ensureUserDoc(result.user!);
       await _afterLogin();
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = _friendlyError(e.code));
-    } finally { if (mounted) setState(() => _loading = false); }
+    } on FirebaseAuthException catch (e) { setState(() => _error = _err(e.code)); }
+    finally { if (mounted) setState(() => _loading = false); }
   }
 
   Future<void> _githubSignIn() async {
@@ -140,9 +127,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final result = await _auth.signInWithProvider(GithubAuthProvider());
       await _ensureUserDoc(result.user!);
       await _afterLogin();
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = _friendlyError(e.code));
-    } finally { if (mounted) setState(() => _loading = false); }
+    } on FirebaseAuthException catch (e) { setState(() => _error = _err(e.code)); }
+    finally { if (mounted) setState(() => _loading = false); }
   }
 
   Future<void> _sendOtp() async {
@@ -154,10 +140,9 @@ class _LoginScreenState extends State<LoginScreen> {
         final r = await _auth.signInWithCredential(cred);
         await _ensureUserDoc(r.user!); await _afterLogin();
       },
-      verificationFailed: (e) => setState(() { _error = _friendlyError(e.code); _loading = false; }),
+      verificationFailed: (e) => setState(() { _error = _err(e.code); _loading = false; }),
       codeSent: (vId, _) => setState(() { _verificationId = vId; _otpSent = true; _loading = false; }),
-      codeAutoRetrievalTimeout: (_) {},
-    );
+      codeAutoRetrievalTimeout: (_) {});
   }
 
   Future<void> _verifyOtp() async {
@@ -167,19 +152,17 @@ class _LoginScreenState extends State<LoginScreen> {
       final cred = PhoneAuthProvider.credential(verificationId: _verificationId!, smsCode: _otpCtrl.text.trim());
       final r = await _auth.signInWithCredential(cred);
       await _ensureUserDoc(r.user!); await _afterLogin();
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = _friendlyError(e.code));
-    } finally { if (mounted) setState(() => _loading = false); }
+    } on FirebaseAuthException catch (e) { setState(() => _error = _err(e.code)); }
+    finally { if (mounted) setState(() => _loading = false); }
   }
 
-  String _friendlyError(String code) {
+  String _err(String code) {
     switch (code) {
-      case 'user-not-found': return 'No account found with this email.';
-      case 'wrong-password': return 'Incorrect password.';
-      case 'invalid-email': return 'Invalid email address.';
-      case 'too-many-requests': return 'Too many attempts. Try again later.';
-      case 'network-request-failed': return 'No internet connection.';
-      default: return 'Something went wrong. Try again.';
+      case 'user-not-found': return 'No account with this email.';
+      case 'wrong-password': return 'Wrong password.';
+      case 'invalid-email': return 'Invalid email.';
+      case 'too-many-requests': return 'Too many attempts. Try later.';
+      default: return 'Something went wrong.';
     }
   }
 
@@ -190,11 +173,15 @@ class _LoginScreenState extends State<LoginScreen> {
       final fcm  = await FirebaseMessaging.instance.getToken();
       await _db.collection('users').doc(user.uid).set({
         'uid': user.uid, 'name': name,
-        'username': '${name.toLowerCase().replaceAll(' ', '_')}_${user.uid.substring(0, 4)}',
-        'email': user.email ?? '', 'avatar': name[0].toUpperCase(),
-        'verified': false, 'suggestionsEnabled': true,
+        'username': '${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}_${user.uid.substring(0, 4)}',
+        'email': user.email ?? '', 'phone': user.phoneNumber ?? '',
+        'avatar': name[0].toUpperCase(), 'gender': '',
+        'verified': false, 'verifiedWaitlist': false,
+        'suggestionsEnabled': true, 'friendsPublic': true,
+        'profileMode': 'friend', // 'friend' or 'follow'
         'bio': '', 'city': '', 'education': '', 'work': '', 'hometown': '',
         'social': {'facebook': '', 'instagram': '', 'github': '', 'linkedin': '', 'twitter': ''},
+        'followerCount': 0, 'followingCount': 0, 'friendCount': 0,
         'fcmToken': fcm ?? '', 'isOnline': true,
         'lastSeen': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
@@ -208,32 +195,20 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen()));
   }
 
-  void _forgotPassword() {
-    final ctrl = TextEditingController(text: _emailCtrl.text);
+  void _forgotPass() {
+    final c = TextEditingController(text: _emailCtrl.text);
     showDialog(context: context, builder: (_) => AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text('Reset Password', style: TextStyle(fontWeight: FontWeight.bold)),
-      content: Column(mainAxisSize: MainAxisSize.min, children: [
-        Text('Enter your email to receive a reset link', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-        const SizedBox(height: 12),
-        TextField(controller: ctrl, decoration: InputDecoration(hintText: 'Email address',
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kGreen)))),
-      ]),
+      content: TextField(controller: c, decoration: InputDecoration(hintText: 'Email',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kGreen)))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-          onPressed: () async {
-            if (ctrl.text.isNotEmpty) {
-              await _auth.sendPasswordResetEmail(email: ctrl.text.trim());
-              Navigator.pop(context);
-              if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Reset link sent! Check your inbox.'), backgroundColor: kGreen));
-            }
-          }, child: const Text('Send', style: TextStyle(color: Colors.white))),
-      ],
-    ));
+        ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          onPressed: () async { if (c.text.isNotEmpty) { await _auth.sendPasswordResetEmail(email: c.text.trim()); Navigator.pop(context); } },
+          child: const Text('Send', style: TextStyle(color: Colors.white))),
+      ]));
   }
 
   @override
@@ -241,6 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? kCard : Colors.grey[100]!;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: isDark ? kDark : Colors.white,
       body: SafeArea(child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -248,9 +224,7 @@ class _LoginScreenState extends State<LoginScreen> {
           const SizedBox(height: 52),
           Row(children: [
             Container(width: 48, height: 48,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]),
-                borderRadius: BorderRadius.circular(14)),
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]), borderRadius: BorderRadius.circular(14)),
               child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 28)),
             const SizedBox(width: 12),
             const Text('Convo', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
@@ -263,61 +237,39 @@ class _LoginScreenState extends State<LoginScreen> {
           if (_error != null) _errorBox(_error!),
 
           if (!_showPhone) ...[
-            _inputField('Email address', Icons.email_outlined, _emailCtrl, false, isDark, bg),
+            _tf('Email', Icons.email_outlined, _emailCtrl, false, isDark, bg),
             const SizedBox(height: 14),
-            TextField(
-              controller: _passCtrl, obscureText: _obscure,
+            TextField(controller: _passCtrl, obscureText: _obscure,
               style: TextStyle(color: isDark ? Colors.white : Colors.black),
               decoration: InputDecoration(
                 hintText: 'Password', hintStyle: TextStyle(color: Colors.grey[500]),
                 prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
-                suffixIcon: IconButton(
-                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Colors.grey),
+                suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Colors.grey),
                   onPressed: () => setState(() => _obscure = !_obscure)),
                 filled: true, fillColor: bg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)),
-            ),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
             Align(alignment: Alignment.centerRight,
-              child: TextButton(onPressed: _forgotPassword,
-                child: const Text('Forgot password?', style: TextStyle(color: kGreen, fontSize: 13)))),
-            _primaryBtn('Sign In', _loading ? null : _signIn, loading: _loading),
+              child: TextButton(onPressed: _forgotPass, child: const Text('Forgot password?', style: TextStyle(color: kGreen, fontSize: 13)))),
+            _btn('Sign In', _loading ? null : _signIn, loading: _loading),
           ],
 
           if (_showPhone) ...[
             if (!_otpSent) ...[
-              TextField(
-                controller: _phoneCtrl, keyboardType: TextInputType.phone,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  hintText: '+880 1XXXXXXXXX', hintStyle: TextStyle(color: Colors.grey[500]),
-                  prefixIcon: const Icon(Icons.phone_outlined, color: Colors.grey),
-                  filled: true, fillColor: bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)),
-              ),
+              _tf('+880 1XXXXXXXXX', Icons.phone_outlined, _phoneCtrl, false, isDark, bg, type: TextInputType.phone),
               const SizedBox(height: 14),
-              _primaryBtn('Send OTP', _loading ? null : _sendOtp, loading: _loading),
+              _btn('Send OTP', _loading ? null : _sendOtp, loading: _loading),
             ] else ...[
-              TextField(
-                controller: _otpCtrl, keyboardType: TextInputType.number,
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  hintText: '6-digit OTP code', hintStyle: TextStyle(color: Colors.grey[500]),
-                  prefixIcon: const Icon(Icons.sms_outlined, color: Colors.grey),
-                  filled: true, fillColor: bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)),
-              ),
+              _tf('6-digit OTP', Icons.sms_outlined, _otpCtrl, false, isDark, bg, type: TextInputType.number),
               const SizedBox(height: 14),
-              _primaryBtn('Verify OTP', _loading ? null : _verifyOtp, loading: _loading),
-              Center(child: TextButton(
-                onPressed: () => setState(() { _otpSent = false; _verificationId = null; }),
+              _btn('Verify OTP', _loading ? null : _verifyOtp, loading: _loading),
+              Center(child: TextButton(onPressed: () => setState(() { _otpSent = false; _verificationId = null; }),
                 child: const Text('Resend OTP', style: TextStyle(color: kGreen)))),
             ],
           ],
 
           const SizedBox(height: 12),
           OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: kGreen),
+            style: OutlinedButton.styleFrom(side: const BorderSide(color: kGreen),
               minimumSize: const Size(double.infinity, 50),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
             icon: Icon(_showPhone ? Icons.email_outlined : Icons.phone_outlined, color: kGreen, size: 20),
@@ -325,52 +277,39 @@ class _LoginScreenState extends State<LoginScreen> {
               style: const TextStyle(color: kGreen, fontWeight: FontWeight.w600)),
             onPressed: () => setState(() { _showPhone = !_showPhone; _error = null; _otpSent = false; })),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Row(children: [
             Expanded(child: Divider(color: Colors.grey[700], thickness: 0.5)),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Text('or continue with', style: TextStyle(color: Colors.grey[500], fontSize: 13))),
+              child: Text('or', style: TextStyle(color: Colors.grey[500], fontSize: 13))),
             Expanded(child: Divider(color: Colors.grey[700], thickness: 0.5)),
           ]),
           const SizedBox(height: 16),
-
-          // Google
-          _oauthBtn(
-            icon: Icons.g_mobiledata_rounded, iconColor: const Color(0xFFDB4437),
-            label: 'Continue with Google', isDark: isDark, bg: bg,
-            onPressed: _loading ? null : _googleSignIn),
-          const SizedBox(height: 12),
-
-          // GitHub
-          _oauthBtn(
-            icon: Icons.code_rounded, iconColor: isDark ? Colors.white : Colors.black87,
-            label: 'Continue with GitHub', isDark: isDark, bg: bg,
-            onPressed: _loading ? null : _githubSignIn),
-
+          Row(children: [
+            Expanded(child: _oauthBtn(Icons.g_mobiledata_rounded, const Color(0xFFDB4437), 'Google', isDark, bg, _loading ? null : _googleSignIn)),
+            const SizedBox(width: 12),
+            Expanded(child: _oauthBtn(Icons.code_rounded, isDark ? Colors.white : Colors.black87, 'GitHub', isDark, bg, _loading ? null : _githubSignIn)),
+          ]),
           const SizedBox(height: 24),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             Text("Don't have an account? ", style: TextStyle(color: Colors.grey[500])),
-            GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
+            GestureDetector(onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())),
               child: const Text('Register', style: TextStyle(color: kGreen, fontWeight: FontWeight.bold))),
           ]),
           const SizedBox(height: 32),
-        ]),
-      )),
-    );
+        ]))));
   }
 
-  Widget _oauthBtn({required IconData icon, required Color iconColor, required String label,
-      required bool isDark, required Color bg, VoidCallback? onPressed}) =>
-    SizedBox(width: double.infinity, height: 52,
-      child: ElevatedButton.icon(
-        style: ElevatedButton.styleFrom(backgroundColor: bg, elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: Colors.grey[isDark ? 700 : 300]!, width: 1))),
-        icon: Icon(icon, color: iconColor, size: 28),
-        label: Text(label, style: TextStyle(color: isDark ? Colors.white : Colors.black87,
-          fontSize: 15, fontWeight: FontWeight.w600)),
-        onPressed: onPressed));
+  Widget _oauthBtn(IconData icon, Color iconColor, String label, bool isDark, Color bg, VoidCallback? onPressed) =>
+    SizedBox(height: 52, child: ElevatedButton(
+      style: ElevatedButton.styleFrom(backgroundColor: bg, elevation: 0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14), side: BorderSide(color: Colors.grey[isDark ? 700 : 300]!, width: 1))),
+      onPressed: onPressed,
+      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+        Icon(icon, color: iconColor, size: 24),
+        const SizedBox(width: 8),
+        Text(label, style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 14, fontWeight: FontWeight.w600)),
+      ])));
 }
 
 // ─── REGISTER ─────────────────────────────────────────
@@ -379,97 +318,72 @@ class RegisterScreen extends StatefulWidget {
   @override State<RegisterScreen> createState() => _RegisterScreenState();
 }
 class _RegisterScreenState extends State<RegisterScreen> {
-  bool _obscure = true, _loading = false;
-  String? _error;
-  String _usernameStatus = '';
+  int _step = 0; // 0=info, 1=username+pass
+  bool _obscure = true, _loading = false, _ageConfirmed = false;
+  String? _error, _uStatus = '';
+  String _gender = '';
   Timer? _debounce;
-  final _nameCtrl     = TextEditingController();
-  final _usernameCtrl = TextEditingController();
-  final _emailCtrl    = TextEditingController();
-  final _passCtrl     = TextEditingController();
-
-  // Username suggestions list
   final List<String> _suggestions = [];
 
-  void _onUsernameChanged(String val) {
+  final _nameCtrl  = TextEditingController();
+  final _uCtrl     = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _passCtrl  = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+
+  void _onUChange(String val) {
     _debounce?.cancel();
-    if (val.isEmpty) { setState(() { _usernameStatus = ''; _suggestions.clear(); }); return; }
-    setState(() => _usernameStatus = 'checking');
-    _debounce = Timer(const Duration(milliseconds: 500), () => _checkUsername(val));
+    if (val.isEmpty) { setState(() { _uStatus = ''; _suggestions.clear(); }); return; }
+    setState(() => _uStatus = 'checking');
+    _debounce = Timer(const Duration(milliseconds: 500), () => _checkU(val));
   }
 
-  Future<void> _checkUsername(String username) async {
-    final clean = username.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '');
-    if (clean.length < 3) { setState(() { _usernameStatus = 'short'; _suggestions.clear(); }); return; }
+  Future<void> _checkU(String u) async {
+    final clean = u.trim().toLowerCase();
+    if (clean.length < 3) { setState(() { _uStatus = 'short'; _suggestions.clear(); }); return; }
+    if (clean.length > 20) { setState(() { _uStatus = 'long'; _suggestions.clear(); }); return; }
+    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(clean)) { setState(() { _uStatus = 'invalid'; _suggestions.clear(); }); return; }
     final snap = await _db.collection('users').where('username', isEqualTo: clean).get();
     if (!mounted) return;
     if (snap.docs.isEmpty) {
-      setState(() { _usernameStatus = 'available'; _suggestions.clear(); });
+      setState(() { _uStatus = 'ok'; _suggestions.clear(); });
     } else {
-      // Generate suggestions
       final base = clean.replaceAll(RegExp(r'\d+$'), '');
-      final now = DateTime.now();
-      final sugg = [
-        '${base}${now.year % 100}',
-        '${base}_official',
-        '${base}__',
-        '${base}x',
-        '${base}${now.month}${now.day}',
-      ];
-      setState(() { _usernameStatus = 'taken'; _suggestions.clear(); _suggestions.addAll(sugg); });
+      setState(() { _uStatus = 'taken'; _suggestions.clear();
+        _suggestions.addAll(['${base}_official', '${base}__', '${base}x', '${base}real', '${base}${DateTime.now().year % 100}']); });
     }
   }
 
   Future<void> _register() async {
-    if (_nameCtrl.text.isEmpty || _usernameCtrl.text.isEmpty ||
-        _emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
-      setState(() => _error = 'Please fill all fields'); return;
+    if (_nameCtrl.text.isEmpty || _uCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
+      setState(() => _error = 'Fill all required fields'); return;
     }
-    if (_usernameStatus == 'taken') { setState(() => _error = 'Username is already taken'); return; }
-    if (_usernameStatus != 'available') { setState(() => _error = 'Choose a valid username'); return; }
+    if (!_ageConfirmed) { setState(() => _error = 'You must be 13 or older'); return; }
+    if (_gender.isEmpty) { setState(() => _error = 'Select your gender'); return; }
+    if (_uStatus == 'taken') { setState(() => _error = 'Username taken'); return; }
+    if (_uStatus != 'ok') { setState(() => _error = 'Choose a valid username'); return; }
     setState(() { _loading = true; _error = null; });
     try {
-      final cred = await _auth.createUserWithEmailAndPassword(
-        email: _emailCtrl.text.trim(), password: _passCtrl.text.trim());
+      final cred = await _auth.createUserWithEmailAndPassword(email: _emailCtrl.text.trim(), password: _passCtrl.text.trim());
       await cred.user!.sendEmailVerification();
       final fcm = await FirebaseMessaging.instance.getToken();
-      final uname = _usernameCtrl.text.trim().toLowerCase();
       await _db.collection('users').doc(cred.user!.uid).set({
         'uid': cred.user!.uid, 'name': _nameCtrl.text.trim(),
-        'username': uname, 'email': _emailCtrl.text.trim(),
-        'avatar': _nameCtrl.text.trim()[0].toUpperCase(),
-        'verified': false, 'emailVerified': false, 'suggestionsEnabled': true,
+        'username': _uCtrl.text.trim().toLowerCase(),
+        'email': _emailCtrl.text.trim(), 'phone': _phoneCtrl.text.trim(),
+        'avatar': _nameCtrl.text.trim()[0].toUpperCase(), 'gender': _gender,
+        'verified': false, 'verifiedWaitlist': false,
+        'suggestionsEnabled': true, 'friendsPublic': true,
+        'profileMode': 'friend',
         'bio': '', 'city': '', 'education': '', 'work': '', 'hometown': '',
         'social': {'facebook': '', 'instagram': '', 'github': '', 'linkedin': '', 'twitter': ''},
+        'followerCount': 0, 'followingCount': 0, 'friendCount': 0,
         'fcmToken': fcm ?? '', 'isOnline': true,
         'lastSeen': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
       });
       await cred.user!.updateDisplayName(_nameCtrl.text.trim());
-      if (mounted) {
-        showDialog(context: context, barrierDismissible: false, builder: (_) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Text('Verify your email', style: TextStyle(fontWeight: FontWeight.bold)),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            const Icon(Icons.mark_email_read_outlined, color: kGreen, size: 48),
-            const SizedBox(height: 12),
-            Text('We sent a verification link to\n${_emailCtrl.text.trim()}',
-              textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[500])),
-          ]),
-          actions: [
-            TextButton(onPressed: () => cred.user!.sendEmailVerification(),
-              child: const Text('Resend', style: TextStyle(color: kGreen))),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: kGreen,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen()));
-              },
-              child: const Text('Continue', style: TextStyle(color: Colors.white))),
-          ],
-        ));
-      }
+      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen()));
     } on FirebaseAuthException catch (e) {
       setState(() => _error = e.message ?? 'Registration failed');
     } finally { if (mounted) setState(() => _loading = false); }
@@ -480,98 +394,116 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bg = isDark ? kCard : Colors.grey[100]!;
 
-    Color uColor = Colors.grey;
-    IconData uIcon = Icons.alternate_email;
-    String uHint = '';
-    if (_usernameStatus == 'checking') { uColor = Colors.orange; uHint = 'Checking...'; }
-    else if (_usernameStatus == 'available') { uColor = kGreen; uIcon = Icons.check_circle_outline; uHint = 'Available'; }
-    else if (_usernameStatus == 'taken') { uColor = Colors.red; uIcon = Icons.cancel_outlined; uHint = 'Not available'; }
-    else if (_usernameStatus == 'short') { uColor = Colors.orange; uHint = 'Minimum 3 characters'; }
+    Color uColor = Colors.grey; IconData uIcon = Icons.alternate_email; String uHint = '';
+    if (_uStatus == 'checking') { uColor = Colors.orange; uHint = 'Checking...'; }
+    else if (_uStatus == 'ok') { uColor = kGreen; uIcon = Icons.check_circle_outline; uHint = 'Available'; }
+    else if (_uStatus == 'taken') { uColor = Colors.red; uIcon = Icons.cancel_outlined; uHint = 'Not available'; }
+    else if (_uStatus == 'short') { uColor = Colors.orange; uHint = 'Minimum 3 characters'; }
+    else if (_uStatus == 'long') { uColor = Colors.red; uHint = 'Maximum 20 characters'; }
+    else if (_uStatus == 'invalid') { uColor = Colors.red; uHint = 'Only a-z, 0-9 and _ allowed'; }
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: isDark ? kDark : Colors.white,
       appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () => Navigator.pop(context))),
+        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () {
+          if (_step == 1) setState(() => _step = 0);
+          else Navigator.pop(context);
+        })),
       body: SafeArea(child: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Create Account', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(_step == 0 ? 'About You' : 'Account Setup', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
-          Text('Join Convo today', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+          Text(_step == 0 ? 'Tell us a bit about yourself' : 'Choose your username and password',
+            style: TextStyle(color: Colors.grey[500], fontSize: 14)),
           const SizedBox(height: 28),
           if (_error != null) _errorBox(_error!),
 
-          _inputField('Full Name', Icons.person_outline, _nameCtrl, false, isDark, bg),
-          const SizedBox(height: 14),
+          if (_step == 0) ...[
+            _tf('Full Name *', Icons.person_outline, _nameCtrl, false, isDark, bg),
+            const SizedBox(height: 14),
+            _tf('Email address *', Icons.email_outlined, _emailCtrl, false, isDark, bg, type: TextInputType.emailAddress),
+            const SizedBox(height: 14),
+            _tf('Phone number (optional)', Icons.phone_outlined, _phoneCtrl, false, isDark, bg, type: TextInputType.phone),
+            const SizedBox(height: 20),
+            Text('Gender *', style: TextStyle(color: Colors.grey[500], fontSize: 13, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            Row(children: ['Male', 'Female', 'Other'].map((g) => Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: GestureDetector(
+                onTap: () => setState(() => _gender = g),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _gender == g ? kGreen : bg,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: _gender == g ? kGreen : Colors.grey.withOpacity(0.3))),
+                  child: Text(g, style: TextStyle(color: _gender == g ? Colors.white : Colors.grey[400], fontWeight: FontWeight.w600))))
+            ).toList()),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () => setState(() => _ageConfirmed = !_ageConfirmed),
+              child: Row(children: [
+                AnimatedContainer(duration: const Duration(milliseconds: 200),
+                  width: 22, height: 22,
+                  decoration: BoxDecoration(color: _ageConfirmed ? kGreen : Colors.transparent,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _ageConfirmed ? kGreen : Colors.grey)),
+                  child: _ageConfirmed ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null),
+                const SizedBox(width: 10),
+                Text('I confirm I am 13 years or older', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+              ])),
+            const SizedBox(height: 28),
+            _btn('Continue', () {
+              if (_nameCtrl.text.isEmpty || _emailCtrl.text.isEmpty) { setState(() => _error = 'Fill required fields'); return; }
+              if (_gender.isEmpty) { setState(() => _error = 'Select your gender'); return; }
+              if (!_ageConfirmed) { setState(() => _error = 'Confirm your age to continue'); return; }
+              setState(() { _error = null; _step = 1; });
+            }),
+          ],
 
-          // Username field
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            TextField(
-              controller: _usernameCtrl,
-              onChanged: _onUsernameChanged,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]'))],
+          if (_step == 1) ...[
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              TextField(controller: _uCtrl, onChanged: _onUChange,
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]'))],
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  hintText: 'Username', hintStyle: TextStyle(color: Colors.grey[500]),
+                  prefixIcon: Icon(uIcon, color: uColor),
+                  suffixIcon: _uStatus == 'checking' ? const Padding(padding: EdgeInsets.all(12),
+                    child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))) : null,
+                  filled: true, fillColor: bg,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: uColor, width: 1.5)))),
+              if (uHint.isNotEmpty) Padding(padding: const EdgeInsets.only(left: 12, top: 4),
+                child: Text(uHint, style: TextStyle(color: uColor, fontSize: 12))),
+              if (_suggestions.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(spacing: 8, runSpacing: 6, children: _suggestions.map((s) =>
+                  GestureDetector(onTap: () { _uCtrl.text = s; _checkU(s); },
+                    child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: kGreen.withOpacity(0.4))),
+                      child: Text(s, style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w500))))).toList()),
+              ],
+            ]),
+            const SizedBox(height: 14),
+            TextField(controller: _passCtrl, obscureText: _obscure,
               style: TextStyle(color: isDark ? Colors.white : Colors.black),
               decoration: InputDecoration(
-                hintText: 'Username (letters, numbers, _)',
-                hintStyle: TextStyle(color: Colors.grey[500]),
-                prefixIcon: Icon(uIcon, color: uColor),
-                suffixIcon: _usernameStatus == 'checking'
-                  ? const Padding(padding: EdgeInsets.all(12),
-                      child: SizedBox(width: 16, height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange)))
-                  : null,
+                hintText: 'Password (min 6 chars)', hintStyle: TextStyle(color: Colors.grey[500]),
+                prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
+                suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Colors.grey),
+                  onPressed: () => setState(() => _obscure = !_obscure)),
                 filled: true, fillColor: bg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: uColor, width: 1.5))),
-            ),
-            if (uHint.isNotEmpty) Padding(
-              padding: const EdgeInsets.only(left: 12, top: 4),
-              child: Text(uHint, style: TextStyle(color: uColor, fontSize: 12))),
-
-            // Suggestions
-            if (_suggestions.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text('Try one of these:', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-              const SizedBox(height: 6),
-              Wrap(spacing: 8, runSpacing: 8, children: _suggestions.map((s) =>
-                GestureDetector(
-                  onTap: () {
-                    _usernameCtrl.text = s;
-                    _checkUsername(s);
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: kGreen.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: kGreen.withOpacity(0.4))),
-                    child: Text(s, style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w500))))).toList()),
-            ],
-          ]),
-          const SizedBox(height: 14),
-
-          _inputField('Email address', Icons.email_outlined, _emailCtrl, false, isDark, bg),
-          const SizedBox(height: 14),
-
-          TextField(
-            controller: _passCtrl, obscureText: _obscure,
-            style: TextStyle(color: isDark ? Colors.white : Colors.black),
-            decoration: InputDecoration(
-              hintText: 'Password (min 6 characters)', hintStyle: TextStyle(color: Colors.grey[500]),
-              prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
-              suffixIcon: IconButton(
-                icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Colors.grey),
-                onPressed: () => setState(() => _obscure = !_obscure)),
-              filled: true, fillColor: bg,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)),
-          ),
-          const SizedBox(height: 24),
-          _primaryBtn('Create Account', _loading ? null : _register, loading: _loading),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
+            const SizedBox(height: 24),
+            _btn('Create Account', _loading ? null : _register, loading: _loading),
+          ],
           const SizedBox(height: 32),
-        ]),
-      )),
-    );
+        ]))));
   }
 }
 
@@ -582,12 +514,7 @@ class MainScreen extends StatefulWidget {
 }
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _idx = 0;
-  @override void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    _setOnline(true);
-    _setupFCM();
-  }
+  @override void initState() { super.initState(); WidgetsBinding.instance.addObserver(this); _setOnline(true); _setupFCM(); }
   @override void dispose() { WidgetsBinding.instance.removeObserver(this); _setOnline(false); super.dispose(); }
   @override void didChangeAppLifecycleState(AppLifecycleState s) => _setOnline(s == AppLifecycleState.resumed);
 
@@ -605,8 +532,16 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (!mounted) return;
       final n = msg.notification;
       if (n != null) ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('${n.title}: ${n.body}'), backgroundColor: kGreen,
-        behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
+        content: Row(children: [
+          const Icon(Icons.notifications_rounded, color: Colors.white, size: 20),
+          const SizedBox(width: 8),
+          Expanded(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(n.title ?? '', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13)),
+            if (n.body != null) Text(n.body!, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+          ])),
+        ]),
+        backgroundColor: kGreen, behavior: SnackBarBehavior.floating, duration: const Duration(seconds: 4),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))));
     });
   }
 
@@ -615,23 +550,17 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final uid = _auth.currentUser!.uid;
     return Scaffold(
       body: IndexedStack(index: _idx, children: [
-        const ChatsScreen(),
-        const FriendsScreen(),
-        ProfileScreen(uid: uid),
-        const SettingsScreen(),
+        const ChatsScreen(), const FriendsScreen(), ProfileScreen(uid: uid), const SettingsScreen(),
       ]),
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _idx,
-        onDestinationSelected: (i) => setState(() => _idx = i),
+        selectedIndex: _idx, onDestinationSelected: (i) => setState(() => _idx = i),
         indicatorColor: kGreen.withOpacity(0.2),
         destinations: const [
           NavigationDestination(icon: Icon(Icons.chat_bubble_outline_rounded), selectedIcon: Icon(Icons.chat_bubble_rounded, color: kGreen), label: 'Chats'),
           NavigationDestination(icon: Icon(Icons.people_outline_rounded), selectedIcon: Icon(Icons.people_rounded, color: kGreen), label: 'Friends'),
           NavigationDestination(icon: Icon(Icons.person_outline_rounded), selectedIcon: Icon(Icons.person_rounded, color: kGreen), label: 'Profile'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings_rounded, color: kGreen), label: 'Settings'),
-        ],
-      ),
-    );
+        ]));
   }
 }
 
@@ -654,66 +583,65 @@ class ChatsScreen extends StatelessWidget {
               builder: (_, snap) {
                 final name = snap.data?.get('name') as String? ?? 'U';
                 return CircleAvatar(backgroundColor: kGreen,
-                  child: Text(name[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)));
+                  child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)));
               }))),
         title: const Text('Convo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.search_rounded),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen()))),
-        ],
-      ),
+          // Message requests badge
+          StreamBuilder<QuerySnapshot>(
+            stream: _db.collection('message_requests').where('to', isEqualTo: myUid).where('status', isEqualTo: 'pending').snapshots(),
+            builder: (_, snap) {
+              final count = snap.data?.docs.length ?? 0;
+              return Stack(children: [
+                IconButton(icon: const Icon(Icons.inbox_rounded),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MessageRequestsScreen()))),
+                if (count > 0) Positioned(right: 6, top: 6, child: Container(
+                  width: 16, height: 16,
+                  decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                  child: Center(child: Text('$count', style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))),
+              ]);
+            }),
+          IconButton(icon: const Icon(Icons.edit_rounded),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen(startChat: true)))),
+        ]),
       body: StreamBuilder<QuerySnapshot>(
-        stream: _db.collection('chats')
-          .where('participants', arrayContains: myUid)
-          .orderBy('lastTimestamp', descending: true)
-          .snapshots(),
+        stream: _db.collection('chats').where('participants', arrayContains: myUid).snapshots(),
         builder: (_, snap) {
-          if (snap.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: kGreen));
-          }
-          if (!snap.hasData || snap.data!.docs.isEmpty) {
-            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(width: 80, height: 80,
-                decoration: BoxDecoration(color: kGreen.withOpacity(0.1), shape: BoxShape.circle),
-                child: const Icon(Icons.chat_bubble_outline_rounded, size: 40, color: kGreen)),
-              const SizedBox(height: 16),
-              const Text('No conversations yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text('Find friends and start chatting!', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: kGreen,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
-                icon: const Icon(Icons.people_rounded, color: Colors.white),
-                label: const Text('Find Friends', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen()))),
-            ]));
-          }
+          if (snap.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: kGreen));
+          if (!snap.hasData || snap.data!.docs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Container(width: 80, height: 80, decoration: BoxDecoration(color: kGreen.withOpacity(0.1), shape: BoxShape.circle),
+              child: const Icon(Icons.chat_bubble_outline_rounded, size: 40, color: kGreen)),
+            const SizedBox(height: 16),
+            const Text('No conversations yet', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text('Find friends and start chatting!', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+          ]));
+
+          final docs = snap.data!.docs.toList()..sort((a, b) {
+            final aTs = (a.data() as Map)['lastTimestamp'];
+            final bTs = (b.data() as Map)['lastTimestamp'];
+            if (aTs == null && bTs == null) return 0;
+            if (aTs == null) return 1; if (bTs == null) return -1;
+            return (bTs as dynamic).compareTo(aTs);
+          });
+
           return ListView.separated(
-            itemCount: snap.data!.docs.length,
-            separatorBuilder: (_, __) => Divider(height: 0, color: Colors.grey.withOpacity(0.1), indent: 76),
+            itemCount: docs.length,
+            separatorBuilder: (_, __) => Divider(height: 0, color: Colors.grey.withOpacity(0.08), indent: 76),
             itemBuilder: (_, i) {
-              final data = snap.data!.docs[i].data() as Map<String, dynamic>;
+              final data = docs[i].data() as Map<String, dynamic>;
               final parts = List<String>.from(data['participants'] ?? []);
               final other = parts.firstWhere((u) => u != myUid, orElse: () => '');
-              return _ChatTile(chatData: data, otherUid: other, myUid: myUid);
+              return _ChatTile(chatData: data, otherUid: other, myUid: myUid, chatId: docs[i].id);
             });
-        }),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: kGreen,
-        child: const Icon(Icons.edit_rounded, color: Colors.white),
-        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FriendsScreen(startChat: true)))),
-    );
+        }));
   }
 }
 
 class _ChatTile extends StatelessWidget {
   final Map<String, dynamic> chatData;
-  final String otherUid, myUid;
-  const _ChatTile({required this.chatData, required this.otherUid, required this.myUid});
+  final String otherUid, myUid, chatId;
+  const _ChatTile({required this.chatData, required this.otherUid, required this.myUid, required this.chatId});
 
   String _timeAgo(Timestamp? ts) {
     if (ts == null) return '';
@@ -737,9 +665,11 @@ class _ChatTile extends StatelessWidget {
       final lastTs = chatData['lastTimestamp'] as Timestamp?;
       final unread = (chatData['unread_$myUid'] ?? 0) as int;
       final isMine = chatData['lastSender'] == myUid;
+      final nickname = chatData['nickname_$myUid'] as String?;
+      final displayName = nickname ?? name;
 
       return ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         leading: Stack(children: [
           CircleAvatar(radius: 26, backgroundColor: kGreen,
             child: Text(avatar, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18))),
@@ -748,82 +678,215 @@ class _ChatTile extends StatelessWidget {
               border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2)))),
         ]),
         title: Row(children: [
-          Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
-          Text(_timeAgo(lastTs), style: TextStyle(
-            color: unread > 0 ? kGreen : Colors.grey[500], fontSize: 12,
+          Expanded(child: Text(displayName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))),
+          Text(_timeAgo(lastTs), style: TextStyle(color: unread > 0 ? kGreen : Colors.grey[500], fontSize: 12,
             fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal)),
         ]),
         subtitle: Row(children: [
           if (isMine) const Icon(Icons.done_all_rounded, size: 14, color: kGreen),
           if (isMine) const SizedBox(width: 4),
           Expanded(child: Text(lastMsg, maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: unread > 0 ? Theme.of(context).textTheme.bodyLarge?.color : Colors.grey[500],
+            style: TextStyle(color: unread > 0 ? Theme.of(context).textTheme.bodyLarge?.color : Colors.grey[500],
               fontSize: 13, fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.normal))),
-          if (unread > 0) Container(
-            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+          if (unread > 0) Container(padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(color: kGreen, borderRadius: BorderRadius.circular(10)),
             child: Text('$unread', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
         ]),
         onTap: () => Navigator.push(context, MaterialPageRoute(
-          builder: (_) => ChatScreen(otherUid: otherUid, otherName: name, otherAvatar: avatar))),
-      );
+          builder: (_) => ChatScreen(otherUid: otherUid, otherName: name, otherAvatar: avatar, chatId: chatId))));
     });
+}
+
+// ─── MESSAGE REQUESTS SCREEN ──────────────────────────
+class MessageRequestsScreen extends StatelessWidget {
+  const MessageRequestsScreen({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final myUid = _auth.currentUser!.uid;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Message Requests', style: TextStyle(fontWeight: FontWeight.bold))),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: _db.collection('message_requests').where('to', isEqualTo: myUid).where('status', isEqualTo: 'pending').orderBy('timestamp', descending: true).snapshots(),
+        builder: (_, snap) {
+          if (!snap.hasData || snap.data!.docs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.inbox_rounded, size: 48, color: Colors.grey[600]),
+            const SizedBox(height: 12),
+            Text('No message requests', style: TextStyle(color: Colors.grey[500])),
+          ]));
+          return ListView(children: snap.data!.docs.map((doc) {
+            final d = doc.data() as Map<String, dynamic>;
+            return ListTile(
+              leading: CircleAvatar(backgroundColor: kGreen,
+                child: Text(d['fromAvatar'] ?? 'U', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+              title: Text(d['fromName'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: Text(d['lastMessage'] ?? 'Wants to send you a message', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                GestureDetector(
+                  onTap: () async {
+                    await _db.collection('message_requests').doc(doc.id).update({'status': 'accepted'});
+                    // Also make friends
+                    await _db.collection('users').doc(myUid).collection('friends').doc(d['from']).set({'uid': d['from'], 'since': FieldValue.serverTimestamp()});
+                    await _db.collection('users').doc(d['from']).collection('friends').doc(myUid).set({'uid': myUid, 'since': FieldValue.serverTimestamp()});
+                    // Open chat
+                    final ids = [myUid, d['from'] as String]..sort();
+                    final chatId = ids.join('_');
+                    if (context.mounted) Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => ChatScreen(otherUid: d['from'], otherName: d['fromName'] ?? 'User', otherAvatar: d['fromAvatar'] ?? 'U', chatId: chatId)));
+                  },
+                  child: Container(width: 38, height: 38, decoration: BoxDecoration(color: kGreen.withOpacity(0.15), shape: BoxShape.circle),
+                    child: const Icon(Icons.check_rounded, color: kGreen, size: 22))),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _db.collection('message_requests').doc(doc.id).update({'status': 'declined'}),
+                  child: Container(width: 38, height: 38, decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), shape: BoxShape.circle),
+                    child: const Icon(Icons.close_rounded, color: Colors.red, size: 22))),
+              ]),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: d['from']))));
+          }).toList()));
+        }));
+  }
 }
 
 // ─── CHAT SCREEN ──────────────────────────────────────
 class ChatScreen extends StatefulWidget {
-  final String otherUid, otherName, otherAvatar;
-  const ChatScreen({super.key, required this.otherUid, required this.otherName, required this.otherAvatar});
+  final String otherUid, otherName, otherAvatar, chatId;
+  const ChatScreen({super.key, required this.otherUid, required this.otherName, required this.otherAvatar, required this.chatId});
   @override State<ChatScreen> createState() => _ChatScreenState();
 }
 class _ChatScreenState extends State<ChatScreen> {
   final _msgCtrl    = TextEditingController();
   final _scrollCtrl = ScrollController();
   String? _replyToId, _replyToText, _replyToSender;
-  late String _chatId, _myUid;
+  int? _disappearSeconds; // null = off
+  late String _myUid;
+  Timer? _typingTimer;
+  bool _isTyping = false;
+
+  static const _disappearOptions = [
+    {'label': 'Off', 'seconds': null},
+    {'label': '12 hours', 'seconds': 43200},
+    {'label': '24 hours', 'seconds': 86400},
+    {'label': '7 days', 'seconds': 604800},
+  ];
 
   @override void initState() {
     super.initState();
     _myUid = _auth.currentUser!.uid;
-    final ids = [_myUid, widget.otherUid]..sort();
-    _chatId = ids.join('_');
     _clearUnread();
+    _loadDisappearSetting();
+    _msgCtrl.addListener(_onTyping);
+  }
+
+  @override void dispose() {
+    _setTyping(false);
+    _msgCtrl.removeListener(_onTyping);
+    _msgCtrl.dispose(); _scrollCtrl.dispose();
+    _typingTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadDisappearSetting() async {
+    final doc = await _db.collection('chats').doc(widget.chatId).get();
+    if (doc.exists && mounted) {
+      setState(() => _disappearSeconds = (doc.data() as Map?)?['disappearSeconds']);
+    }
+  }
+
+  void _onTyping() {
+    _typingTimer?.cancel();
+    _setTyping(true);
+    _typingTimer = Timer(const Duration(seconds: 3), () => _setTyping(false));
+  }
+
+  Future<void> _setTyping(bool v) async {
+    _isTyping = v;
+    await _db.collection('chats').doc(widget.chatId).collection('typing').doc(_myUid).set({
+      'isTyping': v, 'ts': FieldValue.serverTimestamp()});
   }
 
   Future<void> _clearUnread() async =>
-    await _db.collection('chats').doc(_chatId).set({'unread_$_myUid': 0}, SetOptions(merge: true));
+    await _db.collection('chats').doc(widget.chatId).set({'unread_$_myUid': 0}, SetOptions(merge: true));
 
   Future<void> _send(String text) async {
     final t = text.trim(); if (t.isEmpty) return;
-    _msgCtrl.clear();
-    final reply = _replyToId != null
-      ? {'id': _replyToId, 'text': _replyToText, 'sender': _replyToSender} : null;
+    _msgCtrl.clear(); _setTyping(false);
+    final reply = _replyToId != null ? {'id': _replyToId, 'text': _replyToText, 'sender': _replyToSender} : null;
     setState(() { _replyToId = null; _replyToText = null; _replyToSender = null; });
-    await _db.collection('chats').doc(_chatId).collection('messages').add({
+
+    final expiresAt = _disappearSeconds != null
+      ? Timestamp.fromDate(DateTime.now().add(Duration(seconds: _disappearSeconds!))) : null;
+
+    await _db.collection('chats').doc(widget.chatId).collection('messages').add({
       'text': t, 'senderId': _myUid,
       'senderName': _auth.currentUser?.displayName ?? 'User',
       'timestamp': FieldValue.serverTimestamp(), 'deleted': false,
       if (reply != null) 'reply': reply,
+      if (expiresAt != null) 'expiresAt': expiresAt,
     });
-    await _db.collection('chats').doc(_chatId).set({
+    await _db.collection('chats').doc(widget.chatId).set({
       'participants': [_myUid, widget.otherUid],
-      'lastMessage': t, 'lastTimestamp': FieldValue.serverTimestamp(),
-      'lastSender': _myUid,
-      'unread_${widget.otherUid}': FieldValue.increment(1),
-      'unread_$_myUid': 0,
+      'lastMessage': t, 'lastTimestamp': FieldValue.serverTimestamp(), 'lastSender': _myUid,
+      'unread_${widget.otherUid}': FieldValue.increment(1), 'unread_$_myUid': 0,
     }, SetOptions(merge: true));
     Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollCtrl.hasClients) _scrollCtrl.animateTo(
-        _scrollCtrl.position.maxScrollExtent,
+      if (_scrollCtrl.hasClients) _scrollCtrl.animateTo(_scrollCtrl.position.maxScrollExtent,
         duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
     });
+  }
+
+  void _showChatSettings() {
+    showModalBottomSheet(context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? kCard : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => StatefulBuilder(builder: (ctx, setSt) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          const Text('Chat Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          const Align(alignment: Alignment.centerLeft,
+            child: Text('Disappearing Messages', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14))),
+          const SizedBox(height: 10),
+          ..._disappearOptions.map((opt) => RadioListTile<int?>(
+            value: opt['seconds'] as int?,
+            groupValue: _disappearSeconds,
+            activeColor: kGreen,
+            title: Text(opt['label'] as String),
+            onChanged: (v) async {
+              setSt(() {});
+              setState(() => _disappearSeconds = v);
+              await _db.collection('chats').doc(widget.chatId).set({'disappearSeconds': v}, SetOptions(merge: true));
+            })).toList(),
+          const SizedBox(height: 8),
+          // Nickname option
+          ListTile(
+            leading: const Icon(Icons.badge_outlined, color: kGreen),
+            title: const Text('Set Nickname'),
+            subtitle: const Text('Give this chat a nickname'),
+            onTap: () {
+              Navigator.pop(context);
+              final c = TextEditingController();
+              showDialog(context: context, builder: (_) => AlertDialog(
+                title: const Text('Set Nickname'),
+                content: TextField(controller: c, decoration: const InputDecoration(hintText: 'Nickname...')),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                  ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: kGreen),
+                    onPressed: () async {
+                      await _db.collection('chats').doc(widget.chatId).set({'nickname_$_myUid': c.text.trim()}, SetOptions(merge: true));
+                      if (context.mounted) Navigator.pop(context);
+                    }, child: const Text('Save', style: TextStyle(color: Colors.white))),
+                ]));
+            }),
+        ]))));
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: isDark ? kDark : Colors.grey[50],
       appBar: AppBar(
         backgroundColor: isDark ? kDark : Colors.white, titleSpacing: 0, elevation: 0.5,
@@ -847,33 +910,53 @@ class _ChatScreenState extends State<ChatScreen> {
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(widget.otherName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               StreamBuilder<DocumentSnapshot>(
-                stream: _db.collection('users').doc(widget.otherUid).snapshots(),
-                builder: (_, snap) {
-                  final online = snap.data?.get('isOnline') == true;
-                  return Text(online ? 'Online' : 'Offline',
-                    style: TextStyle(color: online ? kGreen : Colors.grey, fontSize: 11));
+                stream: _db.collection('chats').doc(widget.chatId).collection('typing').doc(widget.otherUid).snapshots(),
+                builder: (_, tSnap) {
+                  final isTyping = tSnap.data?.get('isTyping') == true;
+                  if (isTyping) return Row(children: [
+                    const _TypingDots(),
+                    const SizedBox(width: 4),
+                    Text('typing...', style: TextStyle(color: kGreen, fontSize: 11)),
+                  ]);
+                  return StreamBuilder<DocumentSnapshot>(
+                    stream: _db.collection('users').doc(widget.otherUid).snapshots(),
+                    builder: (_, snap) {
+                      final online = snap.data?.get('isOnline') == true;
+                      return Text(online ? 'Online' : 'Offline', style: TextStyle(color: online ? kGreen : Colors.grey, fontSize: 11));
+                    });
                 }),
             ]),
           ])),
         actions: [
-          IconButton(icon: const Icon(Icons.videocam_outlined), onPressed: () {}),
-          IconButton(icon: const Icon(Icons.call_outlined), onPressed: () {}),
-        ],
-      ),
+          IconButton(icon: const Icon(Icons.more_vert_rounded), onPressed: _showChatSettings),
+        ]),
       body: Column(children: [
+        if (_disappearSeconds != null) Container(
+          width: double.infinity, padding: const EdgeInsets.symmetric(vertical: 6),
+          color: kGreen.withOpacity(0.1),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            const Icon(Icons.timer_outlined, color: kGreen, size: 14),
+            const SizedBox(width: 4),
+            Text('Disappearing messages: ${_disappearOptions.firstWhere((o) => o['seconds'] == _disappearSeconds)['label']}',
+              style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w500)),
+          ])),
+
         Expanded(child: StreamBuilder<QuerySnapshot>(
-          stream: _db.collection('chats').doc(_chatId).collection('messages')
-            .orderBy('timestamp').snapshots(),
+          stream: _db.collection('chats').doc(widget.chatId).collection('messages').orderBy('timestamp').snapshots(),
           builder: (_, snap) {
             if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: kGreen));
-            final msgs = snap.data!.docs;
-            if (msgs.isEmpty) return Center(
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                const Icon(Icons.waving_hand_rounded, size: 48, color: kGreen),
-                const SizedBox(height: 12),
-                Text('Say hi to ${widget.otherName}!',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 15)),
-              ]));
+            // Filter expired messages client-side
+            final now = Timestamp.now();
+            final msgs = snap.data!.docs.where((d) {
+              final exp = (d.data() as Map)['expiresAt'] as Timestamp?;
+              return exp == null || exp.compareTo(now) > 0;
+            }).toList();
+
+            if (msgs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.waving_hand_rounded, size: 48, color: kGreen),
+              const SizedBox(height: 12),
+              Text('Say hi to ${widget.otherName}!', style: TextStyle(color: Colors.grey[500], fontSize: 15)),
+            ]));
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
             });
@@ -887,16 +970,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 final prevData = i > 0 ? msgs[i-1].data() as Map<String, dynamic> : null;
                 final isFirst = prevData == null || prevData['senderId'] != data['senderId'];
                 return _Bubble(
-                  msgId: msgs[i].id, data: data, isMe: isMe, isFirst: isFirst,
-                  chatId: _chatId,
-                  onReply: (id, text, sender) => setState(() {
-                    _replyToId = id; _replyToText = text; _replyToSender = sender;
-                  }),
-                );
+                  msgId: msgs[i].id, data: data, isMe: isMe, isFirst: isFirst, chatId: widget.chatId,
+                  onReply: (id, text, sender) => setState(() { _replyToId = id; _replyToText = text; _replyToSender = sender; }));
               });
           })),
 
-        // Reply preview
         if (_replyToId != null) Container(
           color: isDark ? kCard2 : Colors.grey[200],
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -905,18 +983,15 @@ class _ChatScreenState extends State<ChatScreen> {
             const SizedBox(width: 8),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(_replyToSender ?? '', style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.bold)),
-              Text(_replyToText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+              Text(_replyToText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
             ])),
             IconButton(icon: const Icon(Icons.close_rounded, size: 18),
               onPressed: () => setState(() { _replyToId = null; _replyToText = null; _replyToSender = null; })),
           ])),
 
-        // Input bar
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: isDark ? kCard : Colors.white,
+          decoration: BoxDecoration(color: isDark ? kCard : Colors.white,
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -2))]),
           child: Row(children: [
             Expanded(child: TextField(
@@ -936,104 +1011,105 @@ class _ChatScreenState extends State<ChatScreen> {
                 decoration: BoxDecoration(color: kGreen, borderRadius: BorderRadius.circular(23)),
                 child: const Icon(Icons.send_rounded, color: Colors.white, size: 20))),
           ])),
-      ]),
-    );
+      ]));
   }
 }
 
+// ─── TYPING DOTS ANIMATION ────────────────────────────
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+  @override State<_TypingDots> createState() => _TypingDotsState();
+}
+class _TypingDotsState extends State<_TypingDots> with TickerProviderStateMixin {
+  late List<AnimationController> _ctrls;
+  @override void initState() {
+    super.initState();
+    _ctrls = List.generate(3, (i) => AnimationController(vsync: this, duration: const Duration(milliseconds: 600))
+      ..repeat(reverse: true, period: Duration(milliseconds: 900 + i * 150)));
+  }
+  @override void dispose() { for (final c in _ctrls) c.dispose(); super.dispose(); }
+  @override
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: List.generate(3, (i) =>
+    Padding(padding: const EdgeInsets.only(right: 2),
+      child: AnimatedBuilder(animation: _ctrls[i], builder: (_, __) => Transform.translate(
+        offset: Offset(0, -3 * _ctrls[i].value),
+        child: Container(width: 5, height: 5, decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle)))))));
+}
+
+// ─── BUBBLE ───────────────────────────────────────────
 class _Bubble extends StatelessWidget {
   final String msgId, chatId;
   final Map<String, dynamic> data;
   final bool isMe, isFirst;
-  final void Function(String id, String text, String sender) onReply;
-  const _Bubble({required this.msgId, required this.chatId, required this.data,
-    required this.isMe, required this.isFirst, required this.onReply});
+  final void Function(String, String, String) onReply;
+  const _Bubble({required this.msgId, required this.chatId, required this.data, required this.isMe, required this.isFirst, required this.onReply});
 
-  String _formatTime(Timestamp? ts) {
+  String _fmt(Timestamp? ts) {
     if (ts == null) return '';
     final d = ts.toDate();
-    final h = d.hour.toString().padLeft(2, '0');
-    final m = d.minute.toString().padLeft(2, '0');
-    return '$h:$m';
+    return '${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}';
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final text = data['text'] as String? ?? '';
     final deleted = data['deleted'] == true;
     final reply = data['reply'] as Map<String, dynamic>?;
     final ts = data['timestamp'] as Timestamp?;
+    final expiresAt = data['expiresAt'] as Timestamp?;
 
     return GestureDetector(
-      onHorizontalDragEnd: (d) {
-        if (!deleted && (d.primaryVelocity ?? 0) < -100)
-          onReply(msgId, text, data['senderName'] ?? '');
-      },
+      onHorizontalDragEnd: (d) { if (!deleted && (d.primaryVelocity ?? 0) < -100) onReply(msgId, text, data['senderName'] ?? ''); },
       onLongPress: () {
         if (deleted) return;
         showModalBottomSheet(context: context,
-          backgroundColor: Theme.of(context).brightness == Brightness.dark ? kCard : Colors.white,
+          backgroundColor: isDark ? kCard : Colors.white,
           shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
           builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
             const SizedBox(height: 8),
             Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.reply_rounded, color: kGreen),
-              title: const Text('Reply'),
+            ListTile(leading: const Icon(Icons.reply_rounded, color: kGreen), title: const Text('Reply'),
               onTap: () { Navigator.pop(context); onReply(msgId, text, data['senderName'] ?? ''); }),
-            ListTile(
-              leading: const Icon(Icons.copy_rounded),
-              title: const Text('Copy'),
+            ListTile(leading: const Icon(Icons.copy_rounded), title: const Text('Copy'),
               onTap: () { Navigator.pop(context); Clipboard.setData(ClipboardData(text: text)); }),
-            if (isMe) ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-              title: const Text('Delete', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _db.collection('chats').doc(chatId).collection('messages').doc(msgId)
-                  .update({'deleted': true, 'text': 'Message deleted'});
-              }),
+            if (isMe) ListTile(leading: const Icon(Icons.delete_outline_rounded, color: Colors.red), title: const Text('Delete', style: TextStyle(color: Colors.red)),
+              onTap: () { Navigator.pop(context); _db.collection('chats').doc(chatId).collection('messages').doc(msgId).update({'deleted': true, 'text': 'Message deleted'}); }),
             const SizedBox(height: 12),
           ]));
       },
       child: Padding(
-        padding: EdgeInsets.only(
-          top: isFirst ? 8 : 2, bottom: 2,
-          left: isMe ? 48 : 0, right: isMe ? 0 : 48),
+        padding: EdgeInsets.only(top: isFirst ? 8 : 2, bottom: 2, left: isMe ? 56 : 0, right: isMe ? 0 : 56),
         child: Align(
           alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: Column(crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: isMe ? kGreen : (Theme.of(context).brightness == Brightness.dark ? kCard2 : Colors.white),
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(18), topRight: const Radius.circular(18),
-                    bottomLeft: Radius.circular(isMe ? 18 : 4), bottomRight: Radius.circular(isMe ? 4 : 18)),
-                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]),
-                child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    if (reply != null) Container(
-                      margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.12), borderRadius: BorderRadius.circular(8),
-                        border: const Border(left: BorderSide(color: Colors.white54, width: 3))),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text(reply['sender'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
-                        Text(reply['text'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                      ])),
-                    Text(text, style: TextStyle(
-                      color: deleted
-                        ? (isMe ? Colors.white54 : Colors.grey[500])
-                        : (isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color),
-                      fontSize: 15,
-                      fontStyle: deleted ? FontStyle.italic : FontStyle.normal)),
-                  ]))),
-              const SizedBox(height: 2),
-              Text(_formatTime(ts), style: TextStyle(color: Colors.grey[500], fontSize: 10)),
-            ]))));
+          child: Column(crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start, children: [
+            Container(
+              decoration: BoxDecoration(
+                color: isMe ? kGreen : (isDark ? kCard2 : Colors.white),
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(18), topRight: const Radius.circular(18),
+                  bottomLeft: Radius.circular(isMe ? 18 : 4), bottomRight: Radius.circular(isMe ? 4 : 18)),
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]),
+              child: Padding(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  if (reply != null) Container(
+                    margin: const EdgeInsets.only(bottom: 6), padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(color: Colors.black.withOpacity(0.12), borderRadius: BorderRadius.circular(8),
+                      border: const Border(left: BorderSide(color: Colors.white54, width: 3))),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(reply['sender'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(reply['text'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                    ])),
+                  Text(text, style: TextStyle(
+                    color: deleted ? (isMe ? Colors.white54 : Colors.grey[500]) : (isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color),
+                    fontSize: 15, fontStyle: deleted ? FontStyle.italic : FontStyle.normal)),
+                ]))),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(_fmt(ts), style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+              if (expiresAt != null) ...[const SizedBox(width: 4), const Icon(Icons.timer_outlined, size: 10, color: Colors.grey)],
+            ]),
+          ]))));
   }
 }
 
@@ -1064,43 +1140,43 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
     } finally { if (mounted) setState(() => _searching = false); }
   }
 
-  Future<void> _sendRequest(String toUid, String toName) async {
-    final ex = await _db.collection('friend_requests')
-      .where('from', isEqualTo: _myUid).where('to', isEqualTo: toUid).get();
-    if (ex.docs.isNotEmpty) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request already sent!'), backgroundColor: Colors.orange)); return;
-    }
+  Future<void> _sendRequest(String toUid, String toName, String toAvatar) async {
+    // Check if already friends
     final fd = await _db.collection('users').doc(_myUid).collection('friends').doc(toUid).get();
-    if (fd.exists) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Already friends!'), backgroundColor: kGreen)); return;
+    if (fd.exists) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Already friends!'), backgroundColor: kGreen)); return; }
+
+    // Check mode of target user
+    final targetDoc = await _db.collection('users').doc(toUid).get();
+    final targetMode = targetDoc.data()?['profileMode'] ?? 'friend';
+
+    if (targetMode == 'follow') {
+      // Just follow
+      await _db.collection('users').doc(_myUid).collection('following').doc(toUid).set({'uid': toUid, 'since': FieldValue.serverTimestamp()});
+      await _db.collection('users').doc(toUid).collection('followers').doc(_myUid).set({'uid': _myUid, 'since': FieldValue.serverTimestamp()});
+      await _db.collection('users').doc(toUid).update({'followerCount': FieldValue.increment(1)});
+      await _db.collection('users').doc(_myUid).update({'followingCount': FieldValue.increment(1)});
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Now following $toName'), backgroundColor: kGreen));
+    } else {
+      // Send friend request
+      final ex = await _db.collection('friend_requests').where('from', isEqualTo: _myUid).where('to', isEqualTo: toUid).where('status', isEqualTo: 'pending').get();
+      if (ex.docs.isNotEmpty) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Request already sent!'))); return; }
+      final my = await _db.collection('users').doc(_myUid).get();
+      await _db.collection('friend_requests').add({
+        'from': _myUid, 'fromName': my.data()?['name'] ?? 'User', 'fromAvatar': my.data()?['avatar'] ?? 'U',
+        'to': toUid, 'toName': toName, 'status': 'pending', 'timestamp': FieldValue.serverTimestamp(),
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Request sent to $toName'), backgroundColor: kGreen));
     }
-    final my = await _db.collection('users').doc(_myUid).get();
-    await _db.collection('friend_requests').add({
-      'from': _myUid, 'fromName': my.data()?['name'] ?? 'User',
-      'fromAvatar': my.data()?['avatar'] ?? 'U',
-      'to': toUid, 'toName': toName, 'status': 'pending',
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Request sent to $toName'), backgroundColor: kGreen,
-        behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))));
   }
 
   Future<void> _accept(String docId, String fromUid) async {
     await _db.collection('friend_requests').doc(docId).update({'status': 'accepted'});
-    await _db.collection('users').doc(_myUid).collection('friends').doc(fromUid)
-      .set({'uid': fromUid, 'since': FieldValue.serverTimestamp()});
-    await _db.collection('users').doc(fromUid).collection('friends').doc(_myUid)
-      .set({'uid': _myUid, 'since': FieldValue.serverTimestamp()});
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Friend added!'), backgroundColor: kGreen,
-        behavior: SnackBarBehavior.floating));
+    await _db.collection('users').doc(_myUid).collection('friends').doc(fromUid).set({'uid': fromUid, 'since': FieldValue.serverTimestamp()});
+    await _db.collection('users').doc(fromUid).collection('friends').doc(_myUid).set({'uid': _myUid, 'since': FieldValue.serverTimestamp()});
+    await _db.collection('users').doc(_myUid).update({'friendCount': FieldValue.increment(1)});
+    await _db.collection('users').doc(fromUid).update({'friendCount': FieldValue.increment(1)});
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Friend added!'), backgroundColor: kGreen));
   }
-
-  Future<void> _decline(String docId) async =>
-    await _db.collection('friend_requests').doc(docId).update({'status': 'declined'});
 
   @override
   Widget build(BuildContext context) {
@@ -1108,73 +1184,50 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
     final bg = isDark ? kCard : Colors.grey[100]!;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.startChat ? 'New Message' : 'Friends',
-          style: const TextStyle(fontWeight: FontWeight.bold)),
-        bottom: TabBar(controller: _tab, indicatorColor: kGreen, labelColor: kGreen,
-          unselectedLabelColor: Colors.grey,
-          tabs: const [
-            Tab(icon: Icon(Icons.search_rounded), text: 'Search'),
-            Tab(icon: Icon(Icons.notifications_outlined), text: 'Requests'),
-            Tab(icon: Icon(Icons.people_rounded), text: 'Friends'),
-          ])),
+        title: Text(widget.startChat ? 'New Message' : 'Friends', style: const TextStyle(fontWeight: FontWeight.bold)),
+        bottom: TabBar(controller: _tab, indicatorColor: kGreen, labelColor: kGreen, unselectedLabelColor: Colors.grey,
+          tabs: const [Tab(icon: Icon(Icons.search_rounded), text: 'Search'), Tab(icon: Icon(Icons.notifications_outlined), text: 'Requests'), Tab(icon: Icon(Icons.people_rounded), text: 'Friends')])),
       body: TabBarView(controller: _tab, children: [
-        // Search Tab
         Column(children: [
           Padding(padding: const EdgeInsets.all(16), child: TextField(
             controller: _searchCtrl, onChanged: _search,
             style: TextStyle(color: isDark ? Colors.white : Colors.black),
-            decoration: InputDecoration(
-              hintText: 'Search by username...', hintStyle: TextStyle(color: Colors.grey[500]),
-              prefixIcon: const Icon(Icons.search_rounded, color: Colors.grey),
-              filled: true, fillColor: bg,
+            decoration: InputDecoration(hintText: 'Search by username...', hintStyle: TextStyle(color: Colors.grey[500]),
+              prefixIcon: const Icon(Icons.search_rounded, color: Colors.grey), filled: true, fillColor: bg,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)))),
           if (_searching) const Padding(padding: EdgeInsets.all(16), child: CircularProgressIndicator(color: kGreen))
-          else if (_results.isEmpty && _searchCtrl.text.isNotEmpty)
-            Padding(padding: const EdgeInsets.all(32), child: Column(children: [
-              Icon(Icons.person_search_rounded, size: 48, color: Colors.grey[600]),
-              const SizedBox(height: 12),
-              Text('No users found', style: TextStyle(color: Colors.grey[500])),
-            ]))
           else Expanded(child: ListView.builder(
             itemCount: _results.length,
             itemBuilder: (_, i) {
-              final u = _results[i];
-              if (u['uid'] == _myUid) return const SizedBox();
+              final u = _results[i]; if (u['uid'] == _myUid) return const SizedBox();
               return ListTile(
                 leading: CircleAvatar(backgroundColor: kGreen,
-                  child: Text(u['avatar'] ?? '?',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                  child: Text(u['avatar'] ?? '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                 title: Text(u['name'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text('@${u['username']}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
                 trailing: widget.startChat
-                  ? FilledButton(
-                      style: FilledButton.styleFrom(backgroundColor: kGreen,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(
-                        builder: (_) => ChatScreen(otherUid: u['uid'], otherName: u['name'] ?? 'User', otherAvatar: u['avatar'] ?? '?'))),
-                      child: const Text('Message'))
-                  : OutlinedButton(
-                      style: OutlinedButton.styleFrom(side: const BorderSide(color: kGreen),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      onPressed: () => _sendRequest(u['uid'], u['name'] ?? 'User'),
-                      child: const Text('Add', style: TextStyle(color: kGreen))),
+                  ? FilledButton(style: FilledButton.styleFrom(backgroundColor: kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                      onPressed: () {
+                        final ids = [_myUid, u['uid'] as String]..sort();
+                        final chatId = ids.join('_');
+                        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ChatScreen(otherUid: u['uid'], otherName: u['name'] ?? 'User', otherAvatar: u['avatar'] ?? '?', chatId: chatId)));
+                      }, child: const Text('Message'))
+                  : OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: kGreen), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                      onPressed: () => _sendRequest(u['uid'], u['name'] ?? 'User', u['avatar'] ?? 'U'),
+                      child: Text(u['profileMode'] == 'follow' ? 'Follow' : 'Add', style: const TextStyle(color: kGreen))),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: u['uid']))));
             })),
         ]),
 
-        // Requests Tab
+        // Requests tab
         StreamBuilder<QuerySnapshot>(
-          stream: _db.collection('friend_requests')
-            .where('to', isEqualTo: _myUid).where('status', isEqualTo: 'pending')
-            .orderBy('timestamp', descending: true).snapshots(),
+          stream: _db.collection('friend_requests').where('to', isEqualTo: _myUid).where('status', isEqualTo: 'pending').orderBy('timestamp', descending: true).snapshots(),
           builder: (_, snap) {
-            if (!snap.hasData || snap.data!.docs.isEmpty) return Center(child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.inbox_rounded, size: 48, color: Colors.grey[600]),
-                const SizedBox(height: 12),
-                Text('No pending requests', style: TextStyle(color: Colors.grey[500])),
-              ]));
+            if (!snap.hasData || snap.data!.docs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.inbox_rounded, size: 48, color: Colors.grey[600]),
+              const SizedBox(height: 12),
+              Text('No pending requests', style: TextStyle(color: Colors.grey[500])),
+            ]));
             return ListView(children: snap.data!.docs.map((doc) {
               final d = doc.data() as Map<String, dynamic>;
               return ListTile(
@@ -1184,61 +1237,49 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                 title: Text(d['fromName'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: const Text('Sent you a friend request', style: TextStyle(fontSize: 12)),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  // Accept
-                  GestureDetector(
-                    onTap: () => _accept(doc.id, d['from']),
-                    child: Container(width: 38, height: 38,
-                      decoration: BoxDecoration(color: kGreen.withOpacity(0.15), shape: BoxShape.circle),
+                  GestureDetector(onTap: () => _accept(doc.id, d['from']),
+                    child: Container(width: 38, height: 38, decoration: BoxDecoration(color: kGreen.withOpacity(0.15), shape: BoxShape.circle),
                       child: const Icon(Icons.check_rounded, color: kGreen, size: 22))),
                   const SizedBox(width: 8),
-                  // Reject
-                  GestureDetector(
-                    onTap: () => _decline(doc.id),
-                    child: Container(width: 38, height: 38,
-                      decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), shape: BoxShape.circle),
+                  GestureDetector(onTap: () => _db.collection('friend_requests').doc(doc.id).update({'status': 'declined'}),
+                    child: Container(width: 38, height: 38, decoration: BoxDecoration(color: Colors.red.withOpacity(0.15), shape: BoxShape.circle),
                       child: const Icon(Icons.close_rounded, color: Colors.red, size: 22))),
                 ]),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: d['from']))));
             }).toList());
           }),
 
-        // My Friends Tab
+        // My Friends tab
         StreamBuilder<QuerySnapshot>(
           stream: _db.collection('users').doc(_myUid).collection('friends').snapshots(),
           builder: (_, snap) {
-            if (!snap.hasData || snap.data!.docs.isEmpty) return Center(child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.people_outline_rounded, size: 48, color: Colors.grey[600]),
-                const SizedBox(height: 12),
-                Text('No friends yet', style: TextStyle(color: Colors.grey[500])),
-                const SizedBox(height: 4),
-                const Text('Search to add friends!', style: TextStyle(color: kGreen, fontSize: 12)),
-              ]));
+            if (!snap.hasData || snap.data!.docs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.people_outline_rounded, size: 48, color: Colors.grey[600]),
+              const SizedBox(height: 12),
+              Text('No friends yet', style: TextStyle(color: Colors.grey[500])),
+            ]));
             return ListView(children: snap.data!.docs.map((doc) =>
               StreamBuilder<DocumentSnapshot>(
                 stream: _db.collection('users').doc(doc.id).snapshots(),
                 builder: (_, uSnap) {
                   final u = uSnap.data?.data() as Map<String, dynamic>? ?? {};
                   final online = u['isOnline'] == true;
+                  final ids = [_myUid, doc.id]..sort();
+                  final chatId = ids.join('_');
                   return ListTile(
                     leading: Stack(children: [
                       CircleAvatar(backgroundColor: kGreen,
                         child: Text(u['avatar'] ?? '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                       if (online) Positioned(right: 0, bottom: 0, child: Container(width: 10, height: 10,
-                        decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle,
-                          border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2)))),
+                        decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle, border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2)))),
                     ]),
                     title: Text(u['name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(online ? 'Online' : '@${u['username'] ?? ''}',
-                      style: TextStyle(color: online ? kGreen : Colors.grey[500], fontSize: 12)),
+                    subtitle: Text(online ? 'Online' : '@${u['username'] ?? ''}', style: TextStyle(color: online ? kGreen : Colors.grey[500], fontSize: 12)),
                     trailing: FilledButton.icon(
-                      style: FilledButton.styleFrom(backgroundColor: kGreen.withOpacity(0.15),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                      style: FilledButton.styleFrom(backgroundColor: kGreen.withOpacity(0.15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
                       icon: const Icon(Icons.chat_bubble_outline_rounded, color: kGreen, size: 16),
                       label: const Text('Chat', style: TextStyle(color: kGreen, fontSize: 13)),
-                      onPressed: () => Navigator.push(context, MaterialPageRoute(
-                        builder: (_) => ChatScreen(otherUid: doc.id, otherName: u['name'] ?? 'User', otherAvatar: u['avatar'] ?? '?')))),
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(otherUid: doc.id, otherName: u['name'] ?? 'User', otherAvatar: u['avatar'] ?? '?', chatId: chatId)))),
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: doc.id))));
                 })).toList());
           }),
@@ -1256,19 +1297,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _user;
   bool get _isMe => widget.uid == _auth.currentUser?.uid;
   @override void initState() { super.initState(); _load(); }
-
   Future<void> _load() async {
     final doc = await _db.collection('users').doc(widget.uid).get();
     if (mounted) setState(() => _user = doc.data());
   }
 
-  // Social platform configs
-  List<Map<String, dynamic>> get _socialPlatforms => [
-    {'key': 'facebook',   'icon': Icons.facebook_rounded,   'color': const Color(0xFF1877F2), 'label': 'Facebook',  'prefix': 'https://facebook.com/'},
-    {'key': 'instagram',  'icon': Icons.camera_alt_rounded,  'color': const Color(0xFFE1306C), 'label': 'Instagram', 'prefix': 'https://instagram.com/'},
-    {'key': 'github',     'icon': Icons.code_rounded,        'color': const Color(0xFF333333), 'label': 'GitHub',    'prefix': 'https://github.com/'},
-    {'key': 'linkedin',   'icon': Icons.work_rounded,        'color': const Color(0xFF0077B5), 'label': 'LinkedIn',  'prefix': 'https://linkedin.com/in/'},
-    {'key': 'twitter',    'icon': Icons.alternate_email,     'color': const Color(0xFF1DA1F2), 'label': 'X / Twitter','prefix': 'https://twitter.com/'},
+  final _socialPlatforms = [
+    {'key': 'facebook',  'icon': Icons.facebook_rounded,  'color': const Color(0xFF1877F2), 'label': 'Facebook',   'prefix': 'https://facebook.com/'},
+    {'key': 'instagram', 'icon': Icons.camera_alt_rounded, 'color': const Color(0xFFE1306C), 'label': 'Instagram',  'prefix': 'https://instagram.com/'},
+    {'key': 'github',    'icon': Icons.code_rounded,       'color': const Color(0xFF333333), 'label': 'GitHub',     'prefix': 'https://github.com/'},
+    {'key': 'linkedin',  'icon': Icons.work_rounded,       'color': const Color(0xFF0077B5), 'label': 'LinkedIn',   'prefix': 'https://linkedin.com/in/'},
+    {'key': 'twitter',   'icon': Icons.alternate_email,    'color': const Color(0xFF1DA1F2), 'label': 'X/Twitter',  'prefix': 'https://twitter.com/'},
   ];
 
   @override
@@ -1285,7 +1324,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final verified  = _user!['verified'] == true;
     final online    = _user!['isOnline'] == true;
     final social    = _user!['social'] as Map<String, dynamic>? ?? {};
-
+    final friendCount   = _user!['friendCount'] ?? 0;
+    final followerCount = _user!['followerCount'] ?? 0;
+    final followingCount = _user!['followingCount'] ?? 0;
+    final friendsPublic = _user!['friendsPublic'] != false;
+    final profileMode   = _user!['profileMode'] as String? ?? 'friend';
     final activeSocials = _socialPlatforms.where((p) => (social[p['key']] as String? ?? '').isNotEmpty).toList();
 
     return Scaffold(
@@ -1293,12 +1336,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: Text(_isMe ? 'My Profile' : name, style: const TextStyle(fontWeight: FontWeight.bold)),
         actions: [if (_isMe) IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _showEdit(context))]),
       body: SingleChildScrollView(child: Column(children: [
-        // Header
         Container(width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(colors: [kGreen.withOpacity(0.3), Colors.transparent],
-              begin: Alignment.topCenter, end: Alignment.bottomCenter),
-          ),
+          decoration: BoxDecoration(gradient: LinearGradient(
+            colors: [kGreen.withOpacity(0.25), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
           child: Column(children: [
             const SizedBox(height: 28),
             Stack(children: [
@@ -1306,11 +1346,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 3),
                   boxShadow: [BoxShadow(color: kGreen.withOpacity(0.4), blurRadius: 20)]),
-                child: Center(child: Text(name[0].toUpperCase(),
-                  style: const TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.bold)))),
+                child: Center(child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.bold)))),
               if (online) Positioned(right: 2, bottom: 2, child: Container(width: 16, height: 16,
-                decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle,
-                  border: Border.all(color: isDark ? kDark : Colors.white, width: 2)))),
+                decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle, border: Border.all(color: isDark ? kDark : Colors.white, width: 2)))),
             ]),
             const SizedBox(height: 12),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -1320,62 +1358,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Text('@$username', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
             const SizedBox(height: 4),
             Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(
-                color: online ? kGreen : Colors.grey, shape: BoxShape.circle)),
+              Container(width: 8, height: 8, decoration: BoxDecoration(color: online ? kGreen : Colors.grey, shape: BoxShape.circle)),
               const SizedBox(width: 4),
-              Text(online ? 'Online' : 'Offline',
-                style: TextStyle(color: online ? kGreen : Colors.grey[500], fontSize: 12)),
+              Text(online ? 'Online' : 'Offline', style: TextStyle(color: online ? kGreen : Colors.grey[500], fontSize: 12)),
             ]),
             if (bio.isNotEmpty) ...[
               const SizedBox(height: 10),
               Padding(padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(bio, textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 13, height: 1.5))),
+                child: Text(bio, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[400], fontSize: 13, height: 1.5))),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            // Stats row
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              _statBox(followerCount.toString(), profileMode == 'follow' ? 'Followers' : 'Followers', true),
+              Container(width: 1, height: 36, color: Colors.grey.withOpacity(0.3)),
+              if (friendsPublic || _isMe)
+                _statBox(friendCount.toString(), 'Friends', true),
+              if (!friendsPublic && !_isMe)
+                _statBox('—', 'Friends', false),
+              Container(width: 1, height: 36, color: Colors.grey.withOpacity(0.3)),
+              _statBox(followingCount.toString(), 'Following', true),
+            ]),
+            const SizedBox(height: 16),
           ])),
 
-        // Info Section
         if (city.isNotEmpty || hometown.isNotEmpty || education.isNotEmpty || work.isNotEmpty) ...[
-          _sectionTitle('About'),
+          _secTitle('About'),
           if (city.isNotEmpty) _infoRow(Icons.location_city_rounded, 'City', city),
           if (hometown.isNotEmpty) _infoRow(Icons.home_rounded, 'Hometown', hometown),
           if (education.isNotEmpty) _infoRow(Icons.school_rounded, 'Education', education),
           if (work.isNotEmpty) _infoRow(Icons.work_rounded, 'Work', work),
         ],
 
-        // Social Links
         if (activeSocials.isNotEmpty) ...[
-          _sectionTitle('Socials'),
+          _secTitle('Socials'),
           Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Wrap(spacing: 12, runSpacing: 12, children: activeSocials.map((p) {
-              final username = social[p['key']] as String;
+            child: Wrap(spacing: 10, runSpacing: 10, children: activeSocials.map((p) {
+              final uname = social[p['key']] as String;
               return GestureDetector(
-                onTap: () => launchUrl(Uri.parse('${p['prefix']}$username'), mode: LaunchMode.externalApplication),
+                onTap: () => launchUrl(Uri.parse('${p['prefix']}$uname'), mode: LaunchMode.externalApplication),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: (p['color'] as Color).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  decoration: BoxDecoration(color: (p['color'] as Color).withOpacity(0.1), borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: (p['color'] as Color).withOpacity(0.3))),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(p['icon'] as IconData, color: p['color'] as Color, size: 20),
-                    const SizedBox(width: 8),
-                    Text('@$username', style: TextStyle(color: p['color'] as Color, fontWeight: FontWeight.w600, fontSize: 13)),
+                    Icon(p['icon'] as IconData, color: p['color'] as Color, size: 18),
+                    const SizedBox(width: 7),
+                    Text('@$uname', style: TextStyle(color: p['color'] as Color, fontWeight: FontWeight.w600, fontSize: 12)),
                   ])));
             }).toList())),
         ],
 
         const SizedBox(height: 16),
         if (!_isMe) Padding(padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: _primaryBtn('Send Message', () => Navigator.push(context, MaterialPageRoute(
-            builder: (_) => ChatScreen(otherUid: widget.uid, otherName: name, otherAvatar: name[0].toUpperCase()))))),
+          child: _btn('Send Message', () {
+            final ids = [_auth.currentUser!.uid, widget.uid]..sort();
+            final chatId = ids.join('_');
+            Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(otherUid: widget.uid, otherName: name, otherAvatar: name[0].toUpperCase(), chatId: chatId)));
+          })),
         const SizedBox(height: 32),
-      ])),
-    );
+      ])));
   }
 
-  Widget _sectionTitle(String t) => Padding(
+  Widget _statBox(String val, String label, bool visible) => SizedBox(width: 90,
+    child: Column(children: [
+      Text(visible ? val : '—', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+      Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+    ]));
+
+  Widget _secTitle(String t) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
     child: Row(children: [
       Text(t, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -1383,10 +1434,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
       Expanded(child: Divider(color: Colors.grey.withOpacity(0.3))),
     ]));
 
-  Widget _infoRow(IconData icon, String label, String value) => ListTile(
-    dense: true,
-    leading: Container(width: 38, height: 38,
-      decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+  Widget _infoRow(IconData icon, String label, String value) => ListTile(dense: true,
+    leading: Container(width: 38, height: 38, decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
       child: Icon(icon, color: kGreen, size: 18)),
     title: Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11)),
     subtitle: Text(value, style: const TextStyle(fontWeight: FontWeight.w500)));
@@ -1399,10 +1448,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final ec = TextEditingController(text: _user?['education'] ?? '');
     final wc = TextEditingController(text: _user?['work'] ?? '');
     final social = Map<String, dynamic>.from(_user?['social'] ?? {});
-    final socialCtrls = <String, TextEditingController>{};
-    for (final p in _socialPlatforms) {
-      socialCtrls[p['key'] as String] = TextEditingController(text: social[p['key']] ?? '');
-    }
+    final socialCtrls = {for (final p in _socialPlatforms) p['key'] as String: TextEditingController(text: social[p['key']] ?? '')};
 
     showModalBottomSheet(context: context, isScrollControlled: true,
       backgroundColor: Theme.of(context).brightness == Brightness.dark ? kCard : Colors.white,
@@ -1414,35 +1460,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: 16),
           const Text('Edit Profile', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-
           _ef('Name', nc), const SizedBox(height: 10),
           _ef('Bio', bc, lines: 3), const SizedBox(height: 10),
           _ef('City', cc), const SizedBox(height: 10),
           _ef('Hometown', hc), const SizedBox(height: 10),
           _ef('Education', ec), const SizedBox(height: 10),
-          _ef('Work / Occupation', wc), const SizedBox(height: 20),
-
-          Align(alignment: Alignment.centerLeft,
-            child: Text('Social Links', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey[400]))),
+          _ef('Work', wc), const SizedBox(height: 20),
+          Align(alignment: Alignment.centerLeft, child: Text('Social Links', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.grey[400]))),
           const SizedBox(height: 10),
-
-          ...(_socialPlatforms.map((p) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: TextField(
-              controller: socialCtrls[p['key']],
-              decoration: InputDecoration(
-                hintText: '${p['label']} username',
+          ...(_socialPlatforms.map((p) => Padding(padding: const EdgeInsets.only(bottom: 10),
+            child: TextField(controller: socialCtrls[p['key']],
+              decoration: InputDecoration(hintText: '${p['label']} username',
                 prefixIcon: Icon(p['icon'] as IconData, color: p['color'] as Color, size: 20),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: p['color'] as Color)))))).toList()),
-
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: p['color'] as Color))))))).toList()),
           const SizedBox(height: 16),
-          _primaryBtn('Save Changes', () async {
-            final newSocial = <String, String>{};
-            for (final p in _socialPlatforms) {
-              newSocial[p['key'] as String] = socialCtrls[p['key']]!.text.trim();
-            }
+          _btn('Save Changes', () async {
+            final newSocial = {for (final p in _socialPlatforms) p['key'] as String: socialCtrls[p['key']]!.text.trim()};
             await _db.collection('users').doc(widget.uid).update({
               'name': nc.text.trim(), 'bio': bc.text.trim(), 'city': cc.text.trim(),
               'hometown': hc.text.trim(), 'education': ec.text.trim(), 'work': wc.text.trim(),
@@ -1454,10 +1488,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }),
         ]))));
   }
-  Widget _ef(String label, TextEditingController ctrl, {int lines = 1}) => TextField(
-    controller: ctrl, maxLines: lines,
-    decoration: InputDecoration(labelText: label,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+  Widget _ef(String label, TextEditingController ctrl, {int lines = 1}) => TextField(controller: ctrl, maxLines: lines,
+    decoration: InputDecoration(labelText: label, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kGreen))));
 }
 
@@ -1467,14 +1499,20 @@ class SettingsScreen extends StatefulWidget {
   @override State<SettingsScreen> createState() => _SettingsScreenState();
 }
 class _SettingsScreenState extends State<SettingsScreen> {
-  bool _suggestions = true;
+  bool _suggestions = true, _friendsPublic = true;
+  String _profileMode = 'friend';
   Map<String, dynamic>? _user;
   final _myUid = _auth.currentUser!.uid;
 
   @override void initState() { super.initState(); _load(); }
   Future<void> _load() async {
     final doc = await _db.collection('users').doc(_myUid).get();
-    if (mounted) setState(() { _user = doc.data(); _suggestions = doc.data()?['suggestionsEnabled'] ?? true; });
+    if (mounted) setState(() {
+      _user = doc.data();
+      _suggestions = doc.data()?['suggestionsEnabled'] ?? true;
+      _friendsPublic = doc.data()?['friendsPublic'] ?? true;
+      _profileMode = doc.data()?['profileMode'] ?? 'friend';
+    });
   }
 
   Future<void> _signOut() async {
@@ -1483,24 +1521,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
+  Future<void> _update(Map<String, dynamic> data) async => await _db.collection('users').doc(_myUid).update(data);
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final name     = _user?['name'] as String? ?? 'User';
     final username = _user?['username'] as String? ?? '';
     final verified = _user?['verified'] == true;
+    final onWaitlist = _user?['verifiedWaitlist'] == true;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)), elevation: 0),
       body: ListView(children: [
-        // Profile card
         GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid))),
           child: Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(colors: [kGreen.withOpacity(0.15), kGreen.withOpacity(0.05)]),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: kGreen.withOpacity(0.3))),
+              borderRadius: BorderRadius.circular(16), border: Border.all(color: kGreen.withOpacity(0.3))),
             child: Row(children: [
               CircleAvatar(radius: 28, backgroundColor: kGreen,
                 child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))),
@@ -1518,40 +1557,57 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
 
         _sec('Account'),
-        _t(Icons.person_rounded, 'Edit Profile', 'Name, bio, socials',
-          () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid)))),
+        _t(Icons.person_rounded, 'Edit Profile', 'Name, bio, socials', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid)))),
         _t(Icons.lock_rounded, 'Change Password', 'Update your password', () => _changePass(context)),
-        _t(Icons.verified_rounded, 'Get Verified', 'Blue badge for your profile', () => _verify(context)),
+        _t(Icons.verified_rounded, 'Get Verified', verified ? 'You are verified!' : (onWaitlist ? 'On waitlist' : 'Join the waitlist'), () => _verify(context)),
 
-        _sec('Preferences'),
-        _t(Icons.notifications_rounded, 'Notifications', 'Manage alerts', () {}),
-        _t(Icons.palette_rounded, 'Appearance', 'Theme and colors', () {}),
-        _t(Icons.language_rounded, 'Language', 'Bangla / English', () {}),
+        _sec('Profile Mode'),
+        Container(margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: isDark ? kCard : Colors.grey[100], borderRadius: BorderRadius.circular(14)),
+          child: Row(children: [
+            Expanded(child: GestureDetector(
+              onTap: () { setState(() => _profileMode = 'friend'); _update({'profileMode': 'friend'}); },
+              child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(color: _profileMode == 'friend' ? kGreen : Colors.transparent, borderRadius: BorderRadius.circular(10)),
+                child: Center(child: Text('Friend Mode', style: TextStyle(color: _profileMode == 'friend' ? Colors.white : Colors.grey, fontWeight: FontWeight.w600, fontSize: 13)))))),
+            Expanded(child: GestureDetector(
+              onTap: () { setState(() => _profileMode = 'follow'); _update({'profileMode': 'follow'}); },
+              child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(color: _profileMode == 'follow' ? kGreen : Colors.transparent, borderRadius: BorderRadius.circular(10)),
+                child: Center(child: Text('Follow Mode', style: TextStyle(color: _profileMode == 'follow' ? Colors.white : Colors.grey, fontWeight: FontWeight.w600, fontSize: 13)))))),
+          ])),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(_profileMode == 'friend' ? 'Others can send you friend requests and message you.' : 'Others can follow you. Use for public/creator profiles.',
+            style: TextStyle(color: Colors.grey[500], fontSize: 12))),
+
+        _sec('Privacy'),
+        SwitchListTile(value: _friendsPublic, onChanged: (v) { setState(() => _friendsPublic = v); _update({'friendsPublic': v}); },
+          activeColor: kGreen, secondary: _ib(Icons.people_rounded),
+          title: const Text('Public Friends List', style: TextStyle(fontWeight: FontWeight.w500)),
+          subtitle: Text('Show your friends on your profile', style: TextStyle(color: Colors.grey[500], fontSize: 12))),
 
         _sec('Discovery'),
-        SwitchListTile(
-          value: _suggestions,
-          onChanged: (val) async {
-            setState(() => _suggestions = val);
-            await _db.collection('users').doc(_myUid).update({'suggestionsEnabled': val});
-          },
-          activeColor: kGreen,
-          secondary: _ib(Icons.person_search_rounded),
+        SwitchListTile(value: _suggestions, onChanged: (v) { setState(() => _suggestions = v); _update({'suggestionsEnabled': v}); },
+          activeColor: kGreen, secondary: _ib(Icons.person_search_rounded),
           title: const Text('Account Suggestions', style: TextStyle(fontWeight: FontWeight.w500)),
           subtitle: Text('Suggest your profile to others', style: TextStyle(color: Colors.grey[500], fontSize: 12))),
 
+        _sec('Preferences'),
+        _t(Icons.notifications_rounded, 'Notifications', 'Manage push alerts', () {}),
+        _t(Icons.palette_rounded, 'Appearance', 'Theme and colors', () {}),
+        _t(Icons.language_rounded, 'Language', 'Bangla / English', () {}),
+
         _sec('About'),
-        _t(Icons.favorite_rounded, 'Powered by TheKami', 'thekami.tech',
-          () => launchUrl(Uri.parse('https://thekami.tech'), mode: LaunchMode.externalApplication)),
+        _t(Icons.favorite_rounded, 'Powered by TheKami', 'thekami.tech', () => launchUrl(Uri.parse('https://thekami.tech'), mode: LaunchMode.externalApplication)),
         _t(Icons.info_rounded, 'App Version', 'Convo v1.0.2', () {}),
 
         const SizedBox(height: 16),
         Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
           child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.withOpacity(0.1), elevation: 0,
-              minimumSize: const Size(double.infinity, 52),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1), elevation: 0,
+              minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
             icon: const Icon(Icons.logout_rounded, color: Colors.red),
             label: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
             onPressed: _signOut)),
@@ -1565,24 +1621,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.bold)),
       content: TextField(controller: c, obscureText: true,
-        decoration: InputDecoration(hintText: 'New password (min 6 chars)',
+        decoration: InputDecoration(hintText: 'New password (min 6)',
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: kGreen)))),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-          onPressed: () async {
-            if (c.text.length >= 6) {
-              await _auth.currentUser?.updatePassword(c.text);
-              if (mounted) { Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password updated!'), backgroundColor: kGreen)); }
-            }
-          }, child: const Text('Update', style: TextStyle(color: Colors.white))),
+        ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: kGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          onPressed: () async { if (c.text.length >= 6) { await _auth.currentUser?.updatePassword(c.text); Navigator.pop(context); } },
+          child: const Text('Update', style: TextStyle(color: Colors.white))),
       ]));
   }
 
   void _verify(BuildContext context) {
+    final onWaitlist = _user?['verifiedWaitlist'] == true;
+    final verified = _user?['verified'] == true;
     showModalBottomSheet(context: context,
       backgroundColor: Theme.of(context).brightness == Brightness.dark ? kCard : Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -1591,28 +1643,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SizedBox(height: 20),
         const Icon(Icons.verified_rounded, color: kGreen, size: 48),
         const SizedBox(height: 12),
-        const Text('Get Verified', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        Text('Show everyone you are the real deal', textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[400])),
+        Text(verified ? 'You are Verified!' : 'Get Verified', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Text(verified ? 'Your account has a blue badge.'
+          : onWaitlist ? 'You are on the waitlist. We will notify you!'
+          : 'Join the waitlist to get your blue badge.',
+          textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[400])),
         const SizedBox(height: 24),
-        _planTile('Monthly', '\$1.99 / month', false),
-        const SizedBox(height: 10),
-        _planTile('Yearly', '\$14.99 / year  — Save 37%', true),
-        const SizedBox(height: 20),
-        _primaryBtn('Coming Soon', () => Navigator.pop(context)),
+        if (!verified && !onWaitlist) _btn('Join Waitlist', () async {
+          await _db.collection('users').doc(_myUid).update({'verifiedWaitlist': true});
+          await _db.collection('verify_waitlist').doc(_myUid).set({'uid': _myUid, 'name': _user?['name'], 'username': _user?['username'], 'joinedAt': FieldValue.serverTimestamp()});
+          if (mounted) { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Added to waitlist!'), backgroundColor: kGreen)); _load(); }
+        }),
+        if (verified || onWaitlist) _btn(verified ? 'Awesome!' : 'On Waitlist', () => Navigator.pop(context)),
       ])));
   }
-  Widget _planTile(String t, String p, bool highlight) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-    decoration: BoxDecoration(
-      border: Border.all(color: highlight ? kGreen : Colors.grey[700]!),
-      borderRadius: BorderRadius.circular(12),
-      color: highlight ? kGreen.withOpacity(0.08) : Colors.transparent),
-    child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-      Text(t, style: const TextStyle(fontWeight: FontWeight.w600)),
-      Text(p, style: TextStyle(color: highlight ? kGreen : Colors.grey[400], fontSize: 13))]));
-  Widget _sec(String t) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
+
+  Widget _sec(String t) => Padding(padding: const EdgeInsets.fromLTRB(16, 20, 16, 4),
     child: Text(t.toUpperCase(), style: const TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.4)));
   Widget _t(IconData icon, String title, String sub, VoidCallback onTap) => ListTile(
     leading: _ib(icon), title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
@@ -1629,25 +1676,22 @@ Widget _errorBox(String msg) => Container(
   decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(12),
     border: Border.all(color: Colors.red.withOpacity(0.3))),
   child: Row(children: [
-    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
-    const SizedBox(width: 8),
+    const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18), const SizedBox(width: 8),
     Expanded(child: Text(msg, style: const TextStyle(color: Colors.red, fontSize: 13))),
   ]));
 
-Widget _inputField(String hint, IconData icon, TextEditingController ctrl, bool obscure, bool isDark, Color bg) =>
-  TextField(
-    controller: ctrl, obscureText: obscure,
+Widget _tf(String hint, IconData icon, TextEditingController ctrl, bool obscure, bool isDark, Color bg, {TextInputType? type}) =>
+  TextField(controller: ctrl, obscureText: obscure, keyboardType: type,
     style: TextStyle(color: isDark ? Colors.white : Colors.black),
     decoration: InputDecoration(hintText: hint, hintStyle: TextStyle(color: Colors.grey[500]),
       prefixIcon: Icon(icon, color: Colors.grey), filled: true, fillColor: bg,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none)));
 
-Widget _primaryBtn(String label, VoidCallback? onTap, {bool loading = false}) => SizedBox(
+Widget _btn(String label, VoidCallback? onTap, {bool loading = false}) => SizedBox(
   width: double.infinity, height: 54,
   child: ElevatedButton(
     style: ElevatedButton.styleFrom(backgroundColor: kGreen, elevation: 0,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
     onPressed: onTap,
-    child: loading
-      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+    child: loading ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
       : Text(label, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold))));
