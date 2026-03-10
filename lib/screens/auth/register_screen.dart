@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants.dart';
 import '../../widgets/common_widgets.dart';
@@ -134,13 +133,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: kGreen.withOpacity(0.2))),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Container(width: 48, height: 48,
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]),
-                    borderRadius: BorderRadius.circular(14)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: SvgPicture.asset('assets/white_logo.svg', fit: BoxFit.contain))),
+                Stack(
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    Text('Convo',
+                      style: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                        foreground: Paint()
+                          ..style = PaintingStyle.stroke
+                          ..strokeWidth = 2.5
+                          ..color = kGreen,
+                      )),
+                    Text('Convo',
+                      style: TextStyle(
+                        fontSize: 40,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
+                        foreground: Paint()
+                          ..style = PaintingStyle.fill
+                          ..color = kGreen.withOpacity(0.08),
+                      )),
+                  ]),
                 const SizedBox(height: 16),
                 Text(_step == 0 ? 'Create Account' : 'Set Password',
                   style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, height: 1.1)),

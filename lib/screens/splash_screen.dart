@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../core/constants.dart';
 import 'auth/login_screen.dart';
 import 'main_screen.dart';
@@ -36,21 +35,30 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     body: FadeTransition(opacity: _fade, child: Center(child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        ScaleTransition(scale: _scale, child: Container(
-          width: 100, height: 100,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF00E676), kGreen],
-              begin: Alignment.topLeft, end: Alignment.bottomRight),
-            borderRadius: BorderRadius.circular(28),
-            boxShadow: [BoxShadow(color: kGreen.withOpacity(0.4), blurRadius: 30, offset: const Offset(0, 8))]),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SvgPicture.asset('assets/white_logo.svg', fit: BoxFit.contain)))),
-        const SizedBox(height: 24),
-        const Text('Convo',
-          style: TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
-        const SizedBox(height: 8),
+        ScaleTransition(scale: _scale, child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Text('Convo',
+              style: TextStyle(
+                fontSize: 64,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 3,
+                foreground: Paint()
+                  ..style = PaintingStyle.stroke
+                  ..strokeWidth = 3
+                  ..color = kGreen,
+              )),
+            Text('Convo',
+              style: TextStyle(
+                fontSize: 64,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 3,
+                foreground: Paint()
+                  ..style = PaintingStyle.fill
+                  ..color = kGreen.withOpacity(0.08),
+              )),
+          ])),
+        const SizedBox(height: 16),
         const Text('powered by TheKami', style: TextStyle(color: Colors.grey, fontSize: 13)),
       ]))));
 }

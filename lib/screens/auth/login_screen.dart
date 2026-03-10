@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/constants.dart';
 import '../../widgets/common_widgets.dart';
@@ -166,18 +165,30 @@ class _LoginScreenState extends State<LoginScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 28),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           const SizedBox(height: 52),
-          // Logo
-          Row(children: [
-            Container(width: 48, height: 48,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]),
-                borderRadius: BorderRadius.circular(14)),
-              child: Padding(
-                padding: const EdgeInsets.all(10),
-                child: SvgPicture.asset('assets/white_logo.svg', fit: BoxFit.contain))),
-            const SizedBox(width: 12),
-            const Text('Convo', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-          ]),
+          // Logo text
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Text('Convo',
+                style: TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                  foreground: Paint()
+                    ..style = PaintingStyle.stroke
+                    ..strokeWidth = 2.5
+                    ..color = kGreen,
+                )),
+              Text('Convo',
+                style: TextStyle(
+                  fontSize: 48,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 2,
+                  foreground: Paint()
+                    ..style = PaintingStyle.fill
+                    ..color = kGreen.withOpacity(0.08),
+                )),
+            ]),
           const SizedBox(height: 36),
           const Text('Welcome back', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
           const SizedBox(height: 6),
