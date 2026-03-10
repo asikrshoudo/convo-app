@@ -18,18 +18,21 @@ jobs:
           flutter-version: '3.22.0'
 
       - name: Create Flutter project
+        run: flutter create --org com.thekami --project-name convo /tmp/convo
+
+      - name: Copy source files
         run: |
-          flutter create --org com.thekami --project-name convo /tmp/convo
           cp $GITHUB_WORKSPACE/lib/main.dart /tmp/convo/lib/main.dart
           cp $GITHUB_WORKSPACE/pubspec.yaml /tmp/convo/pubspec.yaml
 
       - name: Write google-services.json
-        run: |
-          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > /tmp/convo/android/app/google-services.json
+        env:
+          GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: echo "$GOOGLE_SERVICES" > /tmp/convo/android/app/google-services.json
 
-      - name: Fix project build.gradle
+      - name: Write project build.gradle
         run: |
-          cat > /tmp/convo/android/build.gradle << 'GRADLE'
+          cat > /tmp/convo/android/build.gradle << 'EOF'
 buildscript {
     repositories {
         google()
@@ -40,14 +43,12 @@ buildscript {
         classpath 'com.google.gms:google-services:4.4.0'
     }
 }
-
 allprojects {
     repositories {
         google()
         mavenCentral()
     }
 }
-
 rootProject.buildDir = '../build'
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
@@ -55,36 +56,31 @@ subprojects {
 subprojects {
     project.evaluationDependsOn(':app')
 }
-
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
-GRADLE
+EOF
 
-      - name: Fix app build.gradle
+      - name: Write app build.gradle
         run: |
-          cat > /tmp/convo/android/app/build.gradle << 'GRADLE'
+          cat > /tmp/convo/android/app/build.gradle << 'EOF'
 plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
     id "com.google.gms.google-services"
 }
-
 android {
     namespace "com.thekami.convo"
     compileSdk 34
     ndkVersion "25.1.8937393"
-
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
-
     kotlinOptions {
         jvmTarget = '1.8'
     }
-
     defaultConfig {
         applicationId "com.thekami.convo"
         minSdk 24
@@ -92,7 +88,6 @@ android {
         versionCode 4
         versionName "1.0.0.4"
     }
-
     buildTypes {
         release {
             signingConfig signingConfigs.debug
@@ -100,19 +95,17 @@ android {
         }
     }
 }
-
 flutter {
     source '../..'
 }
-
 dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.0.0')
 }
-GRADLE
+EOF
 
-      - name: Add Internet permission
+      - name: Add permissions to AndroidManifest
         run: |
-          sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
+          sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
         run: |
@@ -121,8 +114,7 @@ GRADLE
           flutter build apk --release --target-platform android-arm64 --split-per-abi
 
       - name: Rename APK
-        run: |
-          find /tmp/convo/build/app/outputs/flutter-apk/ -name "*.apk" -exec mv {} /tmp/convo/build/app/outputs/flutter-apk/convo.apk \;
+        run: find /tmp/convo/build/app/outputs/flutter-apk/ -name "*.apk" -exec mv {} /tmp/convo/build/app/outputs/flutter-apk/convo.apk \;
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
