@@ -40,11 +40,40 @@ jobs:
       - name: Create proguard-rules.pro
         run: touch android/app/proguard-rules.pro
 
+      - name: Setup keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/convo.jks
+
       - name: Build APK
+        env:
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
           flutter pub get
           dart run flutter_launcher_icons
-          flutter build apk --release --target-platform android-arm64 --split-per-abi
+          flutter build apk --release --target-platform android-arm64 --split-per-abi \
+            --dart-define=KEY_ALIAS=$KEY_ALIAS \
+            --dart-define=KEY_PASSWORD=$KEY_PASSWORD \
+            --dart-define=STORE_PASSWORD=$STORE_PASSWORD
+
+      - name: Sign APK
+        env:
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+        run: |
+          for apk in build/app/outputs/flutter-apk/*.apk; do
+            jarsigner -verbose \
+              -sigalg SHA256withRSA \
+              -digestalg SHA-256 \
+              -keystore android/app/convo.jks \
+              -storepass "$STORE_PASSWORD" \
+              -keypass "$KEY_PASSWORD" \
+              "$apk" "$KEY_ALIAS"
+          done
 
       - name: Create Release
         uses: softprops/action-gh-release@v2

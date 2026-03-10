@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants.dart';
 import '../chats/chat_screen.dart';
@@ -12,6 +14,8 @@ class FriendsScreen extends StatefulWidget {
 
 class _FriendsScreenState extends State<FriendsScreen>
     with SingleTickerProviderStateMixin {
+  static const _notifyBase = 'https://convo-notify.onrender.com';
+
   late TabController _tab;
   final _searchCtrl = TextEditingController();
   final _myUid = auth.currentUser!.uid;
@@ -125,6 +129,15 @@ class _FriendsScreenState extends State<FriendsScreen>
         'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
       });
+      // Notify receiver
+      try {
+        final my2 = await db.collection('users').doc(_myUid).get();
+        await http.post(
+          Uri.parse('$_notifyBase/notify/friend-request'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'fromUid': _myUid, 'fromName': my2.data()?['name'] ?? 'User', 'toUid': toUid}),
+        );
+      } catch (_) {}
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -157,6 +170,15 @@ Future<void> _accept(String docId, String fromUid) async {
       .collection('users')
       .doc(fromUid)
       .update({'friendCount': FieldValue.increment(1)});
+  // Notify the original sender that request was accepted
+  try {
+    final me = await db.collection('users').doc(_myUid).get();
+    await http.post(
+      Uri.parse('$_notifyBase/notify/friend-accepted'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'fromUid': fromUid, 'accepterName': me.data()?['name'] ?? 'Someone'}),
+    );
+  } catch (_) {}
   if (mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Friend added!'), backgroundColor: kGreen),
