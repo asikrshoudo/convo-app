@@ -22,18 +22,97 @@ jobs:
           flutter create --org com.thekami --project-name convo /tmp/convo
           cp $GITHUB_WORKSPACE/lib/main.dart /tmp/convo/lib/main.dart
           cp $GITHUB_WORKSPACE/pubspec.yaml /tmp/convo/pubspec.yaml
-          mkdir -p /tmp/convo/android/app
-          cp $GITHUB_WORKSPACE/android/app/google-services.json /tmp/convo/android/app/google-services.json
 
-      - name: Configure Android
+      - name: Write google-services.json from secret
+        run: |
+          echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > /tmp/convo/android/app/google-services.json
+
+      - name: Configure Android permissions
         run: |
           sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
           sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' /tmp/convo/android/app/build.gradle
 
-      - name: Add Google Services plugin
+      - name: Fix project-level build.gradle
         run: |
-          sed -i '/^plugins {/a\    id("com.google.gms.google-services") version "4.4.0" apply false' /tmp/convo/android/build.gradle
-          sed -i '/^plugins {/a\    id("com.google.gms.google-services")' /tmp/convo/android/app/build.gradle
+          cat > /tmp/convo/android/build.gradle << 'GRADLE'
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.1.0'
+                  classpath 'com.google.gms:google-services:4.4.0'
+              }
+          }
+
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+
+          rootProject.buildDir = '../build'
+          subprojects {
+              project.buildDir = "${rootProject.buildDir}/${project.name}"
+          }
+          subprojects {
+              project.evaluationDependsOn(':app')
+          }
+
+          tasks.register("clean", Delete) {
+              delete rootProject.buildDir
+          }
+          GRADLE
+
+      - name: Fix app-level build.gradle
+        run: |
+          cat > /tmp/convo/android/app/build.gradle << 'GRADLE'
+          plugins {
+              id "com.android.application"
+              id "kotlin-android"
+              id "dev.flutter.flutter-gradle-plugin"
+              id "com.google.gms.google-services"
+          }
+
+          android {
+              namespace "com.thekami.convo"
+              compileSdk flutter.compileSdkVersion
+              ndkVersion flutter.ndkVersion
+
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_1_8
+                  targetCompatibility JavaVersion.VERSION_1_8
+              }
+
+              kotlinOptions {
+                  jvmTarget = '1.8'
+              }
+
+              defaultConfig {
+                  applicationId "com.thekami.convo"
+                  minSdk 24
+                  targetSdk flutter.targetSdkVersion
+                  versionCode flutter.versionCode
+                  versionName flutter.versionName
+              }
+
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.debug
+                  }
+              }
+          }
+
+          flutter {
+              source '../..'
+          }
+
+          dependencies {
+              implementation platform('com.google.firebase:firebase-bom:33.0.0')
+          }
+          GRADLE
 
       - name: Build APK
         run: |
@@ -52,13 +131,12 @@ jobs:
           name: Convo v1.0.0.4
           body: |
             ## Convo v1.0.0.4
-            - Firebase Auth live (Email/Password)
-            - Create Account screen
-            - Real user search (Firestore)
-            - Account suggestion toggle
-            - Profile: bio, city, education, social links
-            - Sign Out button
-            - Powered by TheKami
+            - Firebase Auth live
+            - Create Account
+            - Real user search
+            - Suggestion toggle
+            - Social links
+            - Sign Out
           files: /tmp/convo/build/app/outputs/flutter-apk/convo.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
