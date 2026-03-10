@@ -117,8 +117,12 @@ class _LoginScreenState extends State<LoginScreen> {
       final gAuth = await gUser.authentication;
       final cred = GoogleAuthProvider.credential(accessToken: gAuth.accessToken, idToken: gAuth.idToken);
       final result = await _auth.signInWithCredential(cred);
-      await _ensureUserDoc(result.user!);
-      await _afterLogin();
+      final isNew = await _ensureUserDoc(result.user!);
+      if (isNew) {
+        if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => UsernameSetupScreen(user: result.user!)));
+      } else {
+        await _afterLogin();
+      }
     } on FirebaseAuthException catch (e) { setState(() => _error = _err(e.code)); }
     finally { if (mounted) setState(() => _loading = false); }
   }
@@ -127,8 +131,12 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() { _loading = true; _error = null; });
     try {
       final result = await _auth.signInWithProvider(GithubAuthProvider());
-      await _ensureUserDoc(result.user!);
-      await _afterLogin();
+      final isNew = await _ensureUserDoc(result.user!);
+      if (isNew) {
+        if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => UsernameSetupScreen(user: result.user!)));
+      } else {
+        await _afterLogin();
+      }
     } on FirebaseAuthException catch (e) { setState(() => _error = _err(e.code)); }
     finally { if (mounted) setState(() => _loading = false); }
   }
@@ -140,7 +148,12 @@ class _LoginScreenState extends State<LoginScreen> {
       phoneNumber: _phoneCtrl.text.trim(),
       verificationCompleted: (cred) async {
         final r = await _auth.signInWithCredential(cred);
-        await _ensureUserDoc(r.user!); await _afterLogin();
+        final isNew = await _ensureUserDoc(r.user!);
+        if (isNew) {
+          if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => UsernameSetupScreen(user: r.user!)));
+        } else {
+          await _afterLogin();
+        }
       },
       verificationFailed: (e) => setState(() { _error = _err(e.code); _loading = false; }),
       codeSent: (vId, _) => setState(() { _verificationId = vId; _otpSent = true; _loading = false; }),
@@ -153,7 +166,12 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       final cred = PhoneAuthProvider.credential(verificationId: _verificationId!, smsCode: _otpCtrl.text.trim());
       final r = await _auth.signInWithCredential(cred);
-      await _ensureUserDoc(r.user!); await _afterLogin();
+      final isNew = await _ensureUserDoc(r.user!);
+      if (isNew) {
+        if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => UsernameSetupScreen(user: r.user!)));
+      } else {
+        await _afterLogin();
+      }
     } on FirebaseAuthException catch (e) { setState(() => _error = _err(e.code)); }
     finally { if (mounted) setState(() => _loading = false); }
   }
@@ -168,28 +186,14 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _ensureUserDoc(User user) async {
+  // Returns true if this is a brand-new user (needs username setup)
+  Future<bool> _ensureUserDoc(User user) async {
     final doc = await _db.collection('users').doc(user.uid).get();
     if (!doc.exists) {
-      final name = user.displayName ?? user.email?.split('@').first ?? 'User';
-      final fcm  = await FirebaseMessaging.instance.getToken();
-      await _db.collection('users').doc(user.uid).set({
-        'uid': user.uid, 'name': name,
-        'username': '${name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')}_${user.uid.substring(0, 4)}',
-        'email': user.email ?? '', 'phone': user.phoneNumber ?? '',
-        'avatar': name[0].toUpperCase(), 'gender': '',
-        'verified': false, 'verifiedWaitlist': false,
-        'suggestionsEnabled': true, 'friendsPublic': true,
-        'profileMode': 'friend', // 'friend' or 'follow'
-        'bio': '', 'city': '', 'education': '', 'work': '', 'hometown': '',
-        'phone': '', 'phoneNormalized': '',
-        'social': {'facebook': '', 'instagram': '', 'github': '', 'linkedin': '', 'twitter': ''},
-        'followerCount': 0, 'followingCount': 0, 'friendCount': 0,
-        'fcmToken': fcm ?? '', 'isOnline': true,
-        'lastSeen': FieldValue.serverTimestamp(),
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+      // New user — do NOT generate username here; let UsernameSetupScreen handle it
+      return true;
     }
+    return false;
   }
 
   Future<void> _afterLogin() async {
@@ -369,7 +373,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     try {
       final cred = await _auth.createUserWithEmailAndPassword(email: _emailCtrl.text.trim(), password: _passCtrl.text.trim());
       await cred.user!.sendEmailVerification();
-      final fcm = await FirebaseMessaging.instance.getToken();
+      // Save user doc immediately (fast) — FCM token fetched in background
       await _db.collection('users').doc(cred.user!.uid).set({
         'uid': cred.user!.uid, 'name': _nameCtrl.text.trim(),
         'username': _uCtrl.text.trim().toLowerCase(),
@@ -379,12 +383,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'suggestionsEnabled': true, 'friendsPublic': true,
         'profileMode': 'friend',
         'bio': '', 'city': '', 'education': '', 'work': '', 'hometown': '',
-        'phone': '', 'phoneNormalized': '',
+        'phoneNormalized': '',
         'social': {'facebook': '', 'instagram': '', 'github': '', 'linkedin': '', 'twitter': ''},
         'followerCount': 0, 'followingCount': 0, 'friendCount': 0,
-        'fcmToken': fcm ?? '', 'isOnline': true,
+        'fcmToken': '', 'isOnline': true,
         'lastSeen': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
+      });
+      // Update FCM token in background — don't block account creation
+      FirebaseMessaging.instance.getToken().then((fcm) {
+        if (fcm != null) _db.collection('users').doc(cred.user!.uid).update({'fcmToken': fcm});
       });
       await cred.user!.updateDisplayName(_nameCtrl.text.trim());
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen()));
@@ -506,6 +514,146 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const SizedBox(height: 24),
             _btn('Create Account', _loading ? null : _register, loading: _loading),
           ],
+          const SizedBox(height: 32),
+        ]))));
+  }
+}
+
+// ─── USERNAME SETUP (OAuth / Phone new users) ─────────
+class UsernameSetupScreen extends StatefulWidget {
+  final User user;
+  const UsernameSetupScreen({super.key, required this.user});
+  @override State<UsernameSetupScreen> createState() => _UsernameSetupScreenState();
+}
+class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
+  final _uCtrl = TextEditingController();
+  String? _uStatus = '';
+  Timer? _debounce;
+  final List<String> _suggestions = [];
+  bool _loading = false;
+  String? _error;
+
+  void _onUChange(String val) {
+    _debounce?.cancel();
+    if (val.isEmpty) { setState(() { _uStatus = ''; _suggestions.clear(); }); return; }
+    setState(() => _uStatus = 'checking');
+    _debounce = Timer(const Duration(milliseconds: 500), () => _checkU(val));
+  }
+
+  Future<void> _checkU(String u) async {
+    final clean = u.trim().toLowerCase();
+    if (clean.length < 3) { setState(() { _uStatus = 'short'; _suggestions.clear(); }); return; }
+    if (clean.length > 20) { setState(() { _uStatus = 'long'; _suggestions.clear(); }); return; }
+    if (!RegExp(r'^[a-z0-9_]+$').hasMatch(clean)) { setState(() { _uStatus = 'invalid'; _suggestions.clear(); }); return; }
+    final snap = await _db.collection('users').where('username', isEqualTo: clean).get();
+    if (!mounted) return;
+    if (snap.docs.isEmpty) {
+      setState(() { _uStatus = 'ok'; _suggestions.clear(); });
+    } else {
+      final base = clean.replaceAll(RegExp(r'\d+$'), '');
+      setState(() { _uStatus = 'taken'; _suggestions.clear();
+        _suggestions.addAll(['${base}_official', '${base}__', '${base}x', '${base}real', '${base}${DateTime.now().year % 100}']); });
+    }
+  }
+
+  Future<void> _save() async {
+    final clean = _uCtrl.text.trim().toLowerCase();
+    if (_uStatus != 'ok') { setState(() => _error = 'Choose a valid, available username'); return; }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final u = widget.user;
+      final name = u.displayName ?? u.email?.split('@').first ?? u.phoneNumber ?? 'User';
+      await _db.collection('users').doc(u.uid).set({
+        'uid': u.uid, 'name': name,
+        'username': clean,
+        'email': u.email ?? '', 'phone': u.phoneNumber ?? '',
+        'avatar': name[0].toUpperCase(), 'gender': '',
+        'verified': false, 'verifiedWaitlist': false,
+        'suggestionsEnabled': true, 'friendsPublic': true,
+        'profileMode': 'friend',
+        'bio': '', 'city': '', 'education': '', 'work': '', 'hometown': '',
+        'phoneNormalized': '',
+        'social': {'facebook': '', 'instagram': '', 'github': '', 'linkedin': '', 'twitter': ''},
+        'followerCount': 0, 'followingCount': 0, 'friendCount': 0,
+        'fcmToken': '', 'isOnline': true,
+        'lastSeen': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      // FCM token in background — don't slow down first login
+      FirebaseMessaging.instance.getToken().then((fcm) {
+        if (fcm != null) _db.collection('users').doc(u.uid).update({'fcmToken': fcm});
+      });
+      await _db.collection('users').doc(u.uid).update({'isOnline': true});
+      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen()));
+    } catch (e) {
+      setState(() => _error = 'Something went wrong. Try again.');
+    } finally { if (mounted) setState(() => _loading = false); }
+  }
+
+  @override void dispose() { _uCtrl.dispose(); _debounce?.cancel(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? kCard : Colors.grey[100]!;
+
+    Color uColor = Colors.grey; IconData uIcon = Icons.alternate_email; String uHint = '';
+    if (_uStatus == 'checking') { uColor = Colors.orange; uHint = 'Checking...'; }
+    else if (_uStatus == 'ok')   { uColor = kGreen; uIcon = Icons.check_circle_outline; uHint = 'Available ✓'; }
+    else if (_uStatus == 'taken') { uColor = Colors.red; uIcon = Icons.cancel_outlined; uHint = 'Already taken'; }
+    else if (_uStatus == 'short') { uColor = Colors.orange; uHint = 'Minimum 3 characters'; }
+    else if (_uStatus == 'long')  { uColor = Colors.red; uHint = 'Maximum 20 characters'; }
+    else if (_uStatus == 'invalid') { uColor = Colors.red; uHint = 'Only a-z, 0-9 and _ allowed'; }
+
+    return Scaffold(
+      backgroundColor: isDark ? kDark : Colors.white,
+      body: SafeArea(child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const SizedBox(height: 52),
+          Row(children: [
+            Container(width: 48, height: 48,
+              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]), borderRadius: BorderRadius.circular(14)),
+              child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 28)),
+            const SizedBox(width: 12),
+            const Text('Convo', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 36),
+          const Text('Choose your username', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 6),
+          Text('Pick a unique username. You can change it later in settings.',
+            style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+          const SizedBox(height: 28),
+          if (_error != null) _errorBox(_error!),
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            TextField(
+              controller: _uCtrl, onChanged: _onUChange,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]'))],
+              style: TextStyle(color: isDark ? Colors.white : Colors.black),
+              decoration: InputDecoration(
+                hintText: 'username', hintStyle: TextStyle(color: Colors.grey[500]),
+                prefixIcon: Icon(uIcon, color: uColor),
+                suffixIcon: _uStatus == 'checking'
+                  ? const Padding(padding: EdgeInsets.all(12),
+                      child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange)))
+                  : null,
+                filled: true, fillColor: bg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: uColor, width: 1.5)))),
+            if (uHint.isNotEmpty) Padding(padding: const EdgeInsets.only(left: 12, top: 4),
+              child: Text(uHint, style: TextStyle(color: uColor, fontSize: 12))),
+            if (_suggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(spacing: 8, runSpacing: 6, children: _suggestions.map((s) =>
+                GestureDetector(onTap: () { _uCtrl.text = s; _checkU(s); },
+                  child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: kGreen.withOpacity(0.4))),
+                    child: Text(s, style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w500))))).toList()),
+            ],
+          ]),
+          const SizedBox(height: 24),
+          _btn('Continue', _loading ? null : _save, loading: _loading),
           const SizedBox(height: 32),
         ]))));
   }
@@ -1225,14 +1373,26 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
 
         // Requests tab
         StreamBuilder<QuerySnapshot>(
-          stream: _db.collection('friend_requests').where('to', isEqualTo: _myUid).where('status', isEqualTo: 'pending').orderBy('timestamp', descending: true).snapshots(),
+          stream: _db.collection('friend_requests')
+            .where('to', isEqualTo: _myUid)
+            .where('status', isEqualTo: 'pending')
+            .snapshots(),
           builder: (_, snap) {
+            if (snap.hasError) return Center(child: Text('Error: ${snap.error}', style: const TextStyle(color: Colors.red)));
             if (!snap.hasData || snap.data!.docs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.inbox_rounded, size: 48, color: Colors.grey[600]),
               const SizedBox(height: 12),
               Text('No pending requests', style: TextStyle(color: Colors.grey[500])),
             ]));
-            return ListView(children: snap.data!.docs.map((doc) {
+            // Sort client-side (newest first) — avoids Firestore composite index requirement
+            final docs = snap.data!.docs.toList()..sort((a, b) {
+              final aTs = (a.data() as Map)['timestamp'];
+              final bTs = (b.data() as Map)['timestamp'];
+              if (aTs == null && bTs == null) return 0;
+              if (aTs == null) return 1; if (bTs == null) return -1;
+              return (bTs as dynamic).compareTo(aTs);
+            });
+            return ListView(children: docs.map((doc) {
               final d = doc.data() as Map<String, dynamic>;
               return ListTile(
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
