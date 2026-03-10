@@ -30,82 +30,30 @@ jobs:
           GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: echo "$GOOGLE_SERVICES" > /tmp/convo/android/app/google-services.json
 
-      - name: Write project build.gradle
+      - name: Setup Firebase in Gradle
         run: |
-          cat > /tmp/convo/android/build.gradle << 'EOF'
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.1.0'
-        classpath 'com.google.gms:google-services:4.4.0'
-    }
-}
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-rootProject.buildDir = '../build'
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(':app')
-}
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
-}
-EOF
+          python3 - << 'PYEOF'
+          import re
 
-      - name: Write app build.gradle
-        run: |
-          cat > /tmp/convo/android/app/build.gradle << 'EOF'
-plugins {
-    id "com.android.application"
-    id "kotlin-android"
-    id "dev.flutter.flutter-gradle-plugin"
-    id "com.google.gms.google-services"
-}
-android {
-    namespace "com.thekami.convo"
-    compileSdk 34
-    ndkVersion "25.1.8937393"
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
-    kotlinOptions {
-        jvmTarget = '1.8'
-    }
-    defaultConfig {
-        applicationId "com.thekami.convo"
-        minSdk 24
-        targetSdk 34
-        versionCode 4
-        versionName "1.0.0.4"
-    }
-    buildTypes {
-        release {
-            signingConfig signingConfigs.debug
-            minifyEnabled false
-        }
-    }
-}
-flutter {
-    source '../..'
-}
-dependencies {
-    implementation platform('com.google.firebase:firebase-bom:33.0.0')
-}
-EOF
+          # project build.gradle
+          proj = open('/tmp/convo/android/build.gradle').read()
+          proj = proj.replace(
+            'dependencies {',
+            'dependencies {\n        classpath "com.google.gms:google-services:4.4.0"',
+            1
+          )
+          open('/tmp/convo/android/build.gradle', 'w').write(proj)
 
-      - name: Add permissions to AndroidManifest
+          # app build.gradle
+          app = open('/tmp/convo/android/app/build.gradle').read()
+          app = 'apply plugin: "com.google.gms.google-services"\n' + app
+          app = app.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
+          open('/tmp/convo/android/app/build.gradle', 'w').write(app)
+          PYEOF
+
+      - name: Add Internet permission
         run: |
-          sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
+          sed -i 's|</manifest>|    <uses-permission android:name="android.permission.INTERNET"/>\n</manifest>|' /tmp/convo/android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
         run: |
@@ -121,14 +69,7 @@ EOF
         with:
           tag_name: v1.0.0.4
           name: Convo v1.0.0.4
-          body: |
-            ## Convo v1.0.0.4
-            - Firebase Auth live
-            - Create Account
-            - Real user search
-            - Suggestion toggle
-            - Social links
-            - Sign Out
+          body: "Convo v1.0.0.4 - Firebase live, Create Account, User Search"
           files: /tmp/convo/build/app/outputs/flutter-apk/convo.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
