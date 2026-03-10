@@ -30,41 +30,38 @@ jobs:
           GOOGLE_SERVICES: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: echo "$GOOGLE_SERVICES" > /tmp/convo/android/app/google-services.json
 
-      - name: Show original gradle files
-        run: |
-          echo "=== PROJECT build.gradle ==="
-          cat /tmp/convo/android/build.gradle
-          echo "=== APP build.gradle ==="
-          cat /tmp/convo/android/app/build.gradle
-
-      - name: Rewrite project build.gradle
+      - name: Fix settings.gradle for Firebase
         run: |
           python3 - << 'PYEOF'
-          content = open('/tmp/convo/android/build.gradle').read()
-          print("ORIGINAL:")
+          import re
+          content = open('/tmp/convo/android/settings.gradle').read()
+          print("ORIGINAL settings.gradle:")
           print(content)
-          # Add google services classpath
+          # Add google services to pluginManagement
           content = content.replace(
-              'classpath "com.android.tools.build:gradle:',
-              'classpath "com.google.gms:google-services:4.4.0"\n        classpath "com.android.tools.build:gradle:'
+              'plugins {',
+              'plugins {\n    id "com.google.gms.google-services" version "4.4.0" apply false'
           )
-          open('/tmp/convo/android/build.gradle', 'w').write(content)
-          print("MODIFIED:")
+          open('/tmp/convo/android/settings.gradle', 'w').write(content)
+          print("MODIFIED settings.gradle:")
           print(content)
           PYEOF
 
-      - name: Rewrite app build.gradle
+      - name: Fix app build.gradle for Firebase
         run: |
           python3 - << 'PYEOF'
           content = open('/tmp/convo/android/app/build.gradle').read()
-          print("ORIGINAL:")
+          print("ORIGINAL app/build.gradle:")
           print(content)
+          # Add google-services inside plugins block
+          content = content.replace(
+              'id "dev.flutter.flutter-gradle-plugin"',
+              'id "dev.flutter.flutter-gradle-plugin"\n    id "com.google.gms.google-services"'
+          )
           # Fix minSdk
           content = content.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
-          # Add google services at the very end
-          content = content + '\napply plugin: "com.google.gms.google-services"\n'
           open('/tmp/convo/android/app/build.gradle', 'w').write(content)
-          print("MODIFIED:")
+          print("MODIFIED app/build.gradle:")
           print(content)
           PYEOF
 
