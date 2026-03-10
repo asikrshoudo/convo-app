@@ -28,6 +28,7 @@ jobs:
           cp $GITHUB_WORKSPACE/android/build.gradle /tmp/convo/android/build.gradle
           cp $GITHUB_WORKSPACE/android/app/build.gradle /tmp/convo/android/app/build.gradle
           cp $GITHUB_WORKSPACE/android/app/src/main/AndroidManifest.xml /tmp/convo/android/app/src/main/AndroidManifest.xml
+          cp $GITHUB_WORKSPACE/android/gradle/wrapper/gradle-wrapper.properties /tmp/convo/android/gradle/wrapper/gradle-wrapper.properties
 
       - name: Write google-services.json
         env:
