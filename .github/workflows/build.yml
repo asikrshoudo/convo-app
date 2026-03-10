@@ -23,96 +23,96 @@ jobs:
           cp $GITHUB_WORKSPACE/lib/main.dart /tmp/convo/lib/main.dart
           cp $GITHUB_WORKSPACE/pubspec.yaml /tmp/convo/pubspec.yaml
 
-      - name: Write google-services.json from secret
+      - name: Write google-services.json
         run: |
           echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > /tmp/convo/android/app/google-services.json
 
-      - name: Configure Android permissions
-        run: |
-          sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 24/' /tmp/convo/android/app/build.gradle
-
-      - name: Fix project-level build.gradle
+      - name: Fix project build.gradle
         run: |
           cat > /tmp/convo/android/build.gradle << 'GRADLE'
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.1.0'
-                  classpath 'com.google.gms:google-services:4.4.0'
-              }
-          }
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.1.0'
+        classpath 'com.google.gms:google-services:4.4.0'
+    }
+}
 
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-          }
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
 
-          rootProject.buildDir = '../build'
-          subprojects {
-              project.buildDir = "${rootProject.buildDir}/${project.name}"
-          }
-          subprojects {
-              project.evaluationDependsOn(':app')
-          }
+rootProject.buildDir = '../build'
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+}
+subprojects {
+    project.evaluationDependsOn(':app')
+}
 
-          tasks.register("clean", Delete) {
-              delete rootProject.buildDir
-          }
-          GRADLE
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
+}
+GRADLE
 
-      - name: Fix app-level build.gradle
+      - name: Fix app build.gradle
         run: |
           cat > /tmp/convo/android/app/build.gradle << 'GRADLE'
-          plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
-              id "com.google.gms.google-services"
-          }
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+    id "com.google.gms.google-services"
+}
 
-          android {
-              namespace "com.thekami.convo"
-              compileSdk flutter.compileSdkVersion
-              ndkVersion flutter.ndkVersion
+android {
+    namespace "com.thekami.convo"
+    compileSdk 34
+    ndkVersion "25.1.8937393"
 
-              compileOptions {
-                  sourceCompatibility JavaVersion.VERSION_1_8
-                  targetCompatibility JavaVersion.VERSION_1_8
-              }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
 
-              kotlinOptions {
-                  jvmTarget = '1.8'
-              }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
 
-              defaultConfig {
-                  applicationId "com.thekami.convo"
-                  minSdk 24
-                  targetSdk flutter.targetSdkVersion
-                  versionCode flutter.versionCode
-                  versionName flutter.versionName
-              }
+    defaultConfig {
+        applicationId "com.thekami.convo"
+        minSdk 24
+        targetSdk 34
+        versionCode 4
+        versionName "1.0.0.4"
+    }
 
-              buildTypes {
-                  release {
-                      signingConfig signingConfigs.debug
-                  }
-              }
-          }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
+    }
+}
 
-          flutter {
-              source '../..'
-          }
+flutter {
+    source '../..'
+}
 
-          dependencies {
-              implementation platform('com.google.firebase:firebase-bom:33.0.0')
-          }
-          GRADLE
+dependencies {
+    implementation platform('com.google.firebase:firebase-bom:33.0.0')
+}
+GRADLE
+
+      - name: Add Internet permission
+        run: |
+          sed -i 's/<\/manifest>/    <uses-permission android:name="android.permission.INTERNET"\/>\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"\/>\n<\/manifest>/' /tmp/convo/android/app/src/main/AndroidManifest.xml
 
       - name: Build APK
         run: |
