@@ -18,6 +18,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_bgHandler);
+  final prefs = await SharedPreferences.getInstance();
+  final savedTheme = prefs.getInt('themeMode') ?? 1; // 0=system,1=dark,2=light
+  _themeNotifier.value = [ThemeMode.system, ThemeMode.dark, ThemeMode.light][savedTheme.clamp(0,2)];
   runApp(const ConvoApp());
 }
 
@@ -29,20 +32,23 @@ const kCard2 = Color(0xFF222222);
 
 final _db   = FirebaseFirestore.instance;
 final _auth = FirebaseAuth.instance;
+final _themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.dark);
 
 // ─── APP ──────────────────────────────────────────────
 class ConvoApp extends StatelessWidget {
   const ConvoApp({super.key});
   @override
-  Widget build(BuildContext context) => MaterialApp(
-    title: 'Convo', debugShowCheckedModeBanner: false,
-    themeMode: ThemeMode.system,
-    theme: ThemeData(useMaterial3: true, colorSchemeSeed: kGreen, brightness: Brightness.light),
-    darkTheme: ThemeData(useMaterial3: true, colorSchemeSeed: kGreen, brightness: Brightness.dark,
-      scaffoldBackgroundColor: kDark,
-      navigationBarTheme: const NavigationBarThemeData(backgroundColor: Color(0xFF111111))),
-    home: const SplashScreen(),
-  );
+  Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
+    valueListenable: _themeNotifier,
+    builder: (_, mode, __) => MaterialApp(
+      title: 'Convo', debugShowCheckedModeBanner: false,
+      themeMode: mode,
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: kGreen, brightness: Brightness.light),
+      darkTheme: ThemeData(useMaterial3: true, colorSchemeSeed: kGreen, brightness: Brightness.dark,
+        scaffoldBackgroundColor: kDark,
+        navigationBarTheme: const NavigationBarThemeData(backgroundColor: Color(0xFF111111))),
+      home: const SplashScreen(),
+    ));
 }
 
 // ─── SPLASH ───────────────────────────────────────────
@@ -342,7 +348,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _debounce?.cancel();
     if (val.isEmpty) { setState(() { _uStatus = ''; _suggestions.clear(); }); return; }
     setState(() => _uStatus = 'checking');
-    _debounce = Timer(const Duration(milliseconds: 500), () => _checkU(val));
+    _debounce = Timer(const Duration(milliseconds: 300), () => _checkU(val));
   }
 
   Future<void> _checkU(String u) async {
@@ -537,7 +543,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
     _debounce?.cancel();
     if (val.isEmpty) { setState(() { _uStatus = ''; _suggestions.clear(); }); return; }
     setState(() => _uStatus = 'checking');
-    _debounce = Timer(const Duration(milliseconds: 500), () => _checkU(val));
+    _debounce = Timer(const Duration(milliseconds: 300), () => _checkU(val));
   }
 
   Future<void> _checkU(String u) async {
@@ -1364,9 +1370,19 @@ class _FriendsScreenState extends State<FriendsScreen> with SingleTickerProvider
                         final chatId = ids.join('_');
                         Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => ChatScreen(otherUid: u['uid'], otherName: u['name'] ?? 'User', otherAvatar: u['avatar'] ?? '?', chatId: chatId)));
                       }, child: const Text('Message'))
-                  : OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: kGreen), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-                      onPressed: () => _sendRequest(u['uid'], u['name'] ?? 'User', u['avatar'] ?? 'U'),
-                      child: Text(u['profileMode'] == 'follow' ? 'Follow' : 'Add', style: const TextStyle(color: kGreen))),
+                  : StreamBuilder<DocumentSnapshot>(
+                      stream: _db.collection('users').doc(_myUid).collection('friends').doc(u['uid'] as String).snapshots(),
+                      builder: (_, friendSnap) {
+                        if (friendSnap.data?.exists == true) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+                            child: const Text('Friends', style: TextStyle(color: kGreen, fontWeight: FontWeight.bold)));
+                        }
+                        return OutlinedButton(style: OutlinedButton.styleFrom(side: const BorderSide(color: kGreen), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                          onPressed: () => _sendRequest(u['uid'], u['name'] ?? 'User', u['avatar'] ?? 'U'),
+                          child: Text(u['profileMode'] == 'follow' ? 'Follow' : 'Add', style: const TextStyle(color: kGreen)));
+                      }),
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: u['uid']))));
             })),
         ]),
@@ -1460,11 +1476,14 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _user;
   bool get _isMe => widget.uid == _auth.currentUser?.uid;
-  @override void initState() { super.initState(); _load(); }
+
+  // kept for _showEdit which needs a one-time snapshot reference
   Future<void> _load() async {
     final doc = await _db.collection('users').doc(widget.uid).get();
-    if (mounted) setState(() => _user = doc.data());
+    if (mounted) setState(() => _user = doc.data() ?? {});
   }
+
+  @override void initState() { super.initState(); _load(); }
 
   final _socialPlatforms = [
     {'key': 'facebook',  'icon': Icons.facebook_rounded,  'color': const Color(0xFF1877F2), 'label': 'Facebook',   'prefix': 'https://facebook.com/'},
@@ -1476,112 +1495,187 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_user == null) return const Scaffold(body: Center(child: CircularProgressIndicator(color: kGreen)));
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final name      = _user!['name'] as String? ?? 'User';
-    final username  = _user!['username'] as String? ?? '';
-    final bio       = _user!['bio'] as String? ?? '';
-    final city      = _user!['city'] as String? ?? '';
-    final education = _user!['education'] as String? ?? '';
-    final work      = _user!['work'] as String? ?? '';
-    final hometown  = _user!['hometown'] as String? ?? '';
-    final verified  = _user!['verified'] == true;
-    final online    = _user!['isOnline'] == true;
-    final social    = _user!['social'] as Map<String, dynamic>? ?? {};
-    final friendCount   = _user!['friendCount'] ?? 0;
-    final followerCount = _user!['followerCount'] ?? 0;
-    final followingCount = _user!['followingCount'] ?? 0;
-    final friendsPublic = _user!['friendsPublic'] != false;
-    final profileMode   = _user!['profileMode'] as String? ?? 'friend';
-    final activeSocials = _socialPlatforms.where((p) => (social[p['key']] as String? ?? '').isNotEmpty).toList();
+    // Show loading only on very first paint; after that StreamBuilder drives UI
+    return StreamBuilder<DocumentSnapshot>(
+      stream: _db.collection('users').doc(widget.uid).snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator(color: kGreen)));
+        }
+        final data = snap.data!.data() as Map<String, dynamic>?;
+        if (data == null) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Profile')),
+            body: const Center(child: Text('User not found')));
+        }
+        // keep _user in sync for _showEdit
+        if (_user == null || _user != data) {
+          WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) setState(() => _user = data); });
+        }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(_isMe ? 'My Profile' : name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        actions: [if (_isMe) IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _showEdit(context))]),
-      body: SingleChildScrollView(child: Column(children: [
-        Container(width: double.infinity,
-          decoration: BoxDecoration(gradient: LinearGradient(
-            colors: [kGreen.withOpacity(0.25), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-          child: Column(children: [
-            const SizedBox(height: 28),
-            Stack(children: [
-              Container(width: 90, height: 90,
-                decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [BoxShadow(color: kGreen.withOpacity(0.4), blurRadius: 20)]),
-                child: Center(child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.bold)))),
-              if (online) Positioned(right: 2, bottom: 2, child: Container(width: 16, height: 16,
-                decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle, border: Border.all(color: isDark ? kDark : Colors.white, width: 2)))),
-            ]),
-            const SizedBox(height: 12),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-              if (verified) ...[const SizedBox(width: 6), const Icon(Icons.verified_rounded, color: kGreen, size: 20)],
-            ]),
-            Text('@$username', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
-            const SizedBox(height: 4),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(width: 8, height: 8, decoration: BoxDecoration(color: online ? kGreen : Colors.grey, shape: BoxShape.circle)),
-              const SizedBox(width: 4),
-              Text(online ? 'Online' : 'Offline', style: TextStyle(color: online ? kGreen : Colors.grey[500], fontSize: 12)),
-            ]),
-            if (bio.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(bio, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[400], fontSize: 13, height: 1.5))),
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final name      = data['name'] as String? ?? 'User';
+        final username  = data['username'] as String? ?? '';
+        final bio       = data['bio'] as String? ?? '';
+        final city      = data['city'] as String? ?? '';
+        final education = data['education'] as String? ?? '';
+        final work      = data['work'] as String? ?? '';
+        final hometown  = data['hometown'] as String? ?? '';
+        final verified  = data['verified'] == true;
+        final online    = data['isOnline'] == true;
+        final social    = data['social'] as Map<String, dynamic>? ?? {};
+        final friendCount   = data['friendCount'] ?? 0;
+        final followerCount = data['followerCount'] ?? 0;
+        final followingCount = data['followingCount'] ?? 0;
+        final friendsPublic = data['friendsPublic'] != false;
+        final profileMode   = data['profileMode'] as String? ?? 'friend';
+        final activeSocials = _socialPlatforms.where((p) => (social[p['key']] as String? ?? '').isNotEmpty).toList();
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(_isMe ? 'My Profile' : name, style: const TextStyle(fontWeight: FontWeight.bold)),
+            actions: [if (_isMe) IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _showEdit(context))]),
+          body: SingleChildScrollView(child: Column(children: [
+            Container(width: double.infinity,
+              decoration: BoxDecoration(gradient: LinearGradient(
+                colors: [kGreen.withOpacity(0.25), Colors.transparent], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
+              child: Column(children: [
+                const SizedBox(height: 28),
+                Stack(children: [
+                  Container(width: 90, height: 90,
+                    decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 3),
+                      boxShadow: [BoxShadow(color: kGreen.withOpacity(0.4), blurRadius: 20)]),
+                    child: Center(child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.bold)))),
+                  if (online) Positioned(right: 2, bottom: 2, child: Container(width: 16, height: 16,
+                    decoration: BoxDecoration(color: kGreen, shape: BoxShape.circle, border: Border.all(color: isDark ? kDark : Colors.white, width: 2)))),
+                ]),
+                const SizedBox(height: 12),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Text(name, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  if (verified) ...[const SizedBox(width: 6), const Icon(Icons.verified_rounded, color: kGreen, size: 20)],
+                ]),
+                Text('@$username', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+                const SizedBox(height: 4),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Container(width: 8, height: 8, decoration: BoxDecoration(color: online ? kGreen : Colors.grey, shape: BoxShape.circle)),
+                  const SizedBox(width: 4),
+                  Text(online ? 'Online' : 'Offline', style: TextStyle(color: online ? kGreen : Colors.grey[500], fontSize: 12)),
+                ]),
+                if (bio.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(bio, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[400], fontSize: 13, height: 1.5))),
+                ],
+                const SizedBox(height: 16),
+                // Stats row
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  _statBox(followerCount.toString(), 'Followers', true),
+                  Container(width: 1, height: 36, color: Colors.grey.withOpacity(0.3)),
+                  if (friendsPublic || _isMe)
+                    _statBox(friendCount.toString(), 'Friends', true),
+                  if (!friendsPublic && !_isMe)
+                    _statBox('—', 'Friends', false),
+                  Container(width: 1, height: 36, color: Colors.grey.withOpacity(0.3)),
+                  _statBox(followingCount.toString(), 'Following', true),
+                ]),
+                // ── Action buttons right after stats ──
+                if (!_isMe) ...[
+                  const SizedBox(height: 16),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: StreamBuilder<DocumentSnapshot>(
+                      stream: _db.collection('users').doc(_auth.currentUser!.uid).collection('friends').doc(widget.uid).snapshots(),
+                      builder: (_, friendSnap) {
+                        final isFriend = friendSnap.data?.exists == true;
+                        final myUid = _auth.currentUser!.uid;
+                        final ids = [myUid, widget.uid]..sort();
+                        final chatId = ids.join('_');
+                        if (isFriend) {
+                          // Already friends — show Chat button
+                          return _btn('Send Message', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
+                            otherUid: widget.uid, otherName: name,
+                            otherAvatar: name[0].toUpperCase(), chatId: chatId))));
+                        }
+                        // Not yet friends — show Add / Follow button
+                        return StreamBuilder<QuerySnapshot>(
+                          stream: _db.collection('friend_requests')
+                            .where('from', isEqualTo: myUid).where('to', isEqualTo: widget.uid)
+                            .where('status', isEqualTo: 'pending').snapshots(),
+                          builder: (_, reqSnap) {
+                            final requestSent = (reqSnap.data?.docs.isNotEmpty) == true;
+                            return Row(children: [
+                              Expanded(child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(color: requestSent ? Colors.grey : kGreen),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                                icon: Icon(requestSent ? Icons.hourglass_top_rounded : (profileMode == 'follow' ? Icons.person_add_rounded : Icons.person_add_alt_1_rounded),
+                                  color: requestSent ? Colors.grey : kGreen, size: 18),
+                                label: Text(requestSent ? 'Requested' : (profileMode == 'follow' ? 'Follow' : 'Add Friend'),
+                                  style: TextStyle(color: requestSent ? Colors.grey : kGreen, fontWeight: FontWeight.bold)),
+                                onPressed: requestSent ? null : () async {
+                                  if (profileMode == 'follow') {
+                                    await _db.collection('users').doc(myUid).collection('following').doc(widget.uid).set({'uid': widget.uid, 'since': FieldValue.serverTimestamp()});
+                                    await _db.collection('users').doc(widget.uid).collection('followers').doc(myUid).set({'uid': myUid, 'since': FieldValue.serverTimestamp()});
+                                    await _db.collection('users').doc(widget.uid).update({'followerCount': FieldValue.increment(1)});
+                                    await _db.collection('users').doc(myUid).update({'followingCount': FieldValue.increment(1)});
+                                  } else {
+                                    final my = await _db.collection('users').doc(myUid).get();
+                                    await _db.collection('friend_requests').add({
+                                      'from': myUid, 'fromName': my.data()?['name'] ?? 'User', 'fromAvatar': my.data()?['avatar'] ?? 'U',
+                                      'to': widget.uid, 'toName': name, 'status': 'pending', 'timestamp': FieldValue.serverTimestamp(),
+                                    });
+                                  }
+                                  if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text(profileMode == 'follow' ? 'Following $name' : 'Friend request sent!'), backgroundColor: kGreen));
+                                })),
+                              const SizedBox(width: 10),
+                              Expanded(child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: kGreen, elevation: 0,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                                icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 18),
+                                label: const Text('Message', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
+                                  otherUid: widget.uid, otherName: name,
+                                  otherAvatar: name[0].toUpperCase(), chatId: chatId))))),
+                            ]);
+                          });
+                      })),
+                ],
+                const SizedBox(height: 16),
+              ])),
+
+            if (city.isNotEmpty || hometown.isNotEmpty || education.isNotEmpty || work.isNotEmpty) ...[
+              _secTitle('About'),
+              if (city.isNotEmpty) _infoRow(Icons.location_city_rounded, 'City', city),
+              if (hometown.isNotEmpty) _infoRow(Icons.home_rounded, 'Hometown', hometown),
+              if (education.isNotEmpty) _infoRow(Icons.school_rounded, 'Education', education),
+              if (work.isNotEmpty) _infoRow(Icons.work_rounded, 'Work', work),
             ],
-            const SizedBox(height: 16),
-            // Stats row
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              _statBox(followerCount.toString(), profileMode == 'follow' ? 'Followers' : 'Followers', true),
-              Container(width: 1, height: 36, color: Colors.grey.withOpacity(0.3)),
-              if (friendsPublic || _isMe)
-                _statBox(friendCount.toString(), 'Friends', true),
-              if (!friendsPublic && !_isMe)
-                _statBox('—', 'Friends', false),
-              Container(width: 1, height: 36, color: Colors.grey.withOpacity(0.3)),
-              _statBox(followingCount.toString(), 'Following', true),
-            ]),
-            const SizedBox(height: 16),
-          ])),
 
-        if (city.isNotEmpty || hometown.isNotEmpty || education.isNotEmpty || work.isNotEmpty) ...[
-          _secTitle('About'),
-          if (city.isNotEmpty) _infoRow(Icons.location_city_rounded, 'City', city),
-          if (hometown.isNotEmpty) _infoRow(Icons.home_rounded, 'Hometown', hometown),
-          if (education.isNotEmpty) _infoRow(Icons.school_rounded, 'Education', education),
-          if (work.isNotEmpty) _infoRow(Icons.work_rounded, 'Work', work),
-        ],
+            if (activeSocials.isNotEmpty) ...[
+              _secTitle('Socials'),
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Wrap(spacing: 10, runSpacing: 10, children: activeSocials.map((p) {
+                  final uname = social[p['key']] as String;
+                  return GestureDetector(
+                    onTap: () => launchUrl(Uri.parse('${p['prefix']}$uname'), mode: LaunchMode.externalApplication),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      decoration: BoxDecoration(color: (p['color'] as Color).withOpacity(0.1), borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: (p['color'] as Color).withOpacity(0.3))),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(p['icon'] as IconData, color: p['color'] as Color, size: 18),
+                        const SizedBox(width: 7),
+                        Text('@$uname', style: TextStyle(color: p['color'] as Color, fontWeight: FontWeight.w600, fontSize: 12)),
+                      ])));
+                }).toList())),
+            ],
 
-        if (activeSocials.isNotEmpty) ...[
-          _secTitle('Socials'),
-          Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Wrap(spacing: 10, runSpacing: 10, children: activeSocials.map((p) {
-              final uname = social[p['key']] as String;
-              return GestureDetector(
-                onTap: () => launchUrl(Uri.parse('${p['prefix']}$uname'), mode: LaunchMode.externalApplication),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                  decoration: BoxDecoration(color: (p['color'] as Color).withOpacity(0.1), borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: (p['color'] as Color).withOpacity(0.3))),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    Icon(p['icon'] as IconData, color: p['color'] as Color, size: 18),
-                    const SizedBox(width: 7),
-                    Text('@$uname', style: TextStyle(color: p['color'] as Color, fontWeight: FontWeight.w600, fontSize: 12)),
-                  ])));
-            }).toList())),
-        ],
-
-        const SizedBox(height: 16),
-        if (!_isMe) Padding(padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: _btn('Send Message', () {
-            final ids = [_auth.currentUser!.uid, widget.uid]..sort();
-            final chatId = ids.join('_');
-            Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(otherUid: widget.uid, otherName: name, otherAvatar: name[0].toUpperCase(), chatId: chatId)));
-          })),
-        const SizedBox(height: 32),
-      ])));
+            const SizedBox(height: 32),
+          ])));
+      });
   }
 
   Widget _statBox(String val, String label, bool visible) => SizedBox(width: 90,
@@ -1690,95 +1784,153 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final name     = _user?['name'] as String? ?? 'User';
-    final username = _user?['username'] as String? ?? '';
     final verified = _user?['verified'] == true;
     final onWaitlist = _user?['verifiedWaitlist'] == true;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.bold)), elevation: 0),
-      body: ListView(children: [
-        GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid))),
-          child: Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(colors: [kGreen.withOpacity(0.15), kGreen.withOpacity(0.05)]),
-              borderRadius: BorderRadius.circular(16), border: Border.all(color: kGreen.withOpacity(0.3))),
-            child: Row(children: [
-              CircleAvatar(radius: 28, backgroundColor: kGreen,
-                child: Text(name[0].toUpperCase(), style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))),
-              const SizedBox(width: 14),
-              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  if (verified) ...[const SizedBox(width: 4), const Icon(Icons.verified_rounded, color: kGreen, size: 16)],
-                ]),
-                Text('@$username', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-                const Text('View profile', style: TextStyle(color: kGreen, fontSize: 11)),
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: _db.collection('users').doc(_myUid).snapshots(),
+        builder: (_, snap) {
+          // Update local state from stream so phone/name always reflect latest
+          if (snap.hasData && snap.data!.exists) {
+            final d = snap.data!.data() as Map<String, dynamic>;
+            if (_user == null || d['name'] != _user!['name'] || d['phone'] != _user!['phone']) {
+              // schedule update after build
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() {
+                  _user = d;
+                  _suggestions = d['suggestionsEnabled'] ?? true;
+                  _friendsPublic = d['friendsPublic'] ?? true;
+                  _profileMode = d['profileMode'] ?? 'friend';
+                });
+              });
+            }
+          }
+          final name     = snap.data?.get('name') as String? ?? _user?['name'] as String? ?? 'User';
+          final username = snap.data?.get('username') as String? ?? _user?['username'] as String? ?? '';
+          final phone    = snap.data?.get('phone') as String? ?? _user?['phone'] as String? ?? '';
+          final isVerified = snap.data?.get('verified') == true || verified;
+
+          return ListView(children: [
+          GestureDetector(
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid))),
+            child: Container(margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [kGreen.withOpacity(0.15), kGreen.withOpacity(0.05)]),
+                borderRadius: BorderRadius.circular(16), border: Border.all(color: kGreen.withOpacity(0.3))),
+              child: Row(children: [
+                CircleAvatar(radius: 28, backgroundColor: kGreen,
+                  child: Text(name.isNotEmpty ? name[0].toUpperCase() : 'U', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold))),
+                const SizedBox(width: 14),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text(name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    if (isVerified) ...[const SizedBox(width: 4), const Icon(Icons.verified_rounded, color: kGreen, size: 16)],
+                  ]),
+                  if (username.isNotEmpty) Text('@$username', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                  const Text('View profile', style: TextStyle(color: kGreen, fontSize: 11)),
+                ])),
+                const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 16),
               ])),
-              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey, size: 16),
+          ),
+
+          _sec('Account'),
+          _t(Icons.person_rounded, 'Edit Profile', 'Name, bio, socials', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid)))),
+          _t(Icons.phone_rounded, 'Phone Number', phone.isNotEmpty ? phone : 'Add phone number', () => _addPhone(context)),
+          _t(Icons.contacts_rounded, 'Sync Contacts', 'Find friends from your contacts', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactSyncScreen()))),
+          _t(Icons.lock_rounded, 'Change Password', 'Update your password', () => _changePass(context)),
+          _t(Icons.verified_rounded, 'Get Verified', isVerified ? 'You are verified!' : (onWaitlist ? 'On waitlist' : 'Join the waitlist'), () => _verify(context)),
+
+          _sec('Profile Mode'),
+          Container(margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(color: isDark ? kCard : Colors.grey[100], borderRadius: BorderRadius.circular(14)),
+            child: Row(children: [
+              Expanded(child: GestureDetector(
+                onTap: () { setState(() => _profileMode = 'friend'); _update({'profileMode': 'friend'}); },
+                child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(color: _profileMode == 'friend' ? kGreen : Colors.transparent, borderRadius: BorderRadius.circular(10)),
+                  child: Center(child: Text('Friend Mode', style: TextStyle(color: _profileMode == 'friend' ? Colors.white : Colors.grey, fontWeight: FontWeight.w600, fontSize: 13)))))),
+              Expanded(child: GestureDetector(
+                onTap: () { setState(() => _profileMode = 'follow'); _update({'profileMode': 'follow'}); },
+                child: AnimatedContainer(duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(color: _profileMode == 'follow' ? kGreen : Colors.transparent, borderRadius: BorderRadius.circular(10)),
+                  child: Center(child: Text('Follow Mode', style: TextStyle(color: _profileMode == 'follow' ? Colors.white : Colors.grey, fontWeight: FontWeight.w600, fontSize: 13)))))),
             ])),
-        ),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(_profileMode == 'friend' ? 'Others can send you friend requests and message you.' : 'Others can follow you. Use for public/creator profiles.',
+              style: TextStyle(color: Colors.grey[500], fontSize: 12))),
 
-        _sec('Account'),
-        _t(Icons.person_rounded, 'Edit Profile', 'Name, bio, socials', () => Navigator.push(context, MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid)))),
-        _t(Icons.phone_rounded, 'Phone Number', _user?['phone']?.isNotEmpty == true ? _user!['phone'] : 'Add phone number', () => _addPhone(context)),
-        _t(Icons.contacts_rounded, 'Sync Contacts', 'Find friends from your contacts', () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactSyncScreen()))),
-        _t(Icons.lock_rounded, 'Change Password', 'Update your password', () => _changePass(context)),
-        _t(Icons.verified_rounded, 'Get Verified', verified ? 'You are verified!' : (onWaitlist ? 'On waitlist' : 'Join the waitlist'), () => _verify(context)),
+          _sec('Privacy'),
+          SwitchListTile(value: _friendsPublic, onChanged: (v) { setState(() => _friendsPublic = v); _update({'friendsPublic': v}); },
+            activeColor: kGreen, secondary: _ib(Icons.people_rounded),
+            title: const Text('Public Friends List', style: TextStyle(fontWeight: FontWeight.w500)),
+            subtitle: Text('Show your friends on your profile', style: TextStyle(color: Colors.grey[500], fontSize: 12))),
 
-        _sec('Profile Mode'),
-        Container(margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(color: isDark ? kCard : Colors.grey[100], borderRadius: BorderRadius.circular(14)),
-          child: Row(children: [
-            Expanded(child: GestureDetector(
-              onTap: () { setState(() => _profileMode = 'friend'); _update({'profileMode': 'friend'}); },
-              child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(color: _profileMode == 'friend' ? kGreen : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-                child: Center(child: Text('Friend Mode', style: TextStyle(color: _profileMode == 'friend' ? Colors.white : Colors.grey, fontWeight: FontWeight.w600, fontSize: 13)))))),
-            Expanded(child: GestureDetector(
-              onTap: () { setState(() => _profileMode = 'follow'); _update({'profileMode': 'follow'}); },
-              child: AnimatedContainer(duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: BoxDecoration(color: _profileMode == 'follow' ? kGreen : Colors.transparent, borderRadius: BorderRadius.circular(10)),
-                child: Center(child: Text('Follow Mode', style: TextStyle(color: _profileMode == 'follow' ? Colors.white : Colors.grey, fontWeight: FontWeight.w600, fontSize: 13)))))),
-          ])),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(_profileMode == 'friend' ? 'Others can send you friend requests and message you.' : 'Others can follow you. Use for public/creator profiles.',
-            style: TextStyle(color: Colors.grey[500], fontSize: 12))),
+          _sec('Discovery'),
+          SwitchListTile(value: _suggestions, onChanged: (v) { setState(() => _suggestions = v); _update({'suggestionsEnabled': v}); },
+            activeColor: kGreen, secondary: _ib(Icons.person_search_rounded),
+            title: const Text('Account Suggestions', style: TextStyle(fontWeight: FontWeight.w500)),
+            subtitle: Text('Suggest your profile to others', style: TextStyle(color: Colors.grey[500], fontSize: 12))),
 
-        _sec('Privacy'),
-        SwitchListTile(value: _friendsPublic, onChanged: (v) { setState(() => _friendsPublic = v); _update({'friendsPublic': v}); },
-          activeColor: kGreen, secondary: _ib(Icons.people_rounded),
-          title: const Text('Public Friends List', style: TextStyle(fontWeight: FontWeight.w500)),
-          subtitle: Text('Show your friends on your profile', style: TextStyle(color: Colors.grey[500], fontSize: 12))),
+          _sec('Preferences'),
+          _t(Icons.notifications_rounded, 'Notifications', 'Manage push alerts', () {}),
+          _t(Icons.palette_rounded, 'Appearance', 'Theme and colors', () => _showThemeDialog(context)),
+          _t(Icons.language_rounded, 'Language', 'Bangla / English', () {}),
 
-        _sec('Discovery'),
-        SwitchListTile(value: _suggestions, onChanged: (v) { setState(() => _suggestions = v); _update({'suggestionsEnabled': v}); },
-          activeColor: kGreen, secondary: _ib(Icons.person_search_rounded),
-          title: const Text('Account Suggestions', style: TextStyle(fontWeight: FontWeight.w500)),
-          subtitle: Text('Suggest your profile to others', style: TextStyle(color: Colors.grey[500], fontSize: 12))),
+          _sec('About'),
+          _t(Icons.favorite_rounded, 'Powered by TheKami', 'thekami.tech', () => launchUrl(Uri.parse('https://thekami.tech'), mode: LaunchMode.externalApplication)),
+          _t(Icons.info_rounded, 'App Version', 'Convo v1.0.2', () {}),
 
-        _sec('Preferences'),
-        _t(Icons.notifications_rounded, 'Notifications', 'Manage push alerts', () {}),
-        _t(Icons.palette_rounded, 'Appearance', 'Theme and colors', () {}),
-        _t(Icons.language_rounded, 'Language', 'Bangla / English', () {}),
+          const SizedBox(height: 16),
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1), elevation: 0,
+                minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+              icon: const Icon(Icons.logout_rounded, color: Colors.red),
+              label: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+              onPressed: _signOut)),
+          const SizedBox(height: 32),
+        ]);
+        }
+      ));
+  }
 
-        _sec('About'),
-        _t(Icons.favorite_rounded, 'Powered by TheKami', 'thekami.tech', () => launchUrl(Uri.parse('https://thekami.tech'), mode: LaunchMode.externalApplication)),
-        _t(Icons.info_rounded, 'App Version', 'Convo v1.0.2', () {}),
-
-        const SizedBox(height: 16),
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.withOpacity(0.1), elevation: 0,
-              minimumSize: const Size(double.infinity, 52), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
-            icon: const Icon(Icons.logout_rounded, color: Colors.red),
-            label: const Text('Sign Out', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
-            onPressed: _signOut)),
-        const SizedBox(height: 32),
-      ]));
+  void _showThemeDialog(BuildContext context) {
+    showModalBottomSheet(context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? kCard : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => StatefulBuilder(builder: (ctx, setSt) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          const Text('Appearance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ...[
+            [ThemeMode.dark,   Icons.dark_mode_rounded,  'Dark'],
+            [ThemeMode.light,  Icons.light_mode_rounded, 'Light'],
+            [ThemeMode.system, Icons.brightness_auto_rounded, 'System Default'],
+          ].map((opt) {
+            final mode  = opt[0] as ThemeMode;
+            final icon  = opt[1] as IconData;
+            final label = opt[2] as String;
+            final selected = _themeNotifier.value == mode;
+            return ListTile(
+              leading: Icon(icon, color: selected ? kGreen : Colors.grey),
+              title: Text(label, style: TextStyle(fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
+              trailing: selected ? const Icon(Icons.check_circle_rounded, color: kGreen) : null,
+              onTap: () async {
+                _themeNotifier.value = mode;
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setInt('themeMode', [ThemeMode.system, ThemeMode.dark, ThemeMode.light].indexOf(mode));
+                setSt(() {});
+              });
+          }).toList(),
+          const SizedBox(height: 8),
+        ]))));
   }
 
   void _addPhone(BuildContext context) {
