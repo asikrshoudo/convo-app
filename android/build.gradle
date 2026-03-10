@@ -3,6 +3,16 @@ allprojects {
         google()
         mavenCentral()
     }
+
+    // Fix for plugins (like geolocator_android) that use flutter.compileSdkVersion
+    project.ext {
+        flutter = [
+            compileSdkVersion: 34,
+            minSdkVersion    : 21,
+            targetSdkVersion : 34,
+            ndkVersion       : "25.1.8937393"
+        ]
+    }
 }
 
 rootProject.buildDir = "../build"
