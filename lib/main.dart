@@ -331,74 +331,56 @@ class RegisterScreen extends StatefulWidget {
   @override State<RegisterScreen> createState() => _RegisterScreenState();
 }
 class _RegisterScreenState extends State<RegisterScreen> {
-  int _step = 0;
-  bool _obscure = true, _loading = false, _ageConfirmed = false;
-  String? _error, _uStatus = '';
+  int _step = 0; // 0 = personal info, 1 = password
+  bool _obscure1 = true, _obscure2 = true, _loading = false, _ageConfirmed = false;
+  String? _error;
   String _gender = '';
-  final List<String> _suggestions = [];
-  final Map<String, String> _uCache = {}; // cache: username → 'ok'|'taken'
-  int _reqId = 0; // increments on every keystroke; stale responses are dropped
+  int _passStrength = 0; // 0-4
 
-  final _nameCtrl  = TextEditingController();
-  final _uCtrl     = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _passCtrl  = TextEditingController();
-  final _phoneCtrl = TextEditingController();
+  final _nameCtrl    = TextEditingController();
+  final _emailCtrl   = TextEditingController();
+  final _phoneCtrl   = TextEditingController();
+  final _passCtrl    = TextEditingController();
+  final _confirmCtrl = TextEditingController();
 
-  void _onUChange(String val) {
-    if (val.isEmpty) { setState(() { _uStatus = ''; _suggestions.clear(); }); return; }
-    final clean = val.trim().toLowerCase();
-    // Instant local checks — zero network needed
-    if (!RegExp(r'^[a-z0-9_]*$').hasMatch(clean)) { setState(() { _uStatus = 'invalid'; _suggestions.clear(); }); return; }
-    if (clean.length < 3) { setState(() { _uStatus = 'short'; _suggestions.clear(); }); return; }
-    if (clean.length > 20) { setState(() { _uStatus = 'long'; _suggestions.clear(); }); return; }
-    // Cache hit → show result immediately, zero wait
-    if (_uCache.containsKey(clean)) { _applyResult(clean, _uCache[clean]!); return; }
-    // Fire Firestore immediately, no debounce
-    setState(() => _uStatus = 'checking');
-    _checkU(clean);
+  // Auto-generate a unique username from the user's full name
+  String _generateUsername(String name, String uid) {
+    final base = name.trim().toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]'), '').substring(0, name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').length.clamp(0, 12));
+    final suffix = uid.substring(uid.length - 5); // last 5 chars of uid — guaranteed unique
+    return '${base}_$suffix';
   }
 
-  void _applyResult(String clean, String result) {
-    if (result == 'ok') {
-      setState(() { _uStatus = 'ok'; _suggestions.clear(); });
-    } else {
-      final base = clean.replaceAll(RegExp(r'\d+$'), '');
-      setState(() { _uStatus = 'taken'; _suggestions
-        ..clear()
-        ..addAll(['${base}_official', '${base}x', '${base}real', '${base}${DateTime.now().year % 100}', '${base}__']); });
-    }
-  }
-
-  Future<void> _checkU(String clean) async {
-    if (_uCache.containsKey(clean)) { _applyResult(clean, _uCache[clean]!); return; }
-    final myId = ++_reqId;
-    final snap = await _db.collection('users').where('username', isEqualTo: clean)
-      .limit(1).get(const GetOptions(source: Source.serverAndCache));
-    if (!mounted || myId != _reqId) return;
-    final result = snap.docs.isEmpty ? 'ok' : 'taken';
-    _uCache[clean] = result;
-    _applyResult(clean, result);
+  void _onPassChange(String val) {
+    int strength = 0;
+    if (val.length >= 6) strength++;
+    if (val.length >= 10) strength++;
+    if (RegExp(r'[A-Z]').hasMatch(val)) strength++;
+    if (RegExp(r'[0-9!@#\$%^&*]').hasMatch(val)) strength++;
+    setState(() => _passStrength = strength);
   }
 
   Future<void> _register() async {
-    if (_nameCtrl.text.isEmpty || _uCtrl.text.isEmpty || _emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
-      setState(() => _error = 'Fill all required fields'); return;
+    final name  = _nameCtrl.text.trim();
+    final email = _emailCtrl.text.trim();
+    final pass  = _passCtrl.text;
+    final conf  = _confirmCtrl.text;
+    if (name.isEmpty || email.isEmpty || pass.isEmpty || conf.isEmpty) {
+      setState(() => _error = 'Please fill all fields'); return;
     }
-    if (!_ageConfirmed) { setState(() => _error = 'You must be 13 or older'); return; }
-    if (_gender.isEmpty) { setState(() => _error = 'Select your gender'); return; }
-    if (_uStatus == 'taken') { setState(() => _error = 'Username taken'); return; }
-    if (_uStatus != 'ok') { setState(() => _error = 'Choose a valid username'); return; }
+    if (!_ageConfirmed) { setState(() => _error = 'You must confirm you are 13 or older'); return; }
+    if (_gender.isEmpty) { setState(() => _error = 'Please select your gender'); return; }
+    if (pass.length < 6) { setState(() => _error = 'Password must be at least 6 characters'); return; }
+    if (pass != conf) { setState(() => _error = 'Passwords do not match'); return; }
     setState(() { _loading = true; _error = null; });
     try {
-      final cred = await _auth.createUserWithEmailAndPassword(email: _emailCtrl.text.trim(), password: _passCtrl.text.trim());
-      await cred.user!.sendEmailVerification();
-      // Save user doc immediately (fast) — FCM token fetched in background
-      await _db.collection('users').doc(cred.user!.uid).set({
-        'uid': cred.user!.uid, 'name': _nameCtrl.text.trim(),
-        'username': _uCtrl.text.trim().toLowerCase(),
-        'email': _emailCtrl.text.trim(), 'phone': _phoneCtrl.text.trim(),
-        'avatar': _nameCtrl.text.trim()[0].toUpperCase(), 'gender': _gender,
+      final cred = await _auth.createUserWithEmailAndPassword(email: email, password: pass);
+      final uid      = cred.user!.uid;
+      final username = _generateUsername(name, uid);
+      await _db.collection('users').doc(uid).set({
+        'uid': uid, 'name': name, 'username': username,
+        'email': email, 'phone': _phoneCtrl.text.trim(),
+        'avatar': name[0].toUpperCase(), 'gender': _gender,
         'verified': false, 'verifiedWaitlist': false,
         'suggestionsEnabled': true, 'friendsPublic': true,
         'profileMode': 'friend',
@@ -410,193 +392,326 @@ class _RegisterScreenState extends State<RegisterScreen> {
         'lastSeen': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
       });
-      // Update FCM token in background — don't block account creation
       FirebaseMessaging.instance.getToken().then((fcm) {
-        if (fcm != null) _db.collection('users').doc(cred.user!.uid).update({'fcmToken': fcm});
+        if (fcm != null) _db.collection('users').doc(uid).update({'fcmToken': fcm});
       });
-      await cred.user!.updateDisplayName(_nameCtrl.text.trim());
+      await cred.user!.updateDisplayName(name);
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen()));
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.message ?? 'Registration failed');
+      String msg = 'Registration failed';
+      if (e.code == 'email-already-in-use') msg = 'This email is already registered';
+      else if (e.code == 'invalid-email') msg = 'Invalid email address';
+      else if (e.code == 'weak-password') msg = 'Password is too weak';
+      setState(() => _error = msg);
     } finally { if (mounted) setState(() => _loading = false); }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? kCard : Colors.grey[100]!;
+    final bg = isDark ? const Color(0xFF1E1E1E) : Colors.grey[100]!;
+    final cardBg = isDark ? const Color(0xFF161616) : Colors.white;
 
-    Color uColor = Colors.grey; IconData uIcon = Icons.alternate_email; String uHint = '';
-    if (_uStatus == 'checking') { uColor = Colors.orange; uHint = 'Checking...'; }
-    else if (_uStatus == 'ok') { uColor = kGreen; uIcon = Icons.check_circle_outline; uHint = 'Available'; }
-    else if (_uStatus == 'taken') { uColor = Colors.red; uIcon = Icons.cancel_outlined; uHint = 'Not available'; }
-    else if (_uStatus == 'short') { uColor = Colors.orange; uHint = 'Minimum 3 characters'; }
-    else if (_uStatus == 'long') { uColor = Colors.red; uHint = 'Maximum 20 characters'; }
-    else if (_uStatus == 'invalid') { uColor = Colors.red; uHint = 'Only a-z, 0-9 and _ allowed'; }
+    // Password strength colors
+    final strengthColors = [Colors.grey[700]!, Colors.red, Colors.orange, Colors.yellow[700]!, kGreen];
+    final strengthLabels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: isDark ? kDark : Colors.white,
-      appBar: AppBar(backgroundColor: Colors.transparent, elevation: 0,
-        leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded), onPressed: () {
-          if (_step == 1) setState(() => _step = 0);
-          else Navigator.pop(context);
-        })),
-      body: SafeArea(child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(_step == 0 ? 'About You' : 'Account Setup', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Text(_step == 0 ? 'Tell us a bit about yourself' : 'Choose your username and password',
-            style: TextStyle(color: Colors.grey[500], fontSize: 14)),
-          const SizedBox(height: 28),
-          if (_error != null) _errorBox(_error!),
+      backgroundColor: isDark ? kDark : const Color(0xFFF5F5F5),
+      body: SafeArea(child: Column(children: [
+        // ── Top bar ──
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded),
+              onPressed: () { if (_step == 1) setState(() { _step = 0; _error = null; }); else Navigator.pop(context); }),
+            const Spacer(),
+            // Step indicator
+            Row(children: List.generate(2, (i) => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.only(left: 6),
+              width: i == _step ? 24 : 8, height: 8,
+              decoration: BoxDecoration(
+                color: i <= _step ? kGreen : Colors.grey[700],
+                borderRadius: BorderRadius.circular(4))))),
+            const SizedBox(width: 16),
+          ])),
 
-          if (_step == 0) ...[
-            _tf('Full Name *', Icons.person_outline, _nameCtrl, false, isDark, bg),
-            const SizedBox(height: 14),
-            _tf('Email address *', Icons.email_outlined, _emailCtrl, false, isDark, bg, type: TextInputType.emailAddress),
-            const SizedBox(height: 14),
-            _tf('Phone number (optional)', Icons.phone_outlined, _phoneCtrl, false, isDark, bg, type: TextInputType.phone),
-            const SizedBox(height: 20),
-            Text('Gender *', style: TextStyle(color: Colors.grey[500], fontSize: 13, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            Row(children: ['Male', 'Female', 'Other'].map((g) => Padding(
-              padding: const EdgeInsets.only(right: 10),
-              child: GestureDetector(
-                onTap: () => setState(() => _gender = g),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        Expanded(child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // ── Header ──
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [kGreen.withOpacity(0.18), kGreen.withOpacity(0.04)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: kGreen.withOpacity(0.2))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Container(width: 48, height: 48,
                   decoration: BoxDecoration(
-                    color: _gender == g ? kGreen : bg,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: _gender == g ? kGreen : Colors.grey.withOpacity(0.3))),
-                  child: Text(g, style: TextStyle(color: _gender == g ? Colors.white : Colors.grey[400], fontWeight: FontWeight.w600))))
-            )).toList()),
-            const SizedBox(height: 20),
-            GestureDetector(
-              onTap: () => setState(() => _ageConfirmed = !_ageConfirmed),
-              child: Row(children: [
-                AnimatedContainer(duration: const Duration(milliseconds: 200),
-                  width: 22, height: 22,
-                  decoration: BoxDecoration(color: _ageConfirmed ? kGreen : Colors.transparent,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: _ageConfirmed ? kGreen : Colors.grey)),
-                  child: _ageConfirmed ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null),
-                const SizedBox(width: 10),
-                Text('I confirm I am 13 years or older', style: TextStyle(color: Colors.grey[400], fontSize: 13)),
+                    gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]),
+                    borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 26)),
+                const SizedBox(height: 16),
+                Text(_step == 0 ? 'Create Account' : 'Set Password',
+                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, height: 1.1)),
+                const SizedBox(height: 6),
+                Text(_step == 0 ? 'Tell us about yourself to get started' : 'Choose a strong password to secure your account',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14, height: 1.4)),
               ])),
-            const SizedBox(height: 28),
-            _btn('Continue', () {
-              if (_nameCtrl.text.isEmpty || _emailCtrl.text.isEmpty) { setState(() => _error = 'Fill required fields'); return; }
-              if (_gender.isEmpty) { setState(() => _error = 'Select your gender'); return; }
-              if (!_ageConfirmed) { setState(() => _error = 'Confirm your age to continue'); return; }
-              setState(() { _error = null; _step = 1; });
-            }),
-          ],
-
-          if (_step == 1) ...[
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              TextField(controller: _uCtrl, onChanged: _onUChange,
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]'))],
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  hintText: 'Username', hintStyle: TextStyle(color: Colors.grey[500]),
-                  prefixIcon: Icon(uIcon, color: uColor),
-                  suffixIcon: _uStatus == 'checking' ? const Padding(padding: EdgeInsets.all(12),
-                    child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange))) : null,
-                  filled: true, fillColor: bg,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: uColor, width: 1.5)))),
-              if (uHint.isNotEmpty) Padding(padding: const EdgeInsets.only(left: 12, top: 4),
-                child: Text(uHint, style: TextStyle(color: uColor, fontSize: 12))),
-              if (_suggestions.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(spacing: 8, runSpacing: 6, children: _suggestions.map((s) =>
-                  GestureDetector(onTap: () { _uCtrl.text = s; _checkU(s); },
-                    child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: kGreen.withOpacity(0.4))),
-                      child: Text(s, style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w500))))).toList()),
-              ],
-            ]),
-            const SizedBox(height: 14),
-            TextField(controller: _passCtrl, obscureText: _obscure,
-              style: TextStyle(color: isDark ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                hintText: 'Password (min 6 chars)', hintStyle: TextStyle(color: Colors.grey[500]),
-                prefixIcon: const Icon(Icons.lock_outline, color: Colors.grey),
-                suffixIcon: IconButton(icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, color: Colors.grey),
-                  onPressed: () => setState(() => _obscure = !_obscure)),
-                filled: true, fillColor: bg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none))),
             const SizedBox(height: 24),
-            _btn('Create Account', _loading ? null : _register, loading: _loading),
-          ],
-          const SizedBox(height: 32),
-        ]))));
+
+            if (_error != null) ...[
+              _errorBox(_error!),
+              const SizedBox(height: 16),
+            ],
+
+            // ── STEP 0: Personal Info ──
+            if (_step == 0) ...[
+              _label('Full Name'),
+              _field(hint: 'Enter your full name', icon: Icons.person_rounded,
+                ctrl: _nameCtrl, isDark: isDark, bg: bg, type: TextInputType.name),
+              const SizedBox(height: 16),
+              _label('Email Address'),
+              _field(hint: 'your@email.com', icon: Icons.email_rounded,
+                ctrl: _emailCtrl, isDark: isDark, bg: bg, type: TextInputType.emailAddress),
+              const SizedBox(height: 16),
+              _label('Phone Number', optional: true),
+              _field(hint: '+880 1XXXXXXXXX', icon: Icons.phone_rounded,
+                ctrl: _phoneCtrl, isDark: isDark, bg: bg, type: TextInputType.phone),
+              const SizedBox(height: 20),
+
+              // Gender
+              _label('Gender'),
+              const SizedBox(height: 8),
+              Row(children: ['Male', 'Female', 'Other'].map((g) {
+                final sel = _gender == g;
+                return Expanded(child: GestureDetector(
+                  onTap: () => setState(() => _gender = g),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    margin: EdgeInsets.only(right: g == 'Other' ? 0 : 10),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    decoration: BoxDecoration(
+                      color: sel ? kGreen : bg,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: sel ? kGreen : Colors.grey.withOpacity(0.25), width: sel ? 0 : 1)),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(g == 'Male' ? Icons.male_rounded : g == 'Female' ? Icons.female_rounded : Icons.transgender_rounded,
+                        color: sel ? Colors.white : Colors.grey[500], size: 16),
+                      const SizedBox(width: 5),
+                      Text(g, style: TextStyle(
+                        color: sel ? Colors.white : Colors.grey[400],
+                        fontWeight: FontWeight.w600, fontSize: 13)),
+                    ]))));
+              }).toList()),
+              const SizedBox(height: 20),
+
+              // Age confirmation
+              GestureDetector(
+                onTap: () => setState(() => _ageConfirmed = !_ageConfirmed),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: _ageConfirmed ? kGreen.withOpacity(0.08) : bg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _ageConfirmed ? kGreen.withOpacity(0.4) : Colors.grey.withOpacity(0.2))),
+                  child: Row(children: [
+                    AnimatedContainer(duration: const Duration(milliseconds: 200),
+                      width: 22, height: 22,
+                      decoration: BoxDecoration(
+                        color: _ageConfirmed ? kGreen : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: _ageConfirmed ? kGreen : Colors.grey[600]!, width: 2)),
+                      child: _ageConfirmed ? const Icon(Icons.check_rounded, color: Colors.white, size: 14) : null),
+                    const SizedBox(width: 12),
+                    Expanded(child: Text('I confirm that I am 13 years or older',
+                      style: TextStyle(color: _ageConfirmed ? kGreen : Colors.grey[400], fontSize: 14, fontWeight: FontWeight.w500))),
+                  ]))),
+              const SizedBox(height: 28),
+              _bigBtn('Continue →', () {
+                final name = _nameCtrl.text.trim();
+                final email = _emailCtrl.text.trim();
+                if (name.isEmpty) { setState(() => _error = 'Please enter your full name'); return; }
+                if (email.isEmpty || !email.contains('@')) { setState(() => _error = 'Please enter a valid email'); return; }
+                if (_gender.isEmpty) { setState(() => _error = 'Please select your gender'); return; }
+                if (!_ageConfirmed) { setState(() => _error = 'Please confirm your age'); return; }
+                setState(() { _error = null; _step = 1; });
+              }),
+            ],
+
+            // ── STEP 1: Password ──
+            if (_step == 1) ...[
+              _label('Password'),
+              Container(
+                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+                child: TextField(
+                  controller: _passCtrl, obscureText: _obscure1,
+                  onChanged: _onPassChange,
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 15),
+                  decoration: InputDecoration(
+                    hintText: 'Create a strong password',
+                    hintStyle: TextStyle(color: Colors.grey[500]),
+                    prefixIcon: const Icon(Icons.lock_rounded, color: kGreen, size: 20),
+                    suffixIcon: IconButton(
+                      icon: Icon(_obscure1 ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                        color: Colors.grey[500], size: 20),
+                      onPressed: () => setState(() => _obscure1 = !_obscure1)),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    filled: true, fillColor: Colors.transparent,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 16)))),
+
+              // Password strength bar
+              if (_passCtrl.text.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Row(children: [
+                  ...List.generate(4, (i) => Expanded(child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    height: 4, margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
+                    decoration: BoxDecoration(
+                      color: i < _passStrength ? strengthColors[_passStrength] : Colors.grey[800],
+                      borderRadius: BorderRadius.circular(2))))),
+                  const SizedBox(width: 10),
+                  Text(strengthLabels[_passStrength],
+                    style: TextStyle(color: strengthColors[_passStrength], fontSize: 12, fontWeight: FontWeight.w600)),
+                ]),
+              ],
+              const SizedBox(height: 16),
+
+              _label('Confirm Password'),
+              StatefulBuilder(builder: (_, setSt2) {
+                final match = _passCtrl.text.isNotEmpty && _confirmCtrl.text.isNotEmpty
+                  && _passCtrl.text == _confirmCtrl.text;
+                final mismatch = _confirmCtrl.text.isNotEmpty && _passCtrl.text != _confirmCtrl.text;
+                return Container(
+                  decoration: BoxDecoration(
+                    color: bg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: match ? kGreen.withOpacity(0.5) : mismatch ? Colors.red.withOpacity(0.4) : Colors.transparent,
+                      width: 1.5)),
+                  child: TextField(
+                    controller: _confirmCtrl,
+                    obscureText: _obscure2,
+                    onChanged: (_) => setSt2(() {}),
+                    style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 15),
+                    decoration: InputDecoration(
+                      hintText: 'Re-enter your password',
+                      hintStyle: TextStyle(color: Colors.grey[500]),
+                      prefixIcon: Icon(Icons.lock_outline_rounded,
+                        color: match ? kGreen : mismatch ? Colors.red : Colors.grey, size: 20),
+                      suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (match) const Padding(padding: EdgeInsets.only(right: 4),
+                          child: Icon(Icons.check_circle_rounded, color: kGreen, size: 20)),
+                        if (mismatch) const Padding(padding: EdgeInsets.only(right: 4),
+                          child: Icon(Icons.cancel_rounded, color: Colors.red, size: 20)),
+                        IconButton(
+                          icon: Icon(_obscure2 ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                            color: Colors.grey[500], size: 20),
+                          onPressed: () => setState(() => _obscure2 = !_obscure2)),
+                      ]),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                      filled: true, fillColor: Colors.transparent,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16))));
+              }),
+
+              const SizedBox(height: 12),
+              // Tips
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: kGreen.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: kGreen.withOpacity(0.15))),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Password tips', style: TextStyle(color: Colors.grey[400], fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  ...[
+                    'At least 6 characters',
+                    'Mix uppercase & lowercase',
+                    'Add numbers or symbols for extra strength',
+                  ].map((t) => Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Row(children: [
+                      const Icon(Icons.circle, color: kGreen, size: 5),
+                      const SizedBox(width: 8),
+                      Text(t, style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                    ]))),
+                ])),
+              const SizedBox(height: 28),
+              _bigBtn(_loading ? '' : 'Create Account', _loading ? null : _register, loading: _loading),
+            ],
+          ]))),
+      ])));
   }
+
+  Widget _label(String t, {bool optional = false}) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Row(children: [
+      Text(t, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+      if (optional) ...[
+        const SizedBox(width: 6),
+        Text('(optional)', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+      ],
+    ]));
+
+  Widget _field({required String hint, required IconData icon, required TextEditingController ctrl,
+    required bool isDark, required Color bg, TextInputType? type}) =>
+    Container(
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
+      child: TextField(
+        controller: ctrl, keyboardType: type,
+        style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 15),
+        decoration: InputDecoration(
+          hintText: hint, hintStyle: TextStyle(color: Colors.grey[500]),
+          prefixIcon: Icon(icon, color: kGreen, size: 20),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+          filled: true, fillColor: Colors.transparent,
+          contentPadding: const EdgeInsets.symmetric(vertical: 16))));
+
+  Widget _bigBtn(String label, VoidCallback? onTap, {bool loading = false}) =>
+    SizedBox(width: double.infinity, height: 58,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: kGreen, elevation: 0,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shadowColor: kGreen.withOpacity(0.4)),
+        onPressed: onTap,
+        child: loading
+          ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5))
+          : Text(label, style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold))));
 }
 
-// ─── USERNAME SETUP (OAuth / Phone new users) ─────────
+// ─── USERNAME SETUP (OAuth / Phone new users) — auto-generates username ───
 class UsernameSetupScreen extends StatefulWidget {
   final User user;
   const UsernameSetupScreen({super.key, required this.user});
   @override State<UsernameSetupScreen> createState() => _UsernameSetupScreenState();
 }
 class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
-  final _uCtrl = TextEditingController();
-  String? _uStatus = '';
-  final List<String> _suggestions = [];
-  final Map<String, String> _uCache = {};
-  int _reqId = 0;
-  bool _loading = false;
-  String? _error;
+  @override void initState() { super.initState(); _autoSetup(); }
 
-  void _onUChange(String val) {
-    if (val.isEmpty) { setState(() { _uStatus = ''; _suggestions.clear(); }); return; }
-    final clean = val.trim().toLowerCase();
-    if (!RegExp(r'^[a-z0-9_]*$').hasMatch(clean)) { setState(() { _uStatus = 'invalid'; _suggestions.clear(); }); return; }
-    if (clean.length < 3) { setState(() { _uStatus = 'short'; _suggestions.clear(); }); return; }
-    if (clean.length > 20) { setState(() { _uStatus = 'long'; _suggestions.clear(); }); return; }
-    if (_uCache.containsKey(clean)) { _applyResult(clean, _uCache[clean]!); return; }
-    setState(() => _uStatus = 'checking');
-    _checkU(clean);
+  String _generateUsername(String name, String uid) {
+    final base = name.trim().toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]'), '')
+      .substring(0, name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').length.clamp(0, 12));
+    final suffix = uid.substring(uid.length - 5);
+    return '${base}_$suffix';
   }
 
-  void _applyResult(String clean, String result) {
-    if (result == 'ok') {
-      setState(() { _uStatus = 'ok'; _suggestions.clear(); });
-    } else {
-      final base = clean.replaceAll(RegExp(r'\d+$'), '');
-      setState(() { _uStatus = 'taken'; _suggestions
-        ..clear()
-        ..addAll(['${base}_official', '${base}x', '${base}real', '${base}${DateTime.now().year % 100}', '${base}__']); });
-    }
-  }
-
-  Future<void> _checkU(String clean) async {
-    if (_uCache.containsKey(clean)) { _applyResult(clean, _uCache[clean]!); return; }
-    final myId = ++_reqId;
-    final snap = await _db.collection('users').where('username', isEqualTo: clean)
-      .limit(1).get(const GetOptions(source: Source.serverAndCache));
-    if (!mounted || myId != _reqId) return;
-    final result = snap.docs.isEmpty ? 'ok' : 'taken';
-    _uCache[clean] = result;
-    _applyResult(clean, result);
-  }
-
-  Future<void> _save() async {
-    final clean = _uCtrl.text.trim().toLowerCase();
-    if (_uStatus != 'ok') { setState(() => _error = 'Choose a valid, available username'); return; }
-    setState(() { _loading = true; _error = null; });
+  Future<void> _autoSetup() async {
     try {
       final u = widget.user;
       final name = u.displayName ?? u.email?.split('@').first ?? u.phoneNumber ?? 'User';
+      final username = _generateUsername(name, u.uid);
       await _db.collection('users').doc(u.uid).set({
-        'uid': u.uid, 'name': name,
-        'username': clean,
+        'uid': u.uid, 'name': name, 'username': username,
         'email': u.email ?? '', 'phone': u.phoneNumber ?? '',
         'avatar': name[0].toUpperCase(), 'gender': '',
         'verified': false, 'verifiedWaitlist': false,
@@ -610,84 +725,23 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
         'lastSeen': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
       });
-      // FCM token in background — don't slow down first login
       FirebaseMessaging.instance.getToken().then((fcm) {
         if (fcm != null) _db.collection('users').doc(u.uid).update({'fcmToken': fcm});
       });
-      await _db.collection('users').doc(u.uid).update({'isOnline': true});
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen()));
-    } catch (e) {
-      setState(() => _error = 'Something went wrong. Try again.');
-    } finally { if (mounted) setState(() => _loading = false); }
+    } catch (_) {
+      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const MainScreen()));
+    }
   }
-
-  @override void dispose() { _uCtrl.dispose(); super.dispose(); }
 
   @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg = isDark ? kCard : Colors.grey[100]!;
-
-    Color uColor = Colors.grey; IconData uIcon = Icons.alternate_email; String uHint = '';
-    if (_uStatus == 'checking') { uColor = Colors.orange; uHint = 'Checking...'; }
-    else if (_uStatus == 'ok')   { uColor = kGreen; uIcon = Icons.check_circle_outline; uHint = 'Available ✓'; }
-    else if (_uStatus == 'taken') { uColor = Colors.red; uIcon = Icons.cancel_outlined; uHint = 'Already taken'; }
-    else if (_uStatus == 'short') { uColor = Colors.orange; uHint = 'Minimum 3 characters'; }
-    else if (_uStatus == 'long')  { uColor = Colors.red; uHint = 'Maximum 20 characters'; }
-    else if (_uStatus == 'invalid') { uColor = Colors.red; uHint = 'Only a-z, 0-9 and _ allowed'; }
-
-    return Scaffold(
-      backgroundColor: isDark ? kDark : Colors.white,
-      body: SafeArea(child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const SizedBox(height: 52),
-          Row(children: [
-            Container(width: 48, height: 48,
-              decoration: BoxDecoration(gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]), borderRadius: BorderRadius.circular(14)),
-              child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 28)),
-            const SizedBox(width: 12),
-            const Text('Convo', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
-          ]),
-          const SizedBox(height: 36),
-          const Text('Choose your username', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 6),
-          Text('Pick a unique username. You can change it later in settings.',
-            style: TextStyle(color: Colors.grey[500], fontSize: 14)),
-          const SizedBox(height: 28),
-          if (_error != null) _errorBox(_error!),
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            TextField(
-              controller: _uCtrl, onChanged: _onUChange,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9_]'))],
-              style: TextStyle(color: isDark ? Colors.white : Colors.black),
-              decoration: InputDecoration(
-                hintText: 'username', hintStyle: TextStyle(color: Colors.grey[500]),
-                prefixIcon: Icon(uIcon, color: uColor),
-                suffixIcon: _uStatus == 'checking'
-                  ? const Padding(padding: EdgeInsets.all(12),
-                      child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.orange)))
-                  : null,
-                filled: true, fillColor: bg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: uColor, width: 1.5)))),
-            if (uHint.isNotEmpty) Padding(padding: const EdgeInsets.only(left: 12, top: 4),
-              child: Text(uHint, style: TextStyle(color: uColor, fontSize: 12))),
-            if (_suggestions.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 6, children: _suggestions.map((s) =>
-                GestureDetector(onTap: () { _uCtrl.text = s; _checkU(s); },
-                  child: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: kGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: kGreen.withOpacity(0.4))),
-                    child: Text(s, style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.w500))))).toList()),
-            ],
-          ]),
-          const SizedBox(height: 24),
-          _btn('Continue', _loading ? null : _save, loading: _loading),
-          const SizedBox(height: 32),
-        ]))));
-  }
+  Widget build(BuildContext context) => const Scaffold(
+    backgroundColor: kDark,
+    body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      CircularProgressIndicator(color: kGreen),
+      SizedBox(height: 20),
+      Text('Setting up your account...', style: TextStyle(color: Colors.grey, fontSize: 14)),
+    ])));
 }
 
 // ─── MAIN SCREEN ──────────────────────────────────────
