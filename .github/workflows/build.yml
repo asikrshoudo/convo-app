@@ -33,22 +33,24 @@ jobs:
       - name: Setup Firebase in Gradle
         run: |
           python3 - << 'PYEOF'
-          import re
-
-          # project build.gradle
+          # Fix project-level build.gradle
           proj = open('/tmp/convo/android/build.gradle').read()
           proj = proj.replace(
-            'dependencies {',
-            'dependencies {\n        classpath "com.google.gms:google-services:4.4.0"',
-            1
+              'dependencies {',
+              'dependencies {\n        classpath "com.google.gms:google-services:4.4.0"',
+              1
           )
           open('/tmp/convo/android/build.gradle', 'w').write(proj)
 
-          # app build.gradle
+          # Fix app-level build.gradle - add apply AFTER plugins block
           app = open('/tmp/convo/android/app/build.gradle').read()
-          app = 'apply plugin: "com.google.gms.google-services"\n' + app
+          # Find end of plugins block and add apply plugin after it
+          plugins_end = app.find('\n}', app.find('plugins {')) + 2
+          app = app[:plugins_end] + '\napply plugin: "com.google.gms.google-services"\n' + app[plugins_end:]
+          # Fix minSdk
           app = app.replace('minSdk = flutter.minSdkVersion', 'minSdk = 24')
           open('/tmp/convo/android/app/build.gradle', 'w').write(app)
+          print("Done!")
           PYEOF
 
       - name: Add Internet permission
