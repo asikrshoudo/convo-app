@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants.dart';
 import '../../widgets/common_widgets.dart';
@@ -137,7 +138,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]),
                     borderRadius: BorderRadius.circular(14)),
-                  child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 26)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: SvgPicture.asset('assets/white_logo.svg', fit: BoxFit.contain))),
                 const SizedBox(height: 16),
                 Text(_step == 0 ? 'Create Account' : 'Set Password',
                   style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold, height: 1.1)),

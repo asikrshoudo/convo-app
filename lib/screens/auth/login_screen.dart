@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import '../../core/constants.dart';
 import '../../widgets/common_widgets.dart';
@@ -171,7 +172,9 @@ class _LoginScreenState extends State<LoginScreen> {
               decoration: BoxDecoration(
                 gradient: const LinearGradient(colors: [Color(0xFF00E676), kGreen]),
                 borderRadius: BorderRadius.circular(14)),
-              child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 28)),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: SvgPicture.asset('assets/white_logo.svg', fit: BoxFit.contain))),
             const SizedBox(width: 12),
             const Text('Convo', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
           ]),

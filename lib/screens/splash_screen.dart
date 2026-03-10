@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../core/constants.dart';
 import 'auth/login_screen.dart';
 import 'main_screen.dart';
@@ -43,7 +44,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               begin: Alignment.topLeft, end: Alignment.bottomRight),
             borderRadius: BorderRadius.circular(28),
             boxShadow: [BoxShadow(color: kGreen.withOpacity(0.4), blurRadius: 30, offset: const Offset(0, 8))]),
-          child: const Icon(Icons.chat_bubble_rounded, color: Colors.white, size: 54))),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: SvgPicture.asset('assets/white_logo.svg', fit: BoxFit.contain)))),
         const SizedBox(height: 24),
         const Text('Convo',
           style: TextStyle(color: Colors.white, fontSize: 38, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
