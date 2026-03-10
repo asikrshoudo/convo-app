@@ -1,0 +1,63 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants.dart';
+import '../main_screen.dart';
+
+/// Shown after Google / GitHub / Phone login for brand-new users.
+/// Auto-generates a unique username and creates the Firestore doc,
+/// then immediately navigates to MainScreen — no user input required.
+class UsernameSetupScreen extends StatefulWidget {
+  final User user;
+  const UsernameSetupScreen({super.key, required this.user});
+  @override State<UsernameSetupScreen> createState() => _UsernameSetupScreenState();
+}
+
+class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
+  @override void initState() { super.initState(); _autoSetup(); }
+
+  String _generateUsername(String name, String uid) {
+    final base   = name.trim().toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '')
+        .substring(0, name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').length.clamp(0, 12));
+    final suffix = uid.substring(uid.length - 5);
+    return '${base}_$suffix';
+  }
+
+  Future<void> _autoSetup() async {
+    try {
+      final u        = widget.user;
+      final name     = u.displayName ?? u.email?.split('@').first ?? u.phoneNumber ?? 'User';
+      final username = _generateUsername(name, u.uid);
+      await db.collection('users').doc(u.uid).set({
+        'uid': u.uid, 'name': name, 'username': username,
+        'email': u.email ?? '', 'phone': u.phoneNumber ?? '',
+        'avatar': name[0].toUpperCase(), 'gender': '',
+        'verified': false, 'verifiedWaitlist': false,
+        'suggestionsEnabled': true, 'friendsPublic': true, 'profileMode': 'friend',
+        'bio': '', 'city': '', 'education': '', 'work': '', 'hometown': '',
+        'phoneNormalized': '',
+        'social': {'facebook': '', 'instagram': '', 'github': '', 'linkedin': '', 'twitter': ''},
+        'followerCount': 0, 'followingCount': 0, 'friendCount': 0,
+        'fcmToken': '', 'isOnline': true,
+        'lastSeen': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      FirebaseMessaging.instance.getToken().then((fcm) {
+        if (fcm != null) db.collection('users').doc(u.uid).update({'fcmToken': fcm});
+      });
+    } catch (_) { /* silently continue — don't block user */ }
+    if (mounted) Navigator.pushReplacement(
+        context, MaterialPageRoute(builder: (_) => const MainScreen()));
+  }
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    backgroundColor: kDark,
+    body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      CircularProgressIndicator(color: kGreen),
+      SizedBox(height: 20),
+      Text('Setting up your account...', style: TextStyle(color: Colors.grey, fontSize: 14)),
+    ])));
+}
