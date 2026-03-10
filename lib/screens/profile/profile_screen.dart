@@ -282,7 +282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: p['color'] as Color))))))).toList()),
+                  borderSide: BorderSide(color: p['color'] as Color)))))).toList()),
           const SizedBox(height: 16),
           primaryButton('Save Changes', () async {
             final newSocial = {for (final p in _socialPlatforms) p['key'] as String: socialCtrls[p['key']]!.text.trim()};
