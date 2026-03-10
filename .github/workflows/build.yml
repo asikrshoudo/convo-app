@@ -18,6 +18,12 @@ jobs:
           flutter-version: '3.24.0'
           channel: 'stable'
 
+      - name: Get res and kotlin from scaffold
+        run: |
+          flutter create --org com.thekami --project-name convo /tmp/scaffold
+          cp -r /tmp/scaffold/android/app/src/main/res android/app/src/main/
+          cp -r /tmp/scaffold/android/app/src/main/kotlin android/app/src/main/
+
       - name: Write local.properties
         run: |
           FLUTTER_SDK=$(dirname $(dirname $(which flutter)))
