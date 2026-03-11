@@ -42,6 +42,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context, MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
+  Future<void> _deleteAccount(BuildContext context) async {
+    // Step 1: Confirm dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: kCard,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Account',
+          style: TextStyle(fontWeight: FontWeight.bold, color: kTextPrimary)),
+        content: const Text(
+          'This will permanently delete your account and all your data. This cannot be undone.',
+          style: TextStyle(color: kTextSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel',
+              style: TextStyle(color: kTextSecondary))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kRed,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10))),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.white))),
+        ]));
+    if (confirm != true) return;
+
+    // Step 2: Re-authenticate if email user
+    final isEmailUser = auth.currentUser?.providerData
+        .any((p) => p.providerId == 'password') == true;
+    if (isEmailUser) {
+      final passCtrl = TextEditingController();
+      final reauth = await showDialog<bool>(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: kCard,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20)),
+          title: const Text('Confirm Password',
+            style: TextStyle(fontWeight: FontWeight.bold, color: kTextPrimary)),
+          content: _inputField(passCtrl, 'Enter your password',
+            icon: Icons.lock_outline_rounded, obscure: true),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel',
+                style: TextStyle(color: kTextSecondary))),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: kRed,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10))),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Confirm',
+                style: TextStyle(color: Colors.white))),
+          ]));
+      if (reauth != true) return;
+      try {
+        final cred = EmailAuthProvider.credential(
+          email: auth.currentUser!.email!, password: passCtrl.text);
+        await auth.currentUser!.reauthenticateWithCredential(cred);
+      } on FirebaseAuthException catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Wrong password'),
+            backgroundColor: kRed));
+        return;
+      }
+    }
+
+    try {
+      // Delete Firestore user data
+      await db.collection('users').doc(_myUid).delete();
+      // Delete Firebase Auth account
+      await auth.currentUser!.delete();
+      if (mounted) Navigator.pushReplacement(
+        context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+    } on FirebaseAuthException catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Error deleting account'),
+          backgroundColor: kRed));
+    }
+  }
+
   Future<void> _update(Map<String, dynamic> data) =>
     db.collection('users').doc(_myUid).update(data);
 
@@ -129,8 +210,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Find friends from your contacts',
           () => Navigator.push(context,
             MaterialPageRoute(builder: (_) => const ContactSyncScreen()))),
-        _tile(Icons.lock_rounded, 'Change Password', 'Update your password',
-          () => _changePass(context)),
+        // Only show Change Password for email/password users (not GitHub/Google)
+        if (auth.currentUser?.providerData
+            .any((p) => p.providerId == 'password') == true)
+          _tile(Icons.lock_rounded, 'Change Password', 'Update your password',
+            () => _changePass(context)),
         _tile(Icons.verified_rounded, 'Get Verified',
           isVerified ? 'You are verified ✓'
             : (onWaitlist ? 'On waitlist' : 'Join the waitlist'),
@@ -226,6 +310,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 SizedBox(width: 8),
                 Text('Sign Out', style: TextStyle(color: kRed,
                   fontWeight: FontWeight.w600, fontSize: 15)),
+              ])))),
+        const SizedBox(height: 12),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: GestureDetector(
+            onTap: () => _deleteAccount(context),
+            child: Container(
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: kRed.withOpacity(0.2))),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center, children: [
+                Icon(Icons.delete_forever_rounded, color: kRed, size: 20),
+                SizedBox(width: 8),
+                Text('Delete Account', style: TextStyle(color: kRed,
+                  fontWeight: FontWeight.w500, fontSize: 15)),
               ])))),
         const SizedBox(height: 40),
       ]));
@@ -534,38 +636,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       fontSize: 11, fontWeight: FontWeight.w600)),
                   ]))));
             }).toList()),
-            const SizedBox(height: 24),
-            const Text('ACCENT COLOR', style: TextStyle(color: kAccent,
-              fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.4)),
-            const SizedBox(height: 14),
-            Wrap(spacing: 14, runSpacing: 14,
-              children: kAccentColors.entries.map((e) {
-                final selected = accentColorNotifier.value.value == e.value.value;
-                return GestureDetector(
-                  onTap: () async {
-                    accentColorNotifier.value = e.value;
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setInt('accentColor', e.value.value);
-                    setSt(() {});
-                    if (mounted) setState(() {});
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    width: 46, height: 46,
-                    decoration: BoxDecoration(
-                      color: e.value, shape: BoxShape.circle,
-                      border: Border.all(
-                        color: selected ? Colors.white : Colors.transparent,
-                        width: 3),
-                      boxShadow: selected
-                        ? [BoxShadow(color: e.value.withOpacity(0.6),
-                            blurRadius: 10, spreadRadius: 1)]
-                        : []),
-                    child: selected
-                      ? const Icon(Icons.check_rounded,
-                          color: Colors.white, size: 22)
-                      : null));
-              }).toList()),
             const SizedBox(height: 8),
           ]))));
   }

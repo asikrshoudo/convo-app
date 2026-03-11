@@ -55,6 +55,24 @@ class UpdateService {
     } catch (_) {}
   }
 
+  // Returns true if a newer version is available (no dialog shown)
+  static Future<bool> hasUpdate() async {
+    try {
+      final info    = await PackageInfo.fromPlatform();
+      final current = info.version;
+      final res = await http.get(
+        Uri.parse(_apiUrl),
+        headers: {'Accept': 'application/vnd.github+json'},
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) return false;
+      final json   = jsonDecode(res.body) as Map<String, dynamic>;
+      final latest = (json['tag_name'] as String).replaceFirst('v', '');
+      return isNewer(latest, current);
+    } catch (_) {
+      return false;
+    }
+  }
+
   // Made public so AppVersionScreen can use it
   static bool isNewer(String latest, String current) {
     final l = _parse(latest);

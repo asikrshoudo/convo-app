@@ -65,12 +65,16 @@ jobs:
           dart run flutter_launcher_icons
           flutter build apk --release --target-platform android-arm64 --split-per-abi
 
+      - name: Get commit message
+        id: commit
+        run: echo "msg=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.0.${{ github.run_number }}
           name: Convo v1.0.0.${{ github.run_number }}
-          body: "Convo Release — Build #${{ github.run_number }}"
+          body: ${{ steps.commit.outputs.msg }}
           files: build/app/outputs/flutter-apk/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
