@@ -30,38 +30,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void _onTap(Map<String, dynamic> data, String docId) {
     _markRead(docId);
     final type = data['data']?['type'] as String? ?? '';
-    switch (type) {
-      case 'dm':
-        final chatId     = data['data']?['chatId']     as String? ?? '';
-        final senderId   = data['data']?['senderId']   as String? ?? '';
-        final senderName = data['data']?['senderName'] as String? ?? 'User';
-        if (chatId.isNotEmpty) {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => ChatScreen(
-              otherUid: senderId, otherName: senderName,
-              otherAvatar: senderName.isNotEmpty
-                ? senderName[0].toUpperCase() : 'U',
-              chatId: chatId)));
-        }
-        break;
-      case 'group':
-        final groupId   = data['data']?['groupId']   as String? ?? '';
-        final groupName = data['title']               as String? ?? 'Group';
-        if (groupId.isNotEmpty) {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => GroupChatScreen(
-              groupId: groupId, groupName: groupName)));
-        }
-        break;
-      case 'friend_request':
-      case 'friend_accepted':
-      case 'follow':
-        final fromUid = data['data']?['fromUid'] as String? ?? '';
-        if (fromUid.isNotEmpty) {
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => ProfileScreen(uid: fromUid)));
-        }
-        break;
+
+    if (type == 'dm') {
+      final chatId     = data['data']?['chatId']     as String? ?? '';
+      final senderId   = data['data']?['senderId']   as String? ?? '';
+      final senderName = data['data']?['senderName'] as String? ?? 'User';
+      if (chatId.isEmpty || senderId.isEmpty) return;
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          otherUid:    senderId,
+          otherName:   senderName,
+          otherAvatar: senderName.isNotEmpty ? senderName[0].toUpperCase() : 'U',
+          chatId:      chatId)));
+    } else if (type == 'group') {
+      final groupId   = data['data']?['groupId'] as String? ?? '';
+      final groupName = data['title']             as String? ?? 'Group';
+      if (groupId.isEmpty) return;
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => GroupChatScreen(
+          groupId: groupId, groupName: groupName)));
+    } else if (type == 'friend_request' ||
+               type == 'friend_accepted' ||
+               type == 'follow') {
+      final fromUid = data['data']?['fromUid'] as String? ?? '';
+      if (fromUid.isEmpty) return;
+      Navigator.push(context, MaterialPageRoute(
+        builder: (_) => ProfileScreen(uid: fromUid)));
     }
   }
 
@@ -97,6 +91,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return '${(diff.inDays / 7).floor()}w ago';
   }
 
+  Widget _emptyState() => Center(child: Column(
+    mainAxisAlignment: MainAxisAlignment.center, children: [
+    Container(
+      width: 72, height: 72,
+      decoration: BoxDecoration(
+        color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
+      child: const Icon(Icons.notifications_none_rounded,
+        size: 36, color: kAccent)),
+    const SizedBox(height: 20),
+    const Text('No notifications yet',
+      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold,
+        color: kTextPrimary)),
+    const SizedBox(height: 8),
+    const Text("You'll be notified when something happens",
+      style: TextStyle(color: kTextSecondary, fontSize: 13)),
+  ]));
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,67 +122,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             child: const Text('Mark all read',
               style: TextStyle(color: kAccent, fontSize: 13))),
         ]),
+      // ── No orderBy to avoid composite index requirement ────────────────
+      // Sort client-side instead
       body: StreamBuilder<QuerySnapshot>(
         stream: db.collection('notifications')
           .where('uid', isEqualTo: _myUid)
-          .orderBy('createdAt', descending: true)
           .limit(50)
           .snapshots(),
         builder: (_, snap) {
-          if (snap.hasError) {
-            return Center(child: Column(
-              mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                width: 72, height: 72,
-                decoration: BoxDecoration(
-                  color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
-                child: const Icon(Icons.notifications_none_rounded,
-                  size: 36, color: kAccent)),
-              const SizedBox(height: 20),
-              const Text('No notifications yet',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold,
-                  color: kTextPrimary)),
-              const SizedBox(height: 8),
-              const Text("You'll be notified when something happens",
-                style: TextStyle(color: kTextSecondary, fontSize: 13)),
-            ]));
-          }
+          if (snap.hasError)  return _emptyState();
+          if (!snap.hasData)  return const Center(
+            child: CircularProgressIndicator(color: kAccent, strokeWidth: 2));
 
-          if (!snap.hasData) {
-            return const Center(child: CircularProgressIndicator(
-              color: kAccent, strokeWidth: 2));
-          }
+          // Sort by createdAt descending on client
+          final docs = [...snap.data!.docs];
+          docs.sort((a, b) {
+            final aTs = (a.data() as Map)['createdAt'] as Timestamp?;
+            final bTs = (b.data() as Map)['createdAt'] as Timestamp?;
+            if (aTs == null && bTs == null) return 0;
+            if (aTs == null) return 1;
+            if (bTs == null) return -1;
+            return bTs.compareTo(aTs);
+          });
 
-          final docs = snap.data!.docs;
-          if (docs.isEmpty) {
-            return Center(child: Column(
-              mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                width: 72, height: 72,
-                decoration: BoxDecoration(
-                  color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
-                child: const Icon(Icons.notifications_none_rounded,
-                  size: 36, color: kAccent)),
-              const SizedBox(height: 20),
-              const Text('No notifications yet',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold,
-                  color: kTextPrimary)),
-              const SizedBox(height: 8),
-              const Text("You'll be notified when something happens",
-                style: TextStyle(color: kTextSecondary, fontSize: 13)),
-            ]));
-          }
+          if (docs.isEmpty) return _emptyState();
 
           return ListView.separated(
             itemCount: docs.length,
             separatorBuilder: (_, __) =>
               Divider(height: 0, color: kDivider.withOpacity(0.5)),
             itemBuilder: (_, i) {
-              final doc  = docs[i];
-              final data = doc.data() as Map<String, dynamic>;
-              final read = data['read'] == true;
-              final type = data['data']?['type'] as String? ?? '';
-              final ts   = data['createdAt'] as Timestamp?;
+              final doc   = docs[i];
+              final data  = doc.data() as Map<String, dynamic>;
+              final read  = data['read'] == true;
+              final type  = data['data']?['type'] as String? ?? '';
+              final ts    = data['createdAt'] as Timestamp?;
               final color = _iconColor(type);
 
               return InkWell(
@@ -192,8 +177,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(data['title'] ?? '',
                         style: TextStyle(
-                          fontWeight: read
-                            ? FontWeight.normal : FontWeight.bold,
+                          fontWeight: read ? FontWeight.normal : FontWeight.bold,
                           fontSize: 14, color: kTextPrimary)),
                       const SizedBox(height: 2),
                       Text(data['body'] ?? '',

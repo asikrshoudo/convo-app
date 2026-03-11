@@ -16,7 +16,7 @@ class ChatsScreen extends StatefulWidget {
 
 class _ChatsScreenState extends State<ChatsScreen> {
   late final String _myUid;
-  final _searchCtrl = TextEditingController();
+  final _searchCtrl  = TextEditingController();
   String _searchQuery = '';
 
   @override
@@ -61,9 +61,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
               style: TextStyle(color: kTextSecondary, fontSize: 13)),
             onTap: () {
               Navigator.pop(context);
-              Navigator.push(context,
-                MaterialPageRoute(
-                  builder: (_) => const FriendsScreen(startChat: true)));
+              Navigator.push(context, MaterialPageRoute(
+                builder: (_) => const FriendsScreen(startChat: true)));
             }),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20),
@@ -92,40 +91,38 @@ class _ChatsScreenState extends State<ChatsScreen> {
     return Scaffold(
       backgroundColor: kDark,
       body: Column(children: [
-        // ── Search + inbox row ────────────────────────────────────────────
+        // ── Search + inbox row ─────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Row(children: [
-            Expanded(
-              child: Container(
-                height: 44,
-                decoration: BoxDecoration(
-                  color: kCard,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: kDivider, width: 0.5)),
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-                  style: const TextStyle(fontSize: 14, color: kTextPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Search chats...',
-                    hintStyle: const TextStyle(color: kTextSecondary, fontSize: 14),
-                    prefixIcon: const Icon(Icons.search_rounded,
-                      color: kTextSecondary, size: 20),
-                    suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.close_rounded, size: 18),
-                          color: kTextSecondary,
-                          onPressed: () {
-                            _searchCtrl.clear();
-                            setState(() => _searchQuery = '');
-                          })
-                      : null,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 13)))),
-            ),
+            Expanded(child: Container(
+              height: 44,
+              decoration: BoxDecoration(
+                color: kCard,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: kDivider, width: 0.5)),
+              child: TextField(
+                controller: _searchCtrl,
+                onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                style: const TextStyle(fontSize: 14, color: kTextPrimary),
+                decoration: InputDecoration(
+                  hintText: 'Search chats...',
+                  hintStyle: const TextStyle(color: kTextSecondary, fontSize: 14),
+                  prefixIcon: const Icon(Icons.search_rounded,
+                    color: kTextSecondary, size: 20),
+                  suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        color: kTextSecondary,
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _searchQuery = '');
+                        })
+                    : null,
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 13))))),
             const SizedBox(width: 8),
-            // Inbox button
+            // Inbox / message-requests button
             StreamBuilder<QuerySnapshot>(
               stream: db.collection('message_requests')
                 .where('to', isEqualTo: _myUid)
@@ -141,35 +138,32 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: kDivider, width: 0.5)),
                     child: IconButton(
-                      icon: const Icon(Icons.inbox_rounded, size: 20,
-                        color: kTextSecondary),
+                      icon: const Icon(Icons.inbox_rounded,
+                        size: 20, color: kTextSecondary),
                       onPressed: () => Navigator.push(context,
                         MaterialPageRoute(
                           builder: (_) => const MessageRequestsScreen())))),
                   if (count > 0)
-                    Positioned(
-                      right: 4, top: 4,
+                    Positioned(right: 4, top: 4,
                       child: Container(
                         width: 14, height: 14,
                         decoration: const BoxDecoration(
                           color: kRed, shape: BoxShape.circle),
-                        child: Center(
-                          child: Text('$count',
-                            style: const TextStyle(
-                              color: Colors.white, fontSize: 8,
-                              fontWeight: FontWeight.bold))))),
+                        child: Center(child: Text('$count',
+                          style: const TextStyle(
+                            color: Colors.white, fontSize: 8,
+                            fontWeight: FontWeight.bold))))),
                 ]);
               }),
           ])),
 
-        // ── Chat list ─────────────────────────────────────────────────────
+        // ── Chat list ──────────────────────────────────────────────────────
         Expanded(child: _CombinedChatList(
           myUid: _myUid, searchQuery: _searchQuery)),
       ]),
 
       floatingActionButton: FloatingActionButton(
-        backgroundColor: kAccent,
-        elevation: 2,
+        backgroundColor: kAccent, elevation: 2,
         onPressed: _showNewChatOptions,
         child: const Icon(Icons.edit_rounded, color: Colors.white, size: 22)),
     );
@@ -194,171 +188,184 @@ class _CombinedChatList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ── Outer stream: pending message-requests to ME ───────────────────────
+    // Any chatId in here should NOT appear in the main chat list
     return StreamBuilder<QuerySnapshot>(
-      stream: db.collection('chats')
-        .where('participants', arrayContains: myUid).snapshots(),
-      builder: (_, dmSnap) {
+      stream: db.collection('message_requests')
+        .where('to', isEqualTo: myUid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots(),
+      builder: (_, reqSnap) {
+        final pendingChatIds = {
+          for (final d in (reqSnap.data?.docs ?? []))
+            ((d.data() as Map)['chatId'] as String? ?? d.id)
+        };
+
         return StreamBuilder<QuerySnapshot>(
-          stream: db.collection('groups')
-            .where('members', arrayContains: myUid).snapshots(),
-          builder: (_, grpSnap) {
-            if (!dmSnap.hasData || !grpSnap.hasData) {
-              return const Center(child: CircularProgressIndicator(
-                color: kAccent, strokeWidth: 2));
-            }
-
-            final List<Map<String, dynamic>> items = [];
-
-            for (final doc in dmSnap.data!.docs) {
-              final d = doc.data() as Map<String, dynamic>;
-              final participants = List<String>.from(d['participants'] ?? []);
-              final otherUid = participants.firstWhere(
-                (u) => u != myUid, orElse: () => '');
-              if (otherUid.isEmpty) continue;
-              items.add({
-                'type': 'dm', 'id': doc.id,
-                'otherUid': otherUid,
-                'lastTimestamp': d['lastTimestamp'],
-                'data': d,
-              });
-            }
-
-            for (final doc in grpSnap.data!.docs) {
-              final d = doc.data() as Map<String, dynamic>;
-              items.add({
-                'type': 'group', 'id': doc.id, 'data': d,
-                'lastTimestamp': d['lastTimestamp'],
-                'nameLower': (d['name'] ?? '').toString().toLowerCase(),
-              });
-            }
-
-            items.sort((a, b) {
-              final aTs = a['lastTimestamp'] as Timestamp?;
-              final bTs = b['lastTimestamp'] as Timestamp?;
-              if (aTs == null && bTs == null) return 0;
-              if (aTs == null) return 1;
-              if (bTs == null) return -1;
-              return bTs.compareTo(aTs);
-            });
-
-            final filtered = searchQuery.isEmpty
-              ? items
-              : items.where((item) {
-                  if (item['type'] == 'group') {
-                    return (item['nameLower'] as String).contains(searchQuery);
-                  }
-                  return true;
-                }).toList();
-
-            if (filtered.isEmpty) {
-              return Center(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                  Container(
-                    width: 80, height: 80,
-                    decoration: BoxDecoration(
-                      color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
-                    child: const Icon(Icons.chat_bubble_outline_rounded,
-                      size: 36, color: kAccent)),
-                  const SizedBox(height: 20),
-                  const Text('No chats yet',
-                    style: TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold,
-                      color: kTextPrimary)),
-                  const SizedBox(height: 8),
-                  const Text('Tap the pencil button to start a conversation',
-                    style: TextStyle(color: kTextSecondary, fontSize: 13),
-                    textAlign: TextAlign.center),
-                ]));
-            }
-
-            return ListView.separated(
-              padding: const EdgeInsets.only(top: 4, bottom: 80),
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const Divider(
-                height: 0, indent: 76, color: kDivider),
-              itemBuilder: (_, i) {
-                final item = filtered[i];
-
-                if (item['type'] == 'dm') {
-                  return ChatTile(
-                    chatData: item['data'],
-                    otherUid: item['otherUid'],
-                    myUid: myUid,
-                    chatId: item['id']);
+          stream: db.collection('chats')
+            .where('participants', arrayContains: myUid).snapshots(),
+          builder: (_, dmSnap) {
+            return StreamBuilder<QuerySnapshot>(
+              stream: db.collection('groups')
+                .where('members', arrayContains: myUid).snapshots(),
+              builder: (_, grpSnap) {
+                if (!dmSnap.hasData || !grpSnap.hasData) {
+                  return const Center(child: CircularProgressIndicator(
+                    color: kAccent, strokeWidth: 2));
                 }
 
-                // ── Group tile ────────────────────────────────────────────
-                final d          = item['data'] as Map<String, dynamic>;
-                final unread     = (d['unread_$myUid'] ?? 0) as int;
-                final lastTs     = d['lastTimestamp'] as Timestamp?;
-                final lastMsg    = d['lastMessage'] as String? ?? 'Group created';
-                final lastSender = d['lastSenderName'] as String?;
-                final groupName  = d['name'] ?? 'Group';
+                final List<Map<String, dynamic>> items = [];
 
-                return InkWell(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(
-                    builder: (_) => GroupChatScreen(
-                      groupId: item['id'], groupName: groupName))),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
-                    child: Row(children: [
-                      Container(
-                        width: 52, height: 52,
-                        decoration: BoxDecoration(
-                          color: kAccent.withOpacity(0.15),
-                          shape: BoxShape.circle),
-                        child: const Icon(Icons.group_rounded,
-                          color: kAccent, size: 26)),
-                      const SizedBox(width: 12),
-                      Expanded(child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(children: [
-                            Expanded(
-                              child: Text(groupName,
+                for (final doc in dmSnap.data!.docs) {
+                  // Hide chats that are still pending requests
+                  if (pendingChatIds.contains(doc.id)) continue;
+                  final d = doc.data() as Map<String, dynamic>;
+                  final participants =
+                    List<String>.from(d['participants'] ?? []);
+                  final otherUid = participants.firstWhere(
+                    (u) => u != myUid, orElse: () => '');
+                  if (otherUid.isEmpty) continue;
+                  items.add({
+                    'type': 'dm', 'id': doc.id,
+                    'otherUid': otherUid,
+                    'lastTimestamp': d['lastTimestamp'],
+                    'data': d,
+                  });
+                }
+
+                for (final doc in grpSnap.data!.docs) {
+                  final d = doc.data() as Map<String, dynamic>;
+                  items.add({
+                    'type': 'group', 'id': doc.id, 'data': d,
+                    'lastTimestamp': d['lastTimestamp'],
+                    'nameLower': (d['name'] ?? '').toString().toLowerCase(),
+                  });
+                }
+
+                items.sort((a, b) {
+                  final aTs = a['lastTimestamp'] as Timestamp?;
+                  final bTs = b['lastTimestamp'] as Timestamp?;
+                  if (aTs == null && bTs == null) return 0;
+                  if (aTs == null) return 1;
+                  if (bTs == null) return -1;
+                  return bTs.compareTo(aTs);
+                });
+
+                final filtered = searchQuery.isEmpty
+                  ? items
+                  : items.where((item) {
+                      if (item['type'] == 'group') {
+                        return (item['nameLower'] as String)
+                          .contains(searchQuery);
+                      }
+                      return true;
+                    }).toList();
+
+                if (filtered.isEmpty) {
+                  return Center(child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Container(
+                      width: 80, height: 80,
+                      decoration: BoxDecoration(
+                        color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
+                      child: const Icon(Icons.chat_bubble_outline_rounded,
+                        size: 36, color: kAccent)),
+                    const SizedBox(height: 20),
+                    const Text('No chats yet',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
+                        color: kTextPrimary)),
+                    const SizedBox(height: 8),
+                    const Text('Tap the pencil button to start a conversation',
+                      style: TextStyle(color: kTextSecondary, fontSize: 13),
+                      textAlign: TextAlign.center),
+                  ]));
+                }
+
+                return ListView.separated(
+                  padding: const EdgeInsets.only(top: 4, bottom: 80),
+                  itemCount: filtered.length,
+                  separatorBuilder: (_, __) =>
+                    const Divider(height: 0, indent: 76, color: kDivider),
+                  itemBuilder: (_, i) {
+                    final item = filtered[i];
+
+                    if (item['type'] == 'dm') {
+                      return ChatTile(
+                        chatData: item['data'],
+                        otherUid: item['otherUid'],
+                        myUid: myUid,
+                        chatId: item['id']);
+                    }
+
+                    // ── Group tile ──────────────────────────────────────────
+                    final d          = item['data'] as Map<String, dynamic>;
+                    final unread     = (d['unread_$myUid'] ?? 0) as int;
+                    final lastTs     = d['lastTimestamp'] as Timestamp?;
+                    final lastMsg    = d['lastMessage']   as String? ?? 'Group created';
+                    final lastSender = d['lastSenderName'] as String?;
+                    final groupName  = d['name'] ?? 'Group';
+
+                    return InkWell(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => GroupChatScreen(
+                          groupId: item['id'], groupName: groupName))),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 10),
+                        child: Row(children: [
+                          Container(
+                            width: 52, height: 52,
+                            decoration: BoxDecoration(
+                              color: kAccent.withOpacity(0.15),
+                              shape: BoxShape.circle),
+                            child: const Icon(Icons.group_rounded,
+                              color: kAccent, size: 26)),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                            Row(children: [
+                              Expanded(child: Text(groupName,
                                 style: TextStyle(
                                   fontWeight: unread > 0
                                     ? FontWeight.bold : FontWeight.w600,
                                   fontSize: 15, color: kTextPrimary),
                                 overflow: TextOverflow.ellipsis)),
-                            Text(_timeAgo(lastTs),
-                              style: TextStyle(
-                                color: unread > 0 ? kAccent : kTextSecondary,
-                                fontSize: 12,
-                                fontWeight: unread > 0
-                                  ? FontWeight.w600 : FontWeight.normal)),
-                          ]),
-                          const SizedBox(height: 3),
-                          Row(children: [
-                            Expanded(
-                              child: Text(
+                              Text(_timeAgo(lastTs),
+                                style: TextStyle(
+                                  color: unread > 0 ? kAccent : kTextSecondary,
+                                  fontSize: 12,
+                                  fontWeight: unread > 0
+                                    ? FontWeight.w600 : FontWeight.normal)),
+                            ]),
+                            const SizedBox(height: 3),
+                            Row(children: [
+                              Expanded(child: Text(
                                 lastSender != null
                                   ? '$lastSender: $lastMsg' : lastMsg,
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: unread > 0
-                                    ? kTextPrimary : kTextSecondary,
+                                  color: unread > 0 ? kTextPrimary : kTextSecondary,
                                   fontSize: 13,
                                   fontWeight: unread > 0
                                     ? FontWeight.w500 : FontWeight.normal))),
-                            if (unread > 0) ...[
-                              const SizedBox(width: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 7, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: kAccent,
-                                  borderRadius: BorderRadius.circular(10)),
-                                child: Text('$unread',
-                                  style: const TextStyle(
-                                    color: Colors.white, fontSize: 11,
-                                    fontWeight: FontWeight.bold))),
-                            ],
-                          ]),
-                        ])),
-                    ])));
+                              if (unread > 0) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: kAccent,
+                                    borderRadius: BorderRadius.circular(10)),
+                                  child: Text('$unread',
+                                    style: const TextStyle(
+                                      color: Colors.white, fontSize: 11,
+                                      fontWeight: FontWeight.bold))),
+                              ],
+                            ]),
+                          ])),
+                        ])));
+                  });
               });
           });
       });
