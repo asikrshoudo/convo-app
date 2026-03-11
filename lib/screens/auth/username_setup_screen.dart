@@ -18,46 +18,61 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
   @override void initState() { super.initState(); _autoSetup(); }
 
   String _generateUsername(String name, String uid) {
-    final base   = name.trim().toLowerCase()
+    final base = name.trim().toLowerCase()
         .replaceAll(RegExp(r'[^a-z0-9]'), '')
-        .substring(0, name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '').length.clamp(0, 12));
+        .substring(0, name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '')
+            .length.clamp(0, 12));
     final suffix = uid.substring(uid.length - 5);
     return '${base}_$suffix';
   }
 
   Future<void> _autoSetup() async {
     try {
-      final u        = widget.user;
-      final name     = u.displayName ?? u.email?.split('@').first ?? u.phoneNumber ?? 'User';
+      final u = widget.user;
+      final name = u.displayName ?? u.email?.split('@').first
+          ?? u.phoneNumber ?? 'User';
       final username = _generateUsername(name, u.uid);
       await db.collection('users').doc(u.uid).set({
         'uid': u.uid, 'name': name, 'username': username,
         'email': u.email ?? '', 'phone': u.phoneNumber ?? '',
         'avatar': name[0].toUpperCase(), 'gender': '',
         'verified': false, 'verifiedWaitlist': false,
-        'suggestionsEnabled': true, 'friendsPublic': true, 'profileMode': 'friend',
+        'suggestionsEnabled': true, 'friendsPublic': true,
+        'profileMode': 'friend',
         'bio': '', 'city': '', 'education': '', 'work': '', 'hometown': '',
         'phoneNormalized': '',
-        'social': {'facebook': '', 'instagram': '', 'github': '', 'linkedin': '', 'twitter': ''},
+        'social': {
+          'facebook': '', 'instagram': '', 'github': '',
+          'linkedin': '', 'twitter': ''},
         'followerCount': 0, 'followingCount': 0, 'friendCount': 0,
         'fcmToken': '', 'isOnline': true,
         'lastSeen': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
       });
       FirebaseMessaging.instance.getToken().then((fcm) {
-        if (fcm != null) db.collection('users').doc(u.uid).update({'fcmToken': fcm});
+        if (fcm != null) {
+          db.collection('users').doc(u.uid).update({'fcmToken': fcm});
+        }
       });
-    } catch (_) { /* silently continue — don't block user */ }
+    } catch (_) { /* silently continue */ }
     if (mounted) Navigator.pushReplacement(
         context, MaterialPageRoute(builder: (_) => const MainScreen()));
   }
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
+  Widget build(BuildContext context) => Scaffold(
     backgroundColor: kDark,
-    body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-      CircularProgressIndicator(color: kGreen),
-      SizedBox(height: 20),
-      Text('Setting up your account...', style: TextStyle(color: Colors.grey, fontSize: 14)),
+    body: Center(child: Column(
+      mainAxisAlignment: MainAxisAlignment.center, children: [
+      Container(
+        width: 72, height: 72,
+        decoration: BoxDecoration(
+          color: kAccent.withOpacity(0.15), shape: BoxShape.circle),
+        child: const Center(
+          child: CircularProgressIndicator(
+            color: kAccent, strokeWidth: 2.5))),
+      const SizedBox(height: 24),
+      const Text('Setting up your account...',
+        style: TextStyle(color: kTextSecondary, fontSize: 14)),
     ])));
 }

@@ -67,7 +67,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       : null;
     setState(() { _replyToId = null; _replyToText = null; _replyToSender = null; });
 
-    // Get group members for unread increment
     final groupDoc = await db.collection('groups').doc(widget.groupId).get();
     final members = List<String>.from(groupDoc.data()?['members'] ?? []);
     final unreadUpdates = <String, dynamic>{};
@@ -91,7 +90,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       ...unreadUpdates,
     }, SetOptions(merge: true));
 
-    // Notify group members
     try {
       await http.post(
         Uri.parse(_notifyUrl),
@@ -113,20 +111,20 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     });
   }
 
-  void _showMsgMenu(BuildContext context, bool isDark, String msgId, String text, String senderName) {
+  void _showMsgMenu(BuildContext context, String msgId, String text, String senderName) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDark ? kCard : Colors.white,
+      backgroundColor: kCard,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
-        const SizedBox(height: 8),
-        Container(width: 40, height: 4,
-          decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
+        Container(width: 36, height: 4,
+          decoration: BoxDecoration(color: kTextTertiary, borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 12),
         // Emoji row
         Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: ['❤️', '😂', '😮', '😢', '👍', '👎'].map((emoji) =>
@@ -136,14 +134,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   _addReaction(msgId, emoji);
                 },
                 child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: isDark ? kCard2 : Colors.grey[100],
-                    shape: BoxShape.circle),
-                  child: Text(emoji, style: const TextStyle(fontSize: 24))))).toList())),
-        const Divider(height: 1),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(color: kCard2, shape: BoxShape.circle),
+                  child: Text(emoji, style: const TextStyle(fontSize: 22))))).toList())),
+        const Divider(height: 1, color: kDivider),
         ListTile(
-          leading: const Icon(Icons.reply_rounded, color: kGreen),
+          leading: const Icon(Icons.reply_rounded, color: kAccent),
           title: const Text('Reply'),
           onTap: () {
             Navigator.pop(context);
@@ -154,20 +150,21 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             });
           }),
         ListTile(
-          leading: const Icon(Icons.copy_rounded),
+          leading: const Icon(Icons.copy_rounded, color: kTextSecondary),
           title: const Text('Copy'),
           onTap: () { Navigator.pop(context); Clipboard.setData(ClipboardData(text: text)); }),
         ListTile(
-          leading: const Icon(Icons.undo_rounded, color: Colors.red),
-          title: const Text('Unsend', style: TextStyle(color: Colors.red)),
-          subtitle: const Text('Remove for everyone', style: TextStyle(fontSize: 11)),
+          leading: const Icon(Icons.undo_rounded, color: kRed),
+          title: const Text('Unsend', style: TextStyle(color: kRed)),
+          subtitle: const Text('Remove for everyone',
+            style: TextStyle(fontSize: 11, color: kTextSecondary)),
           onTap: () {
             Navigator.pop(context);
             db.collection('groups').doc(widget.groupId)
               .collection('messages').doc(msgId)
               .update({'deleted': true, 'text': '', 'unsent': true});
           }),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
       ]));
   }
 
@@ -192,29 +189,38 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: isDark ? kDark : Colors.grey[50],
+      backgroundColor: kDark,
       appBar: AppBar(
-        backgroundColor: isDark ? kDark : Colors.white,
-        titleSpacing: 0, elevation: 0.5,
+        backgroundColor: kDark,
+        titleSpacing: 0,
+        elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context)),
         title: Row(children: [
           Container(
             width: 38, height: 38,
-            decoration: BoxDecoration(color: kGreen.withOpacity(0.15), shape: BoxShape.circle),
-            child: const Icon(Icons.group_rounded, color: kGreen, size: 22)),
+            decoration: BoxDecoration(
+              color: kAccent.withOpacity(0.18),
+              shape: BoxShape.circle),
+            child: const Icon(Icons.group_rounded, color: kAccent, size: 20)),
           const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(widget.groupName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            Text(widget.groupName,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: kTextPrimary)),
             StreamBuilder<DocumentSnapshot>(
               stream: db.collection('groups').doc(widget.groupId).snapshots(),
               builder: (_, snap) {
-                final members = List<String>.from((snap.data?.data() as Map?)?['members'] ?? []);
-                return Text('${members.length} members', style: TextStyle(color: Colors.grey[500], fontSize: 11));
+                final members = List<String>.from(
+                    (snap.data?.data() as Map?)?['members'] ?? []);
+                return Text('${members.length} members',
+                  style: const TextStyle(color: kTextSecondary, fontSize: 11));
               }),
           ]),
         ]),
@@ -223,28 +229,38 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             icon: const Icon(Icons.info_outline_rounded),
             onPressed: () => _showGroupInfo(context)),
         ]),
+
       body: Column(children: [
-        // Messages
+        // ── Messages ──────────────────────────────────────────────────────
         Expanded(child: StreamBuilder<QuerySnapshot>(
           stream: db.collection('groups').doc(widget.groupId)
             .collection('messages').orderBy('timestamp').snapshots(),
           builder: (_, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: kGreen));
+            if (!snap.hasData) return const Center(
+              child: CircularProgressIndicator(color: kAccent, strokeWidth: 2));
             final msgs = snap.data!.docs;
 
-            if (msgs.isEmpty) return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.group_rounded, size: 48, color: kGreen),
-              const SizedBox(height: 12),
-              Text('Say hi to the group!', style: TextStyle(color: Colors.grey[500], fontSize: 15)),
+            if (msgs.isEmpty) return Center(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                width: 64, height: 64,
+                decoration: BoxDecoration(
+                  color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.group_rounded, size: 30, color: kAccent)),
+              const SizedBox(height: 16),
+              Text('Say hi to the group!',
+                style: const TextStyle(color: kTextSecondary, fontSize: 15)),
             ]));
 
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
+              if (_scrollCtrl.hasClients) {
+                _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
+              }
             });
 
             return ListView.builder(
               controller: _scrollCtrl,
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
               itemCount: msgs.length,
               itemBuilder: (_, i) {
                 final data = msgs[i].data() as Map<String, dynamic>;
@@ -265,106 +281,170 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   reactionCounts[e as String] = (reactionCounts[e] ?? 0) + 1;
                 }
 
-                // Unsent message — vanish style
+                // iMessage-style tail radius
+                final radius = BorderRadius.only(
+                  topLeft:     const Radius.circular(kBubbleRadius),
+                  topRight:    const Radius.circular(kBubbleRadius),
+                  bottomLeft:  Radius.circular(
+                      isMe ? kBubbleRadius : (isLast ? 4 : kBubbleRadius)),
+                  bottomRight: Radius.circular(
+                      isMe ? (isLast ? 4 : kBubbleRadius) : kBubbleRadius),
+                );
+
+                // Unsent ghost bubble
                 if (unsent) {
                   return Padding(
                     padding: EdgeInsets.only(
-                      top: isFirst ? 8 : 2, bottom: 2,
-                      left: isMe ? 56 : 0, right: isMe ? 0 : 56),
+                      top: isFirst ? 10 : 1, bottom: 1,
+                      left: isMe ? 64 : 8, right: isMe ? 8 : 64),
                     child: Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
-                          color: Colors.transparent,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: Colors.grey.withOpacity(0.35), width: 1)),
+                          borderRadius: radius,
+                          border: Border.all(color: kDivider, width: 1)),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.undo_rounded, size: 13, color: Colors.grey[500]),
+                          Icon(Icons.undo_rounded, size: 12, color: kTextSecondary),
                           const SizedBox(width: 5),
-                          Text(isMe ? 'You unsent a message' : '${data['senderName'] ?? 'Someone'} unsent a message',
-                            style: TextStyle(color: Colors.grey[500], fontSize: 12, fontStyle: FontStyle.italic)),
+                          Text(
+                            isMe ? 'You unsent a message'
+                              : '${data['senderName'] ?? 'Someone'} unsent a message',
+                            style: const TextStyle(
+                              color: kTextSecondary, fontSize: 12,
+                              fontStyle: FontStyle.italic)),
                         ]))));
                 }
 
                 return GestureDetector(
                   onDoubleTap: () => _addReaction(msgs[i].id, '❤️'),
-                  onLongPress: () => _showMsgMenu(context, isDark, msgs[i].id, text, data['senderName'] as String? ?? ''),
+                  onLongPress: () => _showMsgMenu(
+                    context, msgs[i].id, text,
+                    data['senderName'] as String? ?? ''),
                   child: Padding(
                     padding: EdgeInsets.only(
-                      top: isFirst ? 8 : 2, bottom: 2,
-                      left: isMe ? 56 : 0, right: isMe ? 0 : 56),
+                      top: isFirst ? 10 : 1, bottom: 1,
+                      left: isMe ? 64 : 8, right: isMe ? 8 : 64),
                     child: Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
                       child: Column(
-                        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                        crossAxisAlignment: isMe
+                          ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                         children: [
-                          // Sender name for others
+                          // Sender name (others only, first bubble)
                           if (!isMe && isFirst)
                             Padding(
-                              padding: const EdgeInsets.only(left: 4, bottom: 2),
+                              padding: const EdgeInsets.only(left: 4, bottom: 3),
                               child: Text(data['senderName'] ?? '',
-                                style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.bold))),
+                                style: const TextStyle(
+                                  color: kAccent, fontSize: 11,
+                                  fontWeight: FontWeight.w700))),
 
                           Stack(clipBehavior: Clip.none, children: [
+                            // Bubble
                             Container(
                               decoration: BoxDecoration(
-                                color: isMe ? kGreen : (isDark ? kCard2 : Colors.white),
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(18),
-                                  topRight: const Radius.circular(18),
-                                  bottomLeft: Radius.circular(isMe ? 18 : 4),
-                                  bottomRight: Radius.circular(isMe ? 4 : 18)),
-                                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 4, offset: const Offset(0, 2))]),
+                                color: isMe ? kBubbleMe : kBubbleOther,
+                                borderRadius: radius,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.14),
+                                    blurRadius: 6, offset: const Offset(0, 2)),
+                                ]),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                  if (reply != null) Container(
-                                    margin: const EdgeInsets.only(bottom: 6),
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.12),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: const Border(left: BorderSide(color: Colors.white54, width: 3))),
-                                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                                      Text(reply['sender'] ?? '', style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
-                                      Text(reply['text'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.white54, fontSize: 12)),
-                                    ])),
-                                  Text(text, style: TextStyle(
-                                    color: deleted
-                                      ? (isMe ? Colors.white54 : Colors.grey[500])
-                                      : (isMe ? Colors.white : Theme.of(context).textTheme.bodyLarge?.color),
-                                    fontSize: 15,
-                                    fontStyle: deleted ? FontStyle.italic : FontStyle.normal)),
-                                ]))),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 10),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Reply quote
+                                    if (reply != null)
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(
+                                            isMe ? 0.18 : 0.06),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border(
+                                            left: BorderSide(
+                                              color: isMe ? Colors.white54 : kAccent,
+                                              width: 3))),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(reply['sender'] ?? '',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                                color: isMe ? Colors.white70 : kAccent,
+                                                letterSpacing: 0.1)),
+                                            const SizedBox(height: 2),
+                                            Text(reply['text'] ?? '',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isMe
+                                                  ? Colors.white54 : kTextSecondary)),
+                                          ])),
 
+                                    // Message text
+                                    Text(
+                                      deleted
+                                        ? (isMe ? 'You deleted this message'
+                                               : 'This message was deleted')
+                                        : text,
+                                      style: TextStyle(
+                                        color: deleted
+                                          ? (isMe ? Colors.white38 : kTextSecondary)
+                                          : (isMe ? Colors.white : kTextPrimary),
+                                        fontSize: 15,
+                                        height: 1.35,
+                                        letterSpacing: -0.1,
+                                        fontStyle: deleted
+                                          ? FontStyle.italic : FontStyle.normal)),
+                                  ]))),
+
+                            // Reaction chips
                             if (reactionCounts.isNotEmpty)
                               Positioned(
-                                bottom: -14,
-                                right: isMe ? null : 8,
-                                left: isMe ? 8 : null,
+                                bottom: -13,
+                                right: isMe ? null : 6,
+                                left:  isMe ? 6 : null,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: isDark ? kCard : Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)]),
-                                  child: Row(mainAxisSize: MainAxisSize.min,
+                                    color: kCard2,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: kDivider, width: 0.5),
+                                    boxShadow: kElevation1),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: reactionCounts.entries.map((e) =>
-                                      Text('${e.key}${e.value > 1 ? e.value.toString() : ''}',
-                                        style: const TextStyle(fontSize: 12))).toList()))),
+                                      Padding(
+                                        padding: const EdgeInsets.only(right: 2),
+                                        child: Text(
+                                          '${e.key}${e.value > 1 ? ' ${e.value}' : ''}',
+                                          style: const TextStyle(fontSize: 12))))
+                                      .toList()))),
                           ]),
 
+                          // Timestamp
                           if (isLast) ...[
-                            SizedBox(height: reactionCounts.isNotEmpty ? 16 : 4),
-                            Text(_fmt(ts), style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+                            SizedBox(height: reactionCounts.isNotEmpty ? 18.0 : 5.0),
+                            Text(_fmt(ts),
+                              style: const TextStyle(
+                                color: kTextSecondary, fontSize: 10,
+                                letterSpacing: 0.2)),
                           ] else
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 1),
                         ]))));
               });
           })),
 
-        // Typing indicator
+        // ── Typing indicator ──────────────────────────────────────────────
         StreamBuilder<QuerySnapshot>(
           stream: db.collection('groups').doc(widget.groupId)
             .collection('typing').snapshots(),
@@ -380,62 +460,81 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 const TypingDots(),
                 const SizedBox(width: 6),
                 Text('${typers.join(', ')} typing...',
-                  style: TextStyle(color: kGreen, fontSize: 12)),
+                  style: const TextStyle(color: kAccent, fontSize: 12)),
               ]));
           }),
 
-        // Reply preview
-        if (_replyToId != null) Container(
-          color: isDark ? kCard2 : Colors.grey[200],
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(children: [
-            Container(width: 3, height: 36,
-              decoration: BoxDecoration(color: kGreen, borderRadius: BorderRadius.circular(2))),
-            const SizedBox(width: 8),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(_replyToSender ?? '', style: const TextStyle(color: kGreen, fontSize: 12, fontWeight: FontWeight.bold)),
-              Text(_replyToText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+        // ── Reply preview ─────────────────────────────────────────────────
+        if (_replyToId != null)
+          Container(
+            color: kCard,
+            padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+            child: Row(children: [
+              Container(width: 3, height: 36,
+                decoration: BoxDecoration(
+                  color: kAccent, borderRadius: BorderRadius.circular(2))),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(_replyToSender ?? '',
+                  style: const TextStyle(
+                    color: kAccent, fontSize: 12, fontWeight: FontWeight.w700)),
+                Text(_replyToText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(color: kTextSecondary, fontSize: 12)),
+              ])),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, size: 18, color: kTextSecondary),
+                onPressed: () => setState(() {
+                  _replyToId = null; _replyToText = null; _replyToSender = null;
+                })),
             ])),
-            IconButton(
-              icon: const Icon(Icons.close_rounded, size: 18),
-              onPressed: () => setState(() { _replyToId = null; _replyToText = null; _replyToSender = null; })),
-          ])),
 
-        // Input bar
+        // ── Input bar ─────────────────────────────────────────────────────
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
           decoration: BoxDecoration(
-            color: isDark ? kCard : Colors.white,
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -2))]),
+            color: kCard,
+            border: Border(top: BorderSide(color: kDivider, width: 0.5))),
           child: Row(children: [
-            Expanded(child: TextField(
-              controller: _msgCtrl,
-              textCapitalization: TextCapitalization.sentences,
-              maxLines: 4, minLines: 1,
-              onSubmitted: _send,
-              decoration: InputDecoration(
-                hintText: 'Message...', hintStyle: TextStyle(color: Colors.grey[500]),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                filled: true, fillColor: isDark ? kCard2 : Colors.grey[100],
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)))),
+            Expanded(
+              child: Container(
+                constraints: const BoxConstraints(maxHeight: 120),
+                decoration: BoxDecoration(
+                  color: kCard2,
+                  borderRadius: BorderRadius.circular(22)),
+                child: TextField(
+                  controller: _msgCtrl,
+                  textCapitalization: TextCapitalization.sentences,
+                  maxLines: null,
+                  minLines: 1,
+                  style: const TextStyle(color: kTextPrimary, fontSize: 15),
+                  decoration: const InputDecoration(
+                    hintText: 'Message...',
+                    hintStyle: TextStyle(color: kTextSecondary, fontSize: 15),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10)),
+                ))),
             const SizedBox(width: 8),
+            // iMessage-style ↑ send button
             GestureDetector(
               onTap: () => _send(_msgCtrl.text),
-              child: Container(width: 46, height: 46,
-                decoration: BoxDecoration(color: kGreen, borderRadius: BorderRadius.circular(23)),
-                child: const Icon(Icons.send_rounded, color: Colors.white, size: 20))),
+              child: Container(
+                width: 36, height: 36,
+                decoration: const BoxDecoration(
+                  color: kAccent, shape: BoxShape.circle),
+                child: const Icon(Icons.arrow_upward_rounded,
+                  color: Colors.white, size: 18))),
           ])),
       ]));
   }
 
   void _showGroupInfo(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: isDark ? kCard : Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      backgroundColor: kCard,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => DraggableScrollableSheet(
         expand: false,
         initialChildSize: 0.5,
@@ -444,18 +543,26 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           builder: (_, snap) {
             final data = snap.data?.data() as Map<String, dynamic>? ?? {};
             final members = List<String>.from(data['members'] ?? []);
-            final admins = List<String>.from(data['admins'] ?? []);
+            final admins  = List<String>.from(data['admins'] ?? []);
             return Column(children: [
               const SizedBox(height: 12),
               Container(width: 40, height: 4,
-                decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
+                decoration: BoxDecoration(
+                  color: kTextTertiary, borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 16),
-              const Icon(Icons.group_rounded, color: kGreen, size: 48),
-              const SizedBox(height: 8),
-              Text(widget.groupName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text('${members.length} members', style: TextStyle(color: Colors.grey[500])),
+              Container(
+                width: 56, height: 56,
+                decoration: BoxDecoration(
+                  color: kAccent.withOpacity(0.15), shape: BoxShape.circle),
+                child: const Icon(Icons.group_rounded, color: kAccent, size: 28)),
+              const SizedBox(height: 10),
+              Text(widget.groupName,
+                style: const TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w700, color: kTextPrimary)),
+              Text('${members.length} members',
+                style: const TextStyle(color: kTextSecondary, fontSize: 13)),
               const SizedBox(height: 16),
-              const Divider(),
+              const Divider(color: kDivider),
               Expanded(child: ListView.builder(
                 controller: ctrl,
                 itemCount: members.length,
@@ -465,27 +572,49 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     final u = uSnap.data?.data() as Map<String, dynamic>? ?? {};
                     final isAdmin = admins.contains(members[i]);
                     return ListTile(
-                      leading: CircleAvatar(
-                        backgroundColor: kGreen,
-                        child: Text(u['avatar'] ?? '?', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                      title: Text(u['name'] ?? 'User'),
-                      subtitle: Text('@${u['username'] ?? ''}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                      trailing: isAdmin ? Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: kGreen.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
-                        child: const Text('Admin', style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.bold))) : null);
+                      leading: Container(
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          color: kAccent.withOpacity(0.18),
+                          shape: BoxShape.circle),
+                        child: Center(
+                          child: Text(u['avatar'] ?? '?',
+                            style: const TextStyle(
+                              color: kAccent,
+                              fontWeight: FontWeight.bold, fontSize: 16)))),
+                      title: Text(u['name'] ?? 'User',
+                        style: const TextStyle(
+                          color: kTextPrimary, fontWeight: FontWeight.w500)),
+                      subtitle: Text('@${u['username'] ?? ''}',
+                        style: const TextStyle(
+                          color: kTextSecondary, fontSize: 12)),
+                      trailing: isAdmin
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: kAccent.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8)),
+                            child: const Text('Admin',
+                              style: TextStyle(
+                                color: kAccent, fontSize: 11,
+                                fontWeight: FontWeight.bold)))
+                        : null);
                   }))),
-              // Leave group button
+
+              // Leave group
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: SizedBox(width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.red),
+                      side: const BorderSide(color: kRed),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                    icon: const Icon(Icons.exit_to_app_rounded, color: Colors.red),
-                    label: const Text('Leave Group', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12))),
+                    icon: const Icon(Icons.exit_to_app_rounded, color: kRed),
+                    label: const Text('Leave Group',
+                      style: TextStyle(color: kRed, fontWeight: FontWeight.w600)),
                     onPressed: () async {
                       await db.collection('groups').doc(widget.groupId)
                         .update({'members': FieldValue.arrayRemove([_myUid])});

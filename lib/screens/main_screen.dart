@@ -15,7 +15,8 @@ class MainScreen extends StatefulWidget {
   @override State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
+class _MainScreenState extends State<MainScreen>
+    with WidgetsBindingObserver {
   int _idx = 0;
 
   @override
@@ -61,11 +62,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     final token = await FirebaseMessaging.instance.getToken();
     final uid   = auth.currentUser?.uid;
     if (uid != null && token != null) {
-      await db.collection('users').doc(uid).update({'fcmToken': token});
+      await db.collection('users').doc(uid)
+          .update({'fcmToken': token});
     }
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
       final u = auth.currentUser?.uid;
-      if (u != null) db.collection('users').doc(u).update({'fcmToken': newToken});
+      if (u != null) {
+        db.collection('users').doc(u)
+            .update({'fcmToken': newToken});
+      }
     });
     FirebaseMessaging.onMessage.listen((msg) {
       if (!mounted) return;
@@ -73,20 +78,33 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (n != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Row(children: [
-            const Icon(Icons.notifications_rounded, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Column(mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(n.title ?? '',
-                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13)),
-              if (n.body != null)
-                Text(n.body!, style: const TextStyle(color: Colors.white70, fontSize: 12)),
-            ])),
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(
+                color: kAccent.withOpacity(0.15),
+                shape: BoxShape.circle),
+              child: const Icon(Icons.notifications_rounded,
+                  color: kAccent, size: 16)),
+            const SizedBox(width: 10),
+            Expanded(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(n.title ?? '',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: kTextPrimary, fontSize: 13)),
+                if (n.body != null)
+                  Text(n.body!,
+                    style: const TextStyle(
+                        color: kTextSecondary, fontSize: 12)),
+              ])),
           ]),
-          backgroundColor: kGreen,
+          backgroundColor: kCard2,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 4),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))));
+          shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14))));
       }
     });
   }
@@ -95,62 +113,100 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final uid = auth.currentUser!.uid;
     return Scaffold(
-      appBar: _idx == 0 ? AppBar(
-        title: const Text('Convo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
-        actions: [
-          StreamBuilder<QuerySnapshot>(
-            stream: db.collection('notifications')
-              .where('uid', isEqualTo: uid)
-              .where('read', isEqualTo: false)
-              .snapshots(),
-            builder: (_, snap) {
-              final count = snap.data?.docs.length ?? 0;
-              return Stack(children: [
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined),
-                  onPressed: () => Navigator.push(context,
-                    MaterialPageRoute(builder: (_) => const NotificationsScreen()))),
-                if (count > 0)
-                  Positioned(
-                    right: 8, top: 8,
-                    child: Container(
-                      width: 16, height: 16,
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
-                      child: Center(
-                        child: Text(
-                          count > 9 ? '9+' : count.toString(),
-                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))),
-              ]);
-            }),
-        ],
-      ) : null,
+      backgroundColor: kDark,
+      appBar: _idx == 0
+        ? AppBar(
+            backgroundColor: kDark,
+            elevation: 0,
+            centerTitle: false,
+            title: const Text('Convo',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 24,
+                letterSpacing: -0.5,
+                color: kTextPrimary)),
+            actions: [
+              // Notification bell
+              StreamBuilder<QuerySnapshot>(
+                stream: db.collection('notifications')
+                  .where('uid', isEqualTo: uid)
+                  .where('read', isEqualTo: false)
+                  .snapshots(),
+                builder: (_, snap) {
+                  final count = snap.data?.docs.length ?? 0;
+                  return Stack(children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_outlined),
+                      onPressed: () => Navigator.push(context,
+                        MaterialPageRoute(
+                            builder: (_) =>
+                                const NotificationsScreen()))),
+                    if (count > 0)
+                      Positioned(
+                        right: 8, top: 8,
+                        child: Container(
+                          width: 16, height: 16,
+                          decoration: const BoxDecoration(
+                              color: kRed, shape: BoxShape.circle),
+                          child: Center(
+                            child: Text(
+                              count > 9 ? '9+' : count.toString(),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight:
+                                      FontWeight.bold))))),
+                  ]);
+                }),
+            ])
+        : null,
+
       body: IndexedStack(index: _idx, children: [
         const ChatsScreen(),
         const FriendsScreen(),
         ProfileScreen(uid: uid),
         const SettingsScreen(),
       ]),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _idx,
-        onDestinationSelected: (i) => setState(() => _idx = i),
-        indicatorColor: kGreen.withOpacity(0.2),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.chat_bubble_outline_rounded),
-            selectedIcon: Icon(Icons.chat_bubble_rounded, color: kGreen),
-            label: 'Chats'),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline_rounded),
-            selectedIcon: Icon(Icons.people_rounded, color: kGreen),
-            label: 'Friends'),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded, color: kGreen),
-            label: 'Profile'),
-          NavigationDestination(
-            icon: Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings_rounded, color: kGreen),
-            label: 'Settings'),
-        ]));
+
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          color: kCard,
+          border: Border(top: BorderSide(color: kDivider, width: 0.5)),
+        ),
+        child: NavigationBar(
+          selectedIndex: _idx,
+          onDestinationSelected: (i) => setState(() => _idx = i),
+          backgroundColor: Colors.transparent,
+          surfaceTintColor: Colors.transparent,
+          indicatorColor: kAccent.withOpacity(0.15),
+          height: 64,
+          labelBehavior:
+              NavigationDestinationLabelBehavior.alwaysShow,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.chat_bubble_outline_rounded,
+                  color: kTextSecondary),
+              selectedIcon: Icon(Icons.chat_bubble_rounded,
+                  color: kAccent),
+              label: 'Chats'),
+            NavigationDestination(
+              icon: Icon(Icons.people_outline_rounded,
+                  color: kTextSecondary),
+              selectedIcon: Icon(Icons.people_rounded,
+                  color: kAccent),
+              label: 'Friends'),
+            NavigationDestination(
+              icon: Icon(Icons.person_outline_rounded,
+                  color: kTextSecondary),
+              selectedIcon: Icon(Icons.person_rounded,
+                  color: kAccent),
+              label: 'Profile'),
+            NavigationDestination(
+              icon: Icon(Icons.settings_outlined,
+                  color: kTextSecondary),
+              selectedIcon: Icon(Icons.settings_rounded,
+                  color: kAccent),
+              label: 'Settings'),
+          ])));
   }
 }

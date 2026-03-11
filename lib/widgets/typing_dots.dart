@@ -8,7 +8,7 @@ class TypingDots extends StatefulWidget {
 }
 
 class _TypingDotsState extends State<TypingDots> {
-  int _step = 0; // 0='' 1='.' 2='..' 3='...'
+  int _step = 0;
   Timer? _timer;
 
   @override
@@ -27,13 +27,12 @@ class _TypingDotsState extends State<TypingDots> {
 
   @override
   Widget build(BuildContext context) {
-    // Fixed-width SizedBox so layout never shifts when dots change
     return SizedBox(
       width: 28,
       child: Text(
         '.' * _step,
         style: const TextStyle(
-          color: kGreen,
+          color: kAccent,
           fontSize: 18,
           fontWeight: FontWeight.bold,
           fontFamily: 'monospace',

@@ -37,12 +37,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   Future<void> _create() async {
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Enter a group name'), backgroundColor: Colors.red));
-      return;
-    }
-    if (_selected.length < 1) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select at least 1 member'), backgroundColor: Colors.red));
+        const SnackBar(content: Text('Enter a group name'),
+          backgroundColor: kRed));
       return;
     }
     setState(() => _creating = true);
@@ -72,59 +68,78 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? kDark : Colors.grey[50],
+      backgroundColor: kDark,
       appBar: AppBar(
-        backgroundColor: isDark ? kDark : Colors.white,
+        backgroundColor: kDark,
         elevation: 0,
-        title: const Text('New Group', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('New Group'),
         actions: [
           _creating
-            ? const Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: kGreen, strokeWidth: 2)))
+            ? const Padding(
+                padding: EdgeInsets.all(16),
+                child: SizedBox(width: 20, height: 20,
+                  child: CircularProgressIndicator(
+                    color: kAccent, strokeWidth: 2)))
             : TextButton(
                 onPressed: _create,
-                child: const Text('Create', style: TextStyle(color: kGreen, fontWeight: FontWeight.bold, fontSize: 16))),
+                child: const Text('Create',
+                  style: TextStyle(
+                    color: kAccent, fontWeight: FontWeight.bold, fontSize: 16))),
         ]),
       body: Column(children: [
         // Group name input
         Container(
-          color: isDark ? kCard : Colors.white,
+          color: kCard,
           padding: const EdgeInsets.all(16),
           child: Row(children: [
             Container(
               width: 48, height: 48,
-              decoration: BoxDecoration(color: kGreen.withOpacity(0.15), shape: BoxShape.circle),
-              child: const Icon(Icons.group_rounded, color: kGreen)),
+              decoration: BoxDecoration(
+                color: kAccent.withOpacity(0.15), shape: BoxShape.circle),
+              child: const Icon(Icons.group_rounded, color: kAccent)),
             const SizedBox(width: 12),
             Expanded(child: TextField(
               controller: _nameCtrl,
-              decoration: InputDecoration(
+              style: const TextStyle(
+                color: kTextPrimary, fontSize: 16, fontWeight: FontWeight.w500),
+              decoration: const InputDecoration(
                 hintText: 'Group name',
-                hintStyle: TextStyle(color: Colors.grey[500]),
-                border: InputBorder.none),
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500))),
+                hintStyle: TextStyle(color: kTextSecondary),
+                border: InputBorder.none))),
           ])),
 
-        // Selected count
+        // Selected count bar
         if (_selected.isNotEmpty)
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: kGreen.withOpacity(0.08),
+            color: kAccent.withOpacity(0.08),
             child: Row(children: [
-              const Icon(Icons.people_rounded, color: kGreen, size: 16),
+              const Icon(Icons.people_rounded, color: kAccent, size: 16),
               const SizedBox(width: 6),
-              Text('${_selected.length} selected', style: const TextStyle(color: kGreen, fontSize: 13, fontWeight: FontWeight.w500)),
+              Text('${_selected.length} selected',
+                style: const TextStyle(
+                  color: kAccent, fontSize: 13, fontWeight: FontWeight.w500)),
             ])),
+
+        const Divider(height: 0, color: kDivider),
 
         // Friends list
         Expanded(child: _loading
-          ? const Center(child: CircularProgressIndicator(color: kGreen))
+          ? const Center(child: CircularProgressIndicator(
+              color: kAccent, strokeWidth: 2))
           : _friends.isEmpty
-            ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.people_outline_rounded, size: 48, color: Colors.grey[600]),
+            ? Center(child: Column(
+                mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(
+                  width: 64, height: 64,
+                  decoration: BoxDecoration(
+                    color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.people_outline_rounded,
+                    size: 32, color: kAccent)),
                 const SizedBox(height: 12),
-                Text('No friends yet', style: TextStyle(color: Colors.grey[500])),
+                const Text('No friends yet',
+                  style: TextStyle(color: kTextSecondary)),
               ]))
             : ListView.builder(
                 itemCount: _friends.length,
@@ -133,19 +148,35 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   final uid = f['uid'] as String;
                   final selected = _selected.contains(uid);
                   return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: kGreen,
-                      child: Text(f['avatar'] ?? '?',
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-                    title: Text(f['name'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text('@${f['username'] ?? ''}', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
-                    trailing: Container(
+                    leading: Container(
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(
+                        color: kAccent.withOpacity(0.18),
+                        shape: BoxShape.circle),
+                      child: Center(
+                        child: Text(f['avatar'] ?? '?',
+                          style: const TextStyle(
+                            color: kAccent,
+                            fontWeight: FontWeight.bold, fontSize: 16)))),
+                    title: Text(f['name'] ?? 'User',
+                      style: const TextStyle(
+                        color: kTextPrimary, fontWeight: FontWeight.w600)),
+                    subtitle: Text('@${f['username'] ?? ''}',
+                      style: const TextStyle(
+                        color: kTextSecondary, fontSize: 12)),
+                    trailing: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       width: 26, height: 26,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: selected ? kGreen : Colors.transparent,
-                        border: Border.all(color: selected ? kGreen : Colors.grey, width: 2)),
-                      child: selected ? const Icon(Icons.check_rounded, color: Colors.white, size: 16) : null),
+                        color: selected ? kAccent : Colors.transparent,
+                        border: Border.all(
+                          color: selected ? kAccent : kTextSecondary,
+                          width: 2)),
+                      child: selected
+                        ? const Icon(Icons.check_rounded,
+                            color: Colors.white, size: 16)
+                        : null),
                     onTap: () => setState(() {
                       if (selected) _selected.remove(uid);
                       else _selected.add(uid);

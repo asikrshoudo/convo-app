@@ -32,68 +32,67 @@ class _ChatsScreenState extends State<ChatsScreen> {
   }
 
   void _showNewChatOptions() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: isDark ? kCard : Colors.white,
+      backgroundColor: kCard,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(kSheetRadius))),
       builder: (_) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const SizedBox(height: 8),
-          Container(
-              width: 36, height: 4,
-              decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 10),
+          Container(width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: kTextTertiary,
+              borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 20),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20),
             leading: Container(
               width: 44, height: 44,
               decoration: BoxDecoration(
-                  color: kGreen.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.person_rounded, color: kGreen, size: 22)),
+                color: kAccent.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.person_rounded, color: kAccent, size: 22)),
             title: const Text('New Message',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-            subtitle: Text('Start a DM with a friend',
-                style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15,
+                color: kTextPrimary)),
+            subtitle: const Text('Start a DM with a friend',
+              style: TextStyle(color: kTextSecondary, fontSize: 13)),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const FriendsScreen(startChat: true)));
+                MaterialPageRoute(
+                  builder: (_) => const FriendsScreen(startChat: true)));
             }),
           ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 20),
             leading: Container(
               width: 44, height: 44,
               decoration: BoxDecoration(
-                  color: kGreen.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.group_add_rounded, color: kGreen, size: 22)),
+                color: kAccent.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12)),
+              child: const Icon(Icons.group_add_rounded, color: kAccent, size: 22)),
             title: const Text('New Group',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-            subtitle: Text('Create a group chat',
-                style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15,
+                color: kTextPrimary)),
+            subtitle: const Text('Create a group chat',
+              style: TextStyle(color: kTextSecondary, fontSize: 13)),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context,
-                  MaterialPageRoute(builder: (_) => const CreateGroupScreen()));
+                MaterialPageRoute(builder: (_) => const CreateGroupScreen()));
             }),
           const SizedBox(height: 16),
-        ]),
-      ),
-    );
+        ])));
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: isDark ? kDark : const Color(0xFFF5F5F5),
+      backgroundColor: kDark,
       body: Column(children: [
-        // ── Search + inbox row ────────────────────────────────────────────────
+        // ── Search + inbox row ────────────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
           child: Row(children: [
@@ -101,34 +100,32 @@ class _ChatsScreenState extends State<ChatsScreen> {
               child: Container(
                 height: 44,
                 decoration: BoxDecoration(
-                  color: isDark ? kCard : Colors.white,
+                  color: kCard,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark ? Colors.white10 : Colors.grey.shade200)),
+                  border: Border.all(color: kDivider, width: 0.5)),
                 child: TextField(
                   controller: _searchCtrl,
                   onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-                  style: const TextStyle(fontSize: 14),
+                  style: const TextStyle(fontSize: 14, color: kTextPrimary),
                   decoration: InputDecoration(
                     hintText: 'Search chats...',
-                    hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
-                    prefixIcon: Icon(Icons.search_rounded,
-                        color: Colors.grey[500], size: 20),
+                    hintStyle: const TextStyle(color: kTextSecondary, fontSize: 14),
+                    prefixIcon: const Icon(Icons.search_rounded,
+                      color: kTextSecondary, size: 20),
                     suffixIcon: _searchQuery.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.close_rounded, size: 18),
-                          color: Colors.grey[500],
+                          color: kTextSecondary,
                           onPressed: () {
                             _searchCtrl.clear();
                             setState(() => _searchQuery = '');
                           })
                       : null,
                     border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 13)),
-                ),
-              ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 13)))),
             ),
             const SizedBox(width: 8),
+            // Inbox button
             StreamBuilder<QuerySnapshot>(
               stream: db.collection('message_requests')
                 .where('to', isEqualTo: _myUid)
@@ -140,34 +137,38 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   Container(
                     width: 44, height: 44,
                     decoration: BoxDecoration(
-                      color: isDark ? kCard : Colors.white,
+                      color: kCard,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isDark ? Colors.white10 : Colors.grey.shade200)),
+                      border: Border.all(color: kDivider, width: 0.5)),
                     child: IconButton(
-                      icon: const Icon(Icons.inbox_rounded, size: 20),
+                      icon: const Icon(Icons.inbox_rounded, size: 20,
+                        color: kTextSecondary),
                       onPressed: () => Navigator.push(context,
-                        MaterialPageRoute(builder: (_) => const MessageRequestsScreen())))),
+                        MaterialPageRoute(
+                          builder: (_) => const MessageRequestsScreen())))),
                   if (count > 0)
                     Positioned(
                       right: 4, top: 4,
                       child: Container(
                         width: 14, height: 14,
-                        decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                        decoration: const BoxDecoration(
+                          color: kRed, shape: BoxShape.circle),
                         child: Center(
                           child: Text('$count',
                             style: const TextStyle(
-                              color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold))))),
+                              color: Colors.white, fontSize: 8,
+                              fontWeight: FontWeight.bold))))),
                 ]);
               }),
-          ]),
-        ),
+          ])),
 
-        // ── List ─────────────────────────────────────────────────────────────
-        Expanded(child: _CombinedChatList(myUid: _myUid, searchQuery: _searchQuery)),
+        // ── Chat list ─────────────────────────────────────────────────────
+        Expanded(child: _CombinedChatList(
+          myUid: _myUid, searchQuery: _searchQuery)),
       ]),
+
       floatingActionButton: FloatingActionButton(
-        backgroundColor: kGreen,
+        backgroundColor: kAccent,
         elevation: 2,
         onPressed: _showNewChatOptions,
         child: const Icon(Icons.edit_rounded, color: Colors.white, size: 22)),
@@ -193,16 +194,17 @@ class _CombinedChatList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     return StreamBuilder<QuerySnapshot>(
-      stream: db.collection('chats').where('participants', arrayContains: myUid).snapshots(),
+      stream: db.collection('chats')
+        .where('participants', arrayContains: myUid).snapshots(),
       builder: (_, dmSnap) {
         return StreamBuilder<QuerySnapshot>(
-          stream: db.collection('groups').where('members', arrayContains: myUid).snapshots(),
+          stream: db.collection('groups')
+            .where('members', arrayContains: myUid).snapshots(),
           builder: (_, grpSnap) {
             if (!dmSnap.hasData || !grpSnap.hasData) {
-              return const Center(child: CircularProgressIndicator(color: kGreen));
+              return const Center(child: CircularProgressIndicator(
+                color: kAccent, strokeWidth: 2));
             }
 
             final List<Map<String, dynamic>> items = [];
@@ -210,7 +212,8 @@ class _CombinedChatList extends StatelessWidget {
             for (final doc in dmSnap.data!.docs) {
               final d = doc.data() as Map<String, dynamic>;
               final participants = List<String>.from(d['participants'] ?? []);
-              final otherUid = participants.firstWhere((u) => u != myUid, orElse: () => '');
+              final otherUid = participants.firstWhere(
+                (u) => u != myUid, orElse: () => '');
               if (otherUid.isEmpty) continue;
               items.add({
                 'type': 'dm', 'id': doc.id,
@@ -249,19 +252,22 @@ class _CombinedChatList extends StatelessWidget {
 
             if (filtered.isEmpty) {
               return Center(
-                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                child: Column(mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
                   Container(
                     width: 80, height: 80,
                     decoration: BoxDecoration(
-                      color: kGreen.withOpacity(0.1), shape: BoxShape.circle),
+                      color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
                     child: const Icon(Icons.chat_bubble_outline_rounded,
-                      size: 36, color: kGreen)),
+                      size: 36, color: kAccent)),
                   const SizedBox(height: 20),
                   const Text('No chats yet',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    style: TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold,
+                      color: kTextPrimary)),
                   const SizedBox(height: 8),
-                  Text('Tap the pencil button to start a conversation',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                  const Text('Tap the pencil button to start a conversation',
+                    style: TextStyle(color: kTextSecondary, fontSize: 13),
                     textAlign: TextAlign.center),
                 ]));
             }
@@ -269,9 +275,8 @@ class _CombinedChatList extends StatelessWidget {
             return ListView.separated(
               padding: const EdgeInsets.only(top: 4, bottom: 80),
               itemCount: filtered.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 0, indent: 76,
-                color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade200),
+              separatorBuilder: (_, __) => const Divider(
+                height: 0, indent: 76, color: kDivider),
               itemBuilder: (_, i) {
                 final item = filtered[i];
 
@@ -283,7 +288,7 @@ class _CombinedChatList extends StatelessWidget {
                     chatId: item['id']);
                 }
 
-                // ── Group tile ────────────────────────────────────────────────
+                // ── Group tile ────────────────────────────────────────────
                 final d          = item['data'] as Map<String, dynamic>;
                 final unread     = (d['unread_$myUid'] ?? 0) as int;
                 final lastTs     = d['lastTimestamp'] as Timestamp?;
@@ -296,52 +301,63 @@ class _CombinedChatList extends StatelessWidget {
                     builder: (_) => GroupChatScreen(
                       groupId: item['id'], groupName: groupName))),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 10),
                     child: Row(children: [
                       Container(
                         width: 52, height: 52,
                         decoration: BoxDecoration(
-                          color: kGreen.withOpacity(0.15), shape: BoxShape.circle),
-                        child: const Icon(Icons.group_rounded, color: kGreen, size: 26)),
+                          color: kAccent.withOpacity(0.15),
+                          shape: BoxShape.circle),
+                        child: const Icon(Icons.group_rounded,
+                          color: kAccent, size: 26)),
                       const SizedBox(width: 12),
-                      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Row(children: [
-                          Expanded(
-                            child: Text(groupName,
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(children: [
+                            Expanded(
+                              child: Text(groupName,
+                                style: TextStyle(
+                                  fontWeight: unread > 0
+                                    ? FontWeight.bold : FontWeight.w600,
+                                  fontSize: 15, color: kTextPrimary),
+                                overflow: TextOverflow.ellipsis)),
+                            Text(_timeAgo(lastTs),
                               style: TextStyle(
-                                fontWeight: unread > 0 ? FontWeight.bold : FontWeight.w600,
-                                fontSize: 15),
-                              overflow: TextOverflow.ellipsis)),
-                          Text(_timeAgo(lastTs),
-                            style: TextStyle(
-                              color: unread > 0 ? kGreen : Colors.grey[500],
-                              fontSize: 12,
-                              fontWeight: unread > 0 ? FontWeight.w600 : FontWeight.normal)),
-                        ]),
-                        const SizedBox(height: 3),
-                        Row(children: [
-                          Expanded(
-                            child: Text(
-                              lastSender != null ? '$lastSender: $lastMsg' : lastMsg,
-                              maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: unread > 0
-                                  ? (isDark ? Colors.white70 : Colors.black87)
-                                  : Colors.grey[500],
-                                fontSize: 13,
-                                fontWeight: unread > 0 ? FontWeight.w500 : FontWeight.normal))),
-                          if (unread > 0) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: kGreen, borderRadius: BorderRadius.circular(10)),
-                              child: Text('$unread',
-                                style: const TextStyle(
-                                  color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold))),
-                          ],
-                        ]),
-                      ])),
+                                color: unread > 0 ? kAccent : kTextSecondary,
+                                fontSize: 12,
+                                fontWeight: unread > 0
+                                  ? FontWeight.w600 : FontWeight.normal)),
+                          ]),
+                          const SizedBox(height: 3),
+                          Row(children: [
+                            Expanded(
+                              child: Text(
+                                lastSender != null
+                                  ? '$lastSender: $lastMsg' : lastMsg,
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: unread > 0
+                                    ? kTextPrimary : kTextSecondary,
+                                  fontSize: 13,
+                                  fontWeight: unread > 0
+                                    ? FontWeight.w500 : FontWeight.normal))),
+                            if (unread > 0) ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: kAccent,
+                                  borderRadius: BorderRadius.circular(10)),
+                                child: Text('$unread',
+                                  style: const TextStyle(
+                                    color: Colors.white, fontSize: 11,
+                                    fontWeight: FontWeight.bold))),
+                            ],
+                          ]),
+                        ])),
                     ])));
               });
           });
