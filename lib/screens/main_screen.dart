@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -14,6 +15,11 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _idx = 0;
+  Timer? _offlineTimer;
+  DateTime? _backgroundedAt;
+
+  // 10 minutes
+  static const _offlineThreshold = Duration(minutes: 10);
 
   @override
   void initState() {
@@ -26,19 +32,52 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _offlineTimer?.cancel();
     _setOnline(false);
     super.dispose();
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState s) =>
-      _setOnline(s == AppLifecycleState.resumed);
+  void didChangeAppLifecycleState(AppLifecycleState s) {
+    if (s == AppLifecycleState.resumed) {
+      // App came back to foreground
+      _offlineTimer?.cancel();
+      _offlineTimer = null;
+
+      if (_backgroundedAt != null) {
+        final away = DateTime.now().difference(_backgroundedAt!);
+        if (away >= _offlineThreshold) {
+          // Was offline, now back online
+          _setOnline(true);
+        } else {
+          // Was away less than 10 min — stay online
+          _setOnline(true);
+        }
+        _backgroundedAt = null;
+      } else {
+        _setOnline(true);
+      }
+    } else if (s == AppLifecycleState.paused || s == AppLifecycleState.inactive) {
+      // App went to background — record time
+      _backgroundedAt = DateTime.now();
+
+      // Start 10 min timer — set offline after 10 min
+      _offlineTimer?.cancel();
+      _offlineTimer = Timer(_offlineThreshold, () {
+        _setOnline(false);
+      });
+    } else if (s == AppLifecycleState.detached) {
+      _offlineTimer?.cancel();
+      _setOnline(false);
+    }
+  }
 
   Future<void> _setOnline(bool v) async {
     final uid = auth.currentUser?.uid;
     if (uid == null) return;
     await db.collection('users').doc(uid).update({
-      'isOnline': v, 'lastSeen': FieldValue.serverTimestamp()
+      'isOnline': v,
+      'lastSeen': FieldValue.serverTimestamp(),
     });
   }
 
