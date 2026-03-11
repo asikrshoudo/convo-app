@@ -15,11 +15,11 @@
       },
       "oauth_client": [
         {
-          "client_id": "571476959224-14utic38jptf6gcbjj3tsvmom7n480km.apps.googleusercontent.com",
+          "client_id": "571476959224-i68d2476jprk21ki8p6u5a47rpjcuklv.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
             "package_name": "com.thekami.convo",
-            "certificate_hash": "10f13767659201bcfd6137832277a115ff955fa3"
+            "certificate_hash": "d2be39e26ebf12fd4f35be48323057d87995a85f"
           }
         },
         {
