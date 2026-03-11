@@ -193,33 +193,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (_) => StatefulBuilder(builder: (ctx, setSt) => Padding(
         padding: const EdgeInsets.all(24),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Container(width: 40, height: 4,
-            decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Center(child: Container(width: 40, height: 4,
+            decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 16),
-          const Text('Appearance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Center(child: Text('Appearance', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+          const SizedBox(height: 20),
+
+          // ── Theme mode ──
+          const Text('THEME', style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.4)),
           const SizedBox(height: 8),
-          ...([
+          Row(children: [
             [ThemeMode.dark,   Icons.dark_mode_rounded,       'Dark'],
             [ThemeMode.light,  Icons.light_mode_rounded,      'Light'],
-            [ThemeMode.system, Icons.brightness_auto_rounded, 'System Default'],
+            [ThemeMode.system, Icons.brightness_auto_rounded, 'System'],
           ].map((opt) {
             final mode     = opt[0] as ThemeMode;
             final icon     = opt[1] as IconData;
             final label    = opt[2] as String;
             final selected = themeNotifier.value == mode;
-            return ListTile(
-              leading: Icon(icon, color: selected ? kGreen : Colors.grey),
-              title: Text(label, style: TextStyle(fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
-              trailing: selected ? const Icon(Icons.check_circle_rounded, color: kGreen) : null,
+            return Expanded(child: GestureDetector(
               onTap: () async {
                 themeNotifier.value = mode;
                 final prefs = await SharedPreferences.getInstance();
                 await prefs.setInt('themeMode',
-                    [ThemeMode.system, ThemeMode.dark, ThemeMode.light].indexOf(mode));
+                  [ThemeMode.system, ThemeMode.dark, ThemeMode.light].indexOf(mode));
                 setSt(() {});
-              });
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: selected ? accentColorNotifier.value : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: selected ? accentColorNotifier.value : Colors.grey.withOpacity(0.3),
+                    width: 1.5)),
+                child: Column(children: [
+                  Icon(icon, color: selected ? Colors.white : Colors.grey, size: 20),
+                  const SizedBox(height: 4),
+                  Text(label, style: TextStyle(
+                    color: selected ? Colors.white : Colors.grey,
+                    fontSize: 11, fontWeight: FontWeight.w600)),
+                ]))));
           }).toList()),
+
+          const SizedBox(height: 24),
+
+          // ── Accent color ──
+          const Text('ACCENT COLOR', style: TextStyle(color: kGreen, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.4)),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12, runSpacing: 12,
+            children: kAccentColors.entries.map((e) {
+              final selected = accentColorNotifier.value.value == e.value.value;
+              return GestureDetector(
+                onTap: () async {
+                  accentColorNotifier.value = e.value;
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setInt('accentColor', e.value.value);
+                  setSt(() {});
+                  if (mounted) setState(() {});
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 44, height: 44,
+                  decoration: BoxDecoration(
+                    color: e.value,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: selected ? Colors.white : Colors.transparent,
+                      width: 3),
+                    boxShadow: selected ? [BoxShadow(color: e.value.withOpacity(0.6), blurRadius: 8, spreadRadius: 1)] : []),
+                  child: selected
+                    ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                    : null));
+            }).toList()),
+
           const SizedBox(height: 8),
         ]))));
   }

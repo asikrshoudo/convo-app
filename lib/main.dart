@@ -43,5 +43,9 @@ void main() async {
   final savedTheme = prefs.getInt('themeMode') ?? 1;
   themeNotifier.value = [ThemeMode.system, ThemeMode.dark, ThemeMode.light][savedTheme.clamp(0, 2)];
 
+  // Restore saved accent color
+  final savedColor = prefs.getInt('accentColor');
+  if (savedColor != null) accentColorNotifier.value = Color(savedColor);
+
   runApp(const ConvoApp());
 }

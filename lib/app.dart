@@ -8,19 +8,21 @@ class ConvoApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ValueListenableBuilder<ThemeMode>(
     valueListenable: themeNotifier,
-    builder: (_, mode, __) => MaterialApp(
-      title: 'Convo',
-      debugShowCheckedModeBanner: false,
-      themeMode: mode,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: kGreen,
-        brightness: Brightness.light),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: kGreen,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: kDark,
-        navigationBarTheme: const NavigationBarThemeData(backgroundColor: Color(0xFF111111))),
-      home: const SplashScreen()));
+    builder: (_, mode, __) => ValueListenableBuilder<Color>(
+      valueListenable: accentColorNotifier,
+      builder: (_, accent, __) => MaterialApp(
+        title: 'Convo',
+        debugShowCheckedModeBanner: false,
+        themeMode: mode,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorSchemeSeed: accent,
+          brightness: Brightness.light),
+        darkTheme: ThemeData(
+          useMaterial3: true,
+          colorSchemeSeed: accent,
+          brightness: Brightness.dark,
+          scaffoldBackgroundColor: kDark,
+          navigationBarTheme: const NavigationBarThemeData(backgroundColor: Color(0xFF111111))),
+        home: const SplashScreen())));
 }

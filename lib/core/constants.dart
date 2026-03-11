@@ -14,3 +14,17 @@ final auth = FirebaseAuth.instance;
 
 // ─── Global theme controller ────────────────────────────────────────────────
 final themeNotifier = ValueNotifier<ThemeMode>(ThemeMode.dark);
+
+// ─── Accent color options ───────────────────────────────────────────────────
+const kAccentColors = <String, Color>{
+  'Green'  : Color(0xFF00C853),
+  'Blue'   : Color(0xFF2979FF),
+  'Purple' : Color(0xFF7C4DFF),
+  'Pink'   : Color(0xFFFF4081),
+  'Orange' : Color(0xFFFF6D00),
+  'Teal'   : Color(0xFF00BCD4),
+  'Red'    : Color(0xFFE53935),
+  'Yellow' : Color(0xFFFFD600),
+};
+
+final accentColorNotifier = ValueNotifier<Color>(kGreen);
