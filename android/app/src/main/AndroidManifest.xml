@@ -27,6 +27,17 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+
+            <!-- GitHub / OAuth redirect handler -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data
+                    android:host="convo-app-a1c10.firebaseapp.com"
+                    android:pathPrefix="/__/auth/handler"
+                    android:scheme="https"/>
+            </intent-filter>
         </activity>
 
         <!-- FCM default channel -->

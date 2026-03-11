@@ -1,6 +1,7 @@
 {
   "project_info": {
     "project_number": "571476959224",
+    "firebase_url": "https://convo-app-a1c10-default-rtdb.asia-southeast1.firebasedatabase.app",
     "project_id": "convo-app-a1c10",
     "storage_bucket": "convo-app-a1c10.firebasestorage.app"
   },
@@ -12,7 +13,20 @@
           "package_name": "com.thekami.convo"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "571476959224-14utic38jptf6gcbjj3tsvmom7n480km.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.thekami.convo",
+            "certificate_hash": "10f13767659201bcfd6137832277a115ff955fa3"
+          }
+        },
+        {
+          "client_id": "571476959224-v2kqr13jr3sg6j6bvknk94mjpr0lqgbm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAVNDIQhsSwZz_mbtIdhtTEw95_2f4uVVU"
@@ -20,7 +34,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "571476959224-v2kqr13jr3sg6j6bvknk94mjpr0lqgbm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
