@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import '../core/constants.dart';
-import 'auth/login_screen.dart';
-import 'main_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/constants.dart';
+import '../main_screen.dart';
+import '../auth/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,72 +14,111 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
-  late Animation<double> _fade, _scale;
+  late Animation<double> _fadeAnim;
+  late Animation<double> _scaleAnim;
 
   @override
   void initState() {
     super.initState();
+
     _ctrl = AnimationController(
-        vsync: this,
-        duration: const Duration(milliseconds: 1200));
-    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
-    _scale = Tween<double>(begin: 0.85, end: 1.0).animate(
-        CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
+      vsync: this, duration: const Duration(milliseconds: 900));
+
+    _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _scaleAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
+
     _ctrl.forward();
-    Future.delayed(const Duration(seconds: 2), () {
-      if (!mounted) return;
-      Navigator.pushReplacement(context, MaterialPageRoute(
-        builder: (_) => auth.currentUser != null
-            ? const MainScreen()
-            : const LoginScreen()));
-    });
+    _init();
   }
 
   @override
   void dispose() { _ctrl.dispose(); super.dispose(); }
 
+  Future<void> _init() async {
+    // Load saved theme preference
+    final prefs = await SharedPreferences.getInstance();
+    final savedTheme = prefs.getInt('themeMode');
+    if (savedTheme != null) {
+      themeNotifier.value = [
+        ThemeMode.system, ThemeMode.dark, ThemeMode.light][savedTheme];
+    }
+    final savedAccent = prefs.getInt('accentColor');
+    if (savedAccent != null) {
+      accentColorNotifier.value = Color(savedAccent);
+    }
+
+    await Future.delayed(const Duration(milliseconds: 1800));
+    if (!mounted) return;
+
+    final user = auth.currentUser;
+    if (user == null) {
+      Navigator.pushReplacement(context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()));
+      return;
+    }
+
+    try {
+      await db.collection('users').doc(user.uid).update({
+        'isOnline': true, 'lastSeen': FieldValue.serverTimestamp()});
+    } catch (_) {}
+
+    if (mounted) {
+      Navigator.pushReplacement(context,
+        MaterialPageRoute(builder: (_) => const MainScreen()));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: kDark,
-    body: FadeTransition(
-      opacity: _fade,
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ScaleTransition(
-              scale: _scale,
-              child: Column(children: [
-                // Blue circle logo
-                Container(
-                  width: 84, height: 84,
-                  decoration: BoxDecoration(
-                    color: kAccent,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: kAccent.withOpacity(0.4),
-                        blurRadius: 28,
-                        offset: const Offset(0, 8)),
-                    ]),
-                  child: const Center(
-                    child: Text('C',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 42,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -1)))),
-                const SizedBox(height: 20),
-                const Text('Convo',
-                  style: TextStyle(
-                    color: kTextPrimary,
-                    fontSize: 34,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1)),
-              ])),
-            const SizedBox(height: 48),
-            const Text('powered by TheKami',
-              style: TextStyle(
-                  color: kTextSecondary, fontSize: 13)),
-          ]))));
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: kDark,
+      body: Center(
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: ScaleTransition(
+            scale: _scaleAnim,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center, children: [
+              // App logo from assets
+              Image.asset(
+                'assets/white_logo.png',
+                width: 90, height: 90,
+                errorBuilder: (_, __, ___) =>
+                  // Fallback: tinted circle if image not found
+                  Container(
+                    width: 90, height: 90,
+                    decoration: BoxDecoration(
+                      color: kAccent.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(
+                        color: kAccent.withOpacity(0.3),
+                        blurRadius: 30, spreadRadius: 2)]),
+                    child: const Icon(
+                      Icons.chat_bubble_rounded,
+                      color: kAccent, size: 44))),
+
+              const SizedBox(height: 20),
+
+              // App name
+              const Text('Convo',
+                style: TextStyle(
+                  fontSize: 32, fontWeight: FontWeight.bold,
+                  color: kTextPrimary, letterSpacing: -0.5)),
+
+              const SizedBox(height: 6),
+              const Text('Connect with friends',
+                style: TextStyle(
+                  color: kTextSecondary, fontSize: 14, letterSpacing: 0.2)),
+
+              const SizedBox(height: 48),
+
+              // Loading indicator
+              SizedBox(
+                width: 24, height: 24,
+                child: CircularProgressIndicator(
+                  color: kAccent.withOpacity(0.7),
+                  strokeWidth: 2)),
+            ]))));
+  }
 }

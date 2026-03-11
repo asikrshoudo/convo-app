@@ -6,27 +6,26 @@ import 'package:firebase_auth/firebase_auth.dart';
 final db   = FirebaseFirestore.instance;
 final auth = FirebaseAuth.instance;
 
-// ─── Theme Notifiers (used in app.dart + settings) ───────────
+// ─── Theme Notifiers ─────────────────────────────────────────
 final themeNotifier       = ValueNotifier<ThemeMode>(ThemeMode.dark);
 final accentColorNotifier = ValueNotifier<Color>(kAccent);
 
 // ─── Brand Accent ─────────────────────────────────────────────
-/// iMessage-style blue — replaces old green
 const Color kAccent      = Color(0xFF2C7BE5);
 const Color kAccentLight = Color(0xFF5B9CF6);
-const Color kGreen       = kAccent; // legacy alias — old refs continue to compile
+const Color kGreen       = kAccent; // legacy alias
 
 // ─── Backgrounds ─────────────────────────────────────────────
-const Color kDark  = Color(0xFF000000); // pure iOS dark
+const Color kDark  = Color(0xFF000000);
 const Color kDark2 = Color(0xFF0A0A0A);
 
 // ─── Surfaces ────────────────────────────────────────────────
-const Color kCard  = Color(0xFF1C1C1E); // elevated surface  (alias kSurface)
-const Color kCard2 = Color(0xFF2C2C2E); // secondary surface
+const Color kCard  = Color(0xFF1C1C1E);
+const Color kCard2 = Color(0xFF2C2C2E);
 
 // ─── Text ────────────────────────────────────────────────────
 const Color kTextPrimary   = Color(0xFFFFFFFF);
-const Color kTextSecondary = Color(0xFF8E8E93); // iOS grey
+const Color kTextSecondary = Color(0xFF8E8E93);
 const Color kTextTertiary  = Color(0xFF48484A);
 
 // ─── Misc ────────────────────────────────────────────────────
@@ -38,7 +37,7 @@ const Color kOrange  = Color(0xFFFF9500);
 const Color kBubbleMe    = kAccent;
 const Color kBubbleOther = Color(0xFF2C2C2E);
 
-// ─── Radius constants ────────────────────────────────────────
+// ─── Radius ──────────────────────────────────────────────────
 const double kBubbleRadius = 20;
 const double kCardRadius   = 16;
 const double kSheetRadius  = 24;
@@ -53,8 +52,7 @@ List<BoxShadow> kElevation2 = [
       blurRadius: 16, offset: const Offset(0, 4)),
 ];
 
-
-// ─── Accent color palette (Settings → Appearance) ────────────
+// ─── Accent color palette (used in Settings → Appearance) ────
 const Map<String, Color> kAccentColors = {
   'Blue':   Color(0xFF2C7BE5),
   'Purple': Color(0xFF7C3AED),
