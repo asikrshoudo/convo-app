@@ -52,3 +52,16 @@ List<BoxShadow> kElevation2 = [
   BoxShadow(color: Colors.black.withOpacity(0.28),
       blurRadius: 16, offset: const Offset(0, 4)),
 ];
+
+
+// ─── Accent color palette (Settings → Appearance) ────────────
+const Map<String, Color> kAccentColors = {
+  'Blue':   Color(0xFF2C7BE5),
+  'Purple': Color(0xFF7C3AED),
+  'Pink':   Color(0xFFEC4899),
+  'Orange': Color(0xFFFF9500),
+  'Teal':   Color(0xFF14B8A6),
+  'Red':    Color(0xFFFF3B30),
+  'Green':  Color(0xFF34C759),
+  'Indigo': Color(0xFF4F46E5),
+};
