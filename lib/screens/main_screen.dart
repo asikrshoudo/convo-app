@@ -8,6 +8,7 @@ import 'chats/chats_screen.dart';
 import 'friends/friends_screen.dart';
 import 'profile/profile_screen.dart';
 import 'settings/settings_screen.dart';
+import 'notifications_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -16,11 +17,6 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _idx = 0;
-  Timer? _offlineTimer;
-  DateTime? _backgroundedAt;
-
-  // 10 minutes
-  static const _offlineThreshold = Duration(minutes: 10);
 
   @override
   void initState() {
@@ -28,7 +24,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _setOnline(true);
     _setupFCM();
-    // Check for update after 3s so app loads first
     Future.delayed(const Duration(seconds: 3), () {
       if (mounted) UpdateService.checkForUpdate(context);
     });
@@ -37,7 +32,6 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _offlineTimer?.cancel();
     _setOnline(false);
     super.dispose();
   }
@@ -45,34 +39,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState s) {
     if (s == AppLifecycleState.resumed) {
-      // App came back to foreground
-      _offlineTimer?.cancel();
-      _offlineTimer = null;
-
-      if (_backgroundedAt != null) {
-        final away = DateTime.now().difference(_backgroundedAt!);
-        if (away >= _offlineThreshold) {
-          // Was offline, now back online
-          _setOnline(true);
-        } else {
-          // Was away less than 10 min — stay online
-          _setOnline(true);
-        }
-        _backgroundedAt = null;
-      } else {
-        _setOnline(true);
-      }
-    } else if (s == AppLifecycleState.paused || s == AppLifecycleState.inactive) {
-      // App went to background — record time
-      _backgroundedAt = DateTime.now();
-
-      // Start 10 min timer — set offline after 10 min
-      _offlineTimer?.cancel();
-      _offlineTimer = Timer(_offlineThreshold, () {
-        _setOnline(false);
-      });
-    } else if (s == AppLifecycleState.detached) {
-      _offlineTimer?.cancel();
+      _setOnline(true);
+    } else if (s == AppLifecycleState.paused ||
+               s == AppLifecycleState.inactive ||
+               s == AppLifecycleState.detached) {
       _setOnline(false);
     }
   }
@@ -93,6 +63,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     if (uid != null && token != null) {
       await db.collection('users').doc(uid).update({'fcmToken': token});
     }
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      final u = auth.currentUser?.uid;
+      if (u != null) db.collection('users').doc(u).update({'fcmToken': newToken});
+    });
     FirebaseMessaging.onMessage.listen((msg) {
       if (!mounted) return;
       final n = msg.notification;
@@ -121,6 +95,35 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final uid = auth.currentUser!.uid;
     return Scaffold(
+      appBar: _idx == 0 ? AppBar(
+        title: const Text('Convo', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
+        actions: [
+          StreamBuilder<QuerySnapshot>(
+            stream: db.collection('notifications')
+              .where('uid', isEqualTo: uid)
+              .where('read', isEqualTo: false)
+              .snapshots(),
+            builder: (_, snap) {
+              final count = snap.data?.docs.length ?? 0;
+              return Stack(children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined),
+                  onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const NotificationsScreen()))),
+                if (count > 0)
+                  Positioned(
+                    right: 8, top: 8,
+                    child: Container(
+                      width: 16, height: 16,
+                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      child: Center(
+                        child: Text(
+                          count > 9 ? '9+' : count.toString(),
+                          style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold))))),
+              ]);
+            }),
+        ],
+      ) : null,
       body: IndexedStack(index: _idx, children: [
         const ChatsScreen(),
         const FriendsScreen(),

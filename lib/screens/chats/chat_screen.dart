@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
+import '../../core/active_status.dart';
 import '../../widgets/chat_bubble.dart';
 import '../../widgets/typing_dots.dart';
 import '../profile/profile_screen.dart';
@@ -237,8 +238,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   return StreamBuilder<DocumentSnapshot>(
                     stream: db.collection('users').doc(widget.otherUid).snapshots(),
                     builder: (_, snap) {
-                      final online = snap.data?.get('isOnline') == true;
-                      return Text(online ? 'Online' : 'Offline',
+                      final online   = snap.data?.get('isOnline') == true;
+                      final lastSeen = snap.data?.get('lastSeen') as Timestamp?;
+                      final text     = activeStatusText(online, lastSeen);
+                      if (text == null) return const SizedBox.shrink();
+                      return Text(text,
                         style: TextStyle(color: online ? kGreen : Colors.grey, fontSize: 11));
                     });
                 }),

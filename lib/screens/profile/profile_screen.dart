@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants.dart';
+import '../../core/active_status.dart';
 import '../../widgets/common_widgets.dart';
 import '../chats/chat_screen.dart';
 
@@ -186,6 +187,7 @@ Widget build(BuildContext context) {
       final hometown      = data['hometown']    as String? ?? '';
       final verified      = data['verified']    == true;
       final online        = data['isOnline']    == true;
+      final lastSeen      = data['lastSeen']    as Timestamp?;
       final social        = data['social']      as Map<String, dynamic>? ?? {};
       final friendCount   = data['friendCount']   ?? 0;
       final followerCount = data['followerCount']  ?? 0;
@@ -284,21 +286,7 @@ Widget build(BuildContext context) {
                       ]),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(color: online ? kGreen : Colors.grey, shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          online ? 'Online' : 'Offline',
-                          style: TextStyle(color: online ? kGreen : Colors.grey[500], fontSize: 12),
-                        ),
-                      ],
-                    ),
+                    activeStatusWidget(online, lastSeen, fontSize: 12),
                     if (bio.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       Padding(
