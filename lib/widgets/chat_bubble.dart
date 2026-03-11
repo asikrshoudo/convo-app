@@ -219,7 +219,7 @@ class ChatBubble extends StatelessWidget {
 
               // Time + seen — only on last message
               if (isLast) ...[
-                const SizedBox(height: reactionCounts.isNotEmpty ? 16 : 4),
+                SizedBox(height: reactionCounts.isNotEmpty ? 16.0 : 4.0),
                 Row(mainAxisSize: MainAxisSize.min, children: [
                   Text(_fmt(ts), style: TextStyle(color: Colors.grey[500], fontSize: 10)),
                   if (expiresAt != null) ...[
