@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../core/constants.dart';
-import '../main_screen.dart';
-import '../auth/login_screen.dart';
+import '../core/constants.dart';
+import 'main_screen.dart';
+import 'auth/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -20,14 +20,11 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
-
     _ctrl = AnimationController(
       vsync: this, duration: const Duration(milliseconds: 900));
-
-    _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _fadeAnim  = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
     _scaleAnim = Tween<double>(begin: 0.85, end: 1.0).animate(
       CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
-
     _ctrl.forward();
     _init();
   }
@@ -36,7 +33,6 @@ class _SplashScreenState extends State<SplashScreen>
   void dispose() { _ctrl.dispose(); super.dispose(); }
 
   Future<void> _init() async {
-    // Load saved theme preference
     final prefs = await SharedPreferences.getInstance();
     final savedTheme = prefs.getInt('themeMode');
     if (savedTheme != null) {
@@ -60,7 +56,9 @@ class _SplashScreenState extends State<SplashScreen>
 
     try {
       await db.collection('users').doc(user.uid).update({
-        'isOnline': true, 'lastSeen': FieldValue.serverTimestamp()});
+        'isOnline': true,
+        'lastSeen': FieldValue.serverTimestamp(),
+      });
     } catch (_) {}
 
     if (mounted) {
@@ -79,46 +77,56 @@ class _SplashScreenState extends State<SplashScreen>
           child: ScaleTransition(
             scale: _scaleAnim,
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center, children: [
-              // App logo from assets
-              Image.asset(
-                'assets/white_logo.png',
-                width: 90, height: 90,
-                errorBuilder: (_, __, ___) =>
-                  // Fallback: tinted circle if image not found
-                  Container(
-                    width: 90, height: 90,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  'assets/white_logo.png',
+                  width: 90,
+                  height: 90,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 90,
+                    height: 90,
                     decoration: BoxDecoration(
                       color: kAccent.withOpacity(0.15),
                       shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(
-                        color: kAccent.withOpacity(0.3),
-                        blurRadius: 30, spreadRadius: 2)]),
+                      boxShadow: [
+                        BoxShadow(
+                          color: kAccent.withOpacity(0.3),
+                          blurRadius: 30,
+                          spreadRadius: 2),
+                      ]),
                     child: const Icon(
                       Icons.chat_bubble_rounded,
-                      color: kAccent, size: 44))),
-
-              const SizedBox(height: 20),
-
-              // App name
-              const Text('Convo',
-                style: TextStyle(
-                  fontSize: 32, fontWeight: FontWeight.bold,
-                  color: kTextPrimary, letterSpacing: -0.5)),
-
-              const SizedBox(height: 6),
-              const Text('Connect with friends',
-                style: TextStyle(
-                  color: kTextSecondary, fontSize: 14, letterSpacing: 0.2)),
-
-              const SizedBox(height: 48),
-
-              // Loading indicator
-              SizedBox(
-                width: 24, height: 24,
-                child: CircularProgressIndicator(
-                  color: kAccent.withOpacity(0.7),
-                  strokeWidth: 2)),
-            ]))));
+                      color: kAccent,
+                      size: 44)),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Convo',
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: kTextPrimary,
+                    letterSpacing: -0.5)),
+                const SizedBox(height: 6),
+                const Text(
+                  'Connect with friends',
+                  style: TextStyle(
+                    color: kTextSecondary,
+                    fontSize: 14,
+                    letterSpacing: 0.2)),
+                const SizedBox(height: 48),
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    color: kAccent.withOpacity(0.7),
+                    strokeWidth: 2)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
