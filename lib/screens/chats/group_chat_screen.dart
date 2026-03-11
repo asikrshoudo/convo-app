@@ -113,7 +113,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     });
   }
 
-  void _showMsgMenu(BuildContext context, bool isDark, String msgId, String text) {
+  void _showMsgMenu(BuildContext context, bool isDark, String msgId, String text, String senderName) {
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark ? kCard : Colors.white,
@@ -145,7 +145,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         ListTile(
           leading: const Icon(Icons.reply_rounded, color: kGreen),
           title: const Text('Reply'),
-          onTap: () { Navigator.pop(context); /* reply handled outside */ }),
+          onTap: () {
+            Navigator.pop(context);
+            setState(() {
+              _replyToId = msgId;
+              _replyToText = text;
+              _replyToSender = senderName;
+            });
+          }),
         ListTile(
           leading: const Icon(Icons.copy_rounded),
           title: const Text('Copy'),
@@ -205,7 +212,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             StreamBuilder<DocumentSnapshot>(
               stream: db.collection('groups').doc(widget.groupId).snapshots(),
               builder: (_, snap) {
-                final members = List<String>.from((snap.data?.data() as Map?)?.get('members') ?? []);
+                final members = List<String>.from((snap.data?.data() as Map?)?['members'] ?? []);
                 return Text('${members.length} members', style: TextStyle(color: Colors.grey[500], fontSize: 11));
               }),
           ]),
@@ -258,7 +265,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
                 return GestureDetector(
                   onDoubleTap: () => _addReaction(msgs[i].id, '❤️'),
-                  onLongPress: () => _showMsgMenu(context, isDark, msgs[i].id, text),
+                  onLongPress: () => _showMsgMenu(context, isDark, msgs[i].id, text, data['senderName'] as String? ?? ''),
                   child: Padding(
                     padding: EdgeInsets.only(
                       top: isFirst ? 8 : 2, bottom: 2,
