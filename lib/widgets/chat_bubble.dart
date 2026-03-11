@@ -276,7 +276,7 @@ class _ChatBubbleState extends State<ChatBubble>
                 activeColor: kGreen,
                 onChanged: (v) { reason = v; Navigator.pop(context); }),
             )),
-        ]));
+        ])));
 
     if (reason == null) return;
 
