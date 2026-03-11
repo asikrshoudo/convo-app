@@ -15,10 +15,136 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic>? _user;
   bool get _isMe => widget.uid == auth.currentUser?.uid;
+  final _myUid = auth.currentUser!.uid;
 
   Future<void> _load() async {
     final doc = await db.collection('users').doc(widget.uid).get();
     if (mounted) setState(() => _user = doc.data() ?? {});
+  }
+
+  Future<void> _block() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Block User?'),
+        content: const Text('They won\'t be able to find your profile or message you.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Block')),
+        ]));
+    if (confirm != true) return;
+    await db.collection('users').doc(_myUid).collection('blocked').doc(widget.uid).set({
+      'uid': widget.uid, 'blockedAt': FieldValue.serverTimestamp()});
+    if (mounted) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('User blocked'), backgroundColor: Colors.red));
+    }
+  }
+
+  Future<void> _mute() async {
+    final muteDoc = await db.collection('users').doc(_myUid).collection('muted').doc(widget.uid).get();
+    final isMuted = muteDoc.exists;
+    if (isMuted) {
+      await db.collection('users').doc(_myUid).collection('muted').doc(widget.uid).delete();
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unmuted'), backgroundColor: kGreen));
+    } else {
+      await db.collection('users').doc(_myUid).collection('muted').doc(widget.uid).set({
+        'uid': widget.uid, 'mutedAt': FieldValue.serverTimestamp()});
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Muted'), backgroundColor: kGreen));
+    }
+  }
+
+  Future<void> _report(BuildContext context) async {
+    String? reason;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? kCard : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4,
+            decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          const Text('Report User', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          ...['Spam', 'Harassment', 'Fake Account', 'Inappropriate Content', 'Other'].map((r) =>
+            ListTile(
+              title: Text(r),
+              leading: const Icon(Icons.flag_rounded, color: Colors.red),
+              onTap: () { reason = r; Navigator.pop(context); })),
+        ])));
+
+    if (reason == null) return;
+
+    // Check if already reported
+    final existing = await db.collection('reports')
+      .where('reportedUid', isEqualTo: widget.uid)
+      .where('reporterUid', isEqualTo: _myUid)
+      .get();
+    if (existing.docs.isNotEmpty) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You already reported this user')));
+      return;
+    }
+
+    await db.collection('reports').add({
+      'reportedUid': widget.uid,
+      'reporterUid': _myUid,
+      'reason': reason,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+
+    // Count total reports — if 10+, suspend account
+    final allReports = await db.collection('reports')
+      .where('reportedUid', isEqualTo: widget.uid).get();
+    if (allReports.docs.length >= 10) {
+      await db.collection('users').doc(widget.uid).update({'suspended': true});
+    }
+
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Report submitted'), backgroundColor: kGreen));
+  }
+
+  Future<void> _unfollow() async {
+    await db.collection('users').doc(_myUid).collection('following').doc(widget.uid).delete();
+    await db.collection('users').doc(widget.uid).collection('followers').doc(_myUid).delete();
+    await db.collection('users').doc(widget.uid).update({'followerCount': FieldValue.increment(-1)});
+    await db.collection('users').doc(_myUid).update({'followingCount': FieldValue.increment(-1)});
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Unfollowed'), backgroundColor: kGreen));
+  }
+
+  void _showUserMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).brightness == Brightness.dark ? kCard : Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const SizedBox(height: 8),
+        Container(width: 40, height: 4,
+          decoration: BoxDecoration(color: Colors.grey[600], borderRadius: BorderRadius.circular(2))),
+        const SizedBox(height: 8),
+        ListTile(
+          leading: const Icon(Icons.volume_off_rounded),
+          title: const Text('Mute'),
+          onTap: () { Navigator.pop(context); _mute(); }),
+        ListTile(
+          leading: const Icon(Icons.block_rounded, color: Colors.red),
+          title: const Text('Block', style: TextStyle(color: Colors.red)),
+          onTap: () { Navigator.pop(context); _block(); }),
+        ListTile(
+          leading: const Icon(Icons.flag_rounded, color: Colors.orange),
+          title: const Text('Report', style: TextStyle(color: Colors.orange)),
+          onTap: () { Navigator.pop(context); _report(context); }),
+        const SizedBox(height: 8),
+      ])));
   }
 
   @override void initState() { super.initState(); _load(); }
@@ -77,15 +203,14 @@ Widget build(BuildContext context) {
                 icon: const Icon(Icons.share_rounded),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Share profile link coming soon!'), backgroundColor: kGreen),
-                  );
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit_rounded),
-                onPressed: () => _showEdit(context),
-              ),
+                    const SnackBar(content: Text('Share profile link coming soon!'), backgroundColor: kGreen));
+                }),
+              IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _showEdit(context)),
             ],
+            if (!_isMe)
+              IconButton(
+                icon: const Icon(Icons.more_vert_rounded),
+                onPressed: () => _showUserMenu(context)),
           ],
         ),
         body: SingleChildScrollView(
@@ -146,7 +271,18 @@ Widget build(BuildContext context) {
                         if (verified) ...[const SizedBox(width: 6), const Icon(Icons.verified_rounded, color: kGreen, size: 20)],
                       ],
                     ),
-                    Text('@$username', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+                    GestureDetector(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: '@$username'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Username copied!'), backgroundColor: kGreen));
+                      },
+                      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Text('@$username', style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+                        const SizedBox(width: 4),
+                        Icon(Icons.copy_rounded, size: 12, color: Colors.grey[600]),
+                      ]),
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -204,135 +340,92 @@ Widget build(BuildContext context) {
                             if (isFriend) {
                               return primaryButton(
                                 'Send Message',
-                                () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChatScreen(
-                                      otherUid: widget.uid,
-                                      otherName: name,
-                                      otherAvatar: name[0].toUpperCase(),
-                                      chatId: chatId,
-                                    ),
-                                  ),
-                                ),
+                                () => Navigator.push(context, MaterialPageRoute(
+                                  builder: (_) => ChatScreen(
+                                    otherUid: widget.uid, otherName: name,
+                                    otherAvatar: name[0].toUpperCase(), chatId: chatId))),
                               );
                             }
                             return StreamBuilder<QuerySnapshot>(
-                              stream: db
-                                  .collection('friend_requests')
-                                  .where('from', isEqualTo: myUid)
-                                  .where('to', isEqualTo: widget.uid)
-                                  .where('status', isEqualTo: 'pending')
-                                  .snapshots(),
+                              stream: db.collection('friend_requests')
+                                .where('from', isEqualTo: myUid)
+                                .where('to', isEqualTo: widget.uid)
+                                .where('status', isEqualTo: 'pending')
+                                .snapshots(),
                               builder: (_, reqSnap) {
                                 final requestSent = (reqSnap.data?.docs.isNotEmpty) == true;
-                                return Row(
-                                  children: [
-                                    Expanded(
-                                      child: OutlinedButton.icon(
-                                        style: OutlinedButton.styleFrom(
-                                          side: BorderSide(color: requestSent ? Colors.grey : kGreen),
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                        ),
-                                        icon: Icon(
-                                          requestSent
-                                              ? Icons.hourglass_top_rounded
-                                              : (profileMode == 'follow'
-                                                  ? Icons.person_add_rounded
-                                                  : Icons.person_add_alt_1_rounded),
-                                          color: requestSent ? Colors.grey : kGreen,
-                                          size: 18,
-                                        ),
-                                        label: Text(
-                                          requestSent
-                                              ? 'Requested'
+                                return StreamBuilder<DocumentSnapshot>(
+                                  stream: db.collection('users').doc(myUid)
+                                    .collection('following').doc(widget.uid).snapshots(),
+                                  builder: (_, followSnap) {
+                                    final isFollowing = followSnap.data?.exists == true;
+                                    return Row(children: [
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          style: OutlinedButton.styleFrom(
+                                            side: BorderSide(color: (isFollowing || requestSent) ? Colors.grey : kGreen),
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                                          icon: Icon(
+                                            isFollowing ? Icons.person_remove_rounded
+                                              : requestSent ? Icons.hourglass_top_rounded
+                                              : (profileMode == 'follow' ? Icons.person_add_rounded : Icons.person_add_alt_1_rounded),
+                                            color: (isFollowing || requestSent) ? Colors.grey : kGreen, size: 18),
+                                          label: Text(
+                                            isFollowing ? 'Unfollow'
+                                              : requestSent ? 'Requested'
                                               : (profileMode == 'follow' ? 'Follow' : 'Add Friend'),
-                                          style: TextStyle(
-                                            color: requestSent ? Colors.grey : kGreen,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        onPressed: requestSent
-                                            ? null
+                                            style: TextStyle(
+                                              color: (isFollowing || requestSent) ? Colors.grey : kGreen,
+                                              fontWeight: FontWeight.bold)),
+                                          onPressed: isFollowing
+                                            ? _unfollow
+                                            : requestSent ? null
                                             : () async {
                                                 if (profileMode == 'follow') {
-                                                  await db
-                                                      .collection('users')
-                                                      .doc(myUid)
-                                                      .collection('following')
-                                                      .doc(widget.uid)
-                                                      .set({'uid': widget.uid, 'since': FieldValue.serverTimestamp()});
-                                                  await db
-                                                      .collection('users')
-                                                      .doc(widget.uid)
-                                                      .collection('followers')
-                                                      .doc(myUid)
-                                                      .set({'uid': myUid, 'since': FieldValue.serverTimestamp()});
-                                                  await db
-                                                      .collection('users')
-                                                      .doc(widget.uid)
-                                                      .update({'followerCount': FieldValue.increment(1)});
-                                                  await db
-                                                      .collection('users')
-                                                      .doc(myUid)
-                                                      .update({'followingCount': FieldValue.increment(1)});
+                                                  await db.collection('users').doc(myUid)
+                                                    .collection('following').doc(widget.uid)
+                                                    .set({'uid': widget.uid, 'since': FieldValue.serverTimestamp()});
+                                                  await db.collection('users').doc(widget.uid)
+                                                    .collection('followers').doc(myUid)
+                                                    .set({'uid': myUid, 'since': FieldValue.serverTimestamp()});
+                                                  await db.collection('users').doc(widget.uid)
+                                                    .update({'followerCount': FieldValue.increment(1)});
+                                                  await db.collection('users').doc(myUid)
+                                                    .update({'followingCount': FieldValue.increment(1)});
                                                 } else {
                                                   final my = await db.collection('users').doc(myUid).get();
                                                   await db.collection('friend_requests').add({
                                                     'from': myUid,
                                                     'fromName': my.data()?['name'] ?? 'User',
                                                     'fromAvatar': my.data()?['avatar'] ?? 'U',
-                                                    'to': widget.uid,
-                                                    'toName': name,
+                                                    'to': widget.uid, 'toName': name,
                                                     'status': 'pending',
                                                     'timestamp': FieldValue.serverTimestamp(),
                                                   });
                                                 }
                                                 if (context.mounted) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text(profileMode == 'follow'
-                                                          ? 'Following $name'
-                                                          : 'Friend request sent!'),
-                                                      backgroundColor: kGreen,
-                                                    ),
-                                                  );
+                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                                    content: Text(profileMode == 'follow' ? 'Following $name' : 'Friend request sent!'),
+                                                    backgroundColor: kGreen));
                                                 }
-                                              },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: kGreen,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(vertical: 12),
-                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                        ),
-                                        icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 18),
-                                        label: const Text(
-                                          'Message',
-                                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                        ),
-                                        onPressed: () => Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
+                                              })),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: kGreen, elevation: 0,
+                                            padding: const EdgeInsets.symmetric(vertical: 12),
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))),
+                                          icon: const Icon(Icons.chat_bubble_outline_rounded, color: Colors.white, size: 18),
+                                          label: const Text('Message', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                          onPressed: () => Navigator.push(context, MaterialPageRoute(
                                             builder: (_) => ChatScreen(
-                                              otherUid: widget.uid,
-                                              otherName: name,
-                                              otherAvatar: name[0].toUpperCase(),
-                                              chatId: chatId,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              },
-                            );
+                                              otherUid: widget.uid, otherName: name,
+                                              otherAvatar: name[0].toUpperCase(), chatId: chatId))))),
+                                    ]);
+                                  });
+                              });
                           },
                         ),
                       ),

@@ -88,12 +88,13 @@ class ChatBubble extends StatelessWidget {
                 .update({'deletedFor': FieldValue.arrayUnion([myUid])});
             }),
           ListTile(
-            leading: const Icon(Icons.delete_forever_rounded, color: Colors.red),
-            title: const Text('Delete for everyone', style: TextStyle(color: Colors.red)),
+            leading: const Icon(Icons.undo_rounded, color: Colors.red),
+            title: const Text('Unsend', style: TextStyle(color: Colors.red)),
+            subtitle: const Text('Remove for everyone', style: TextStyle(fontSize: 11)),
             onTap: () {
               Navigator.pop(context);
               db.collection('chats').doc(chatId).collection('messages').doc(msgId)
-                .update({'deleted': true, 'text': 'This message was deleted'});
+                .update({'deleted': true, 'text': '', 'unsent': true});
             }),
         ] else
           ListTile(
@@ -124,6 +125,7 @@ class ChatBubble extends StatelessWidget {
     final isDark    = Theme.of(context).brightness == Brightness.dark;
     final text      = data['text'] as String? ?? '';
     final deleted   = data['deleted'] == true;
+    final unsent    = data['unsent'] == true;
     final deletedFor = List<String>.from(data['deletedFor'] ?? []);
     final reply     = data['reply'] as Map<String, dynamic>?;
     final ts        = data['timestamp'] as Timestamp?;
@@ -138,6 +140,34 @@ class ChatBubble extends StatelessWidget {
     final reactionCounts = <String, int>{};
     for (final e in reactions.values) {
       reactionCounts[e as String] = (reactionCounts[e] ?? 0) + 1;
+    }
+
+    // Unsent — show minimal vanished bubble
+    if (unsent) {
+      return Padding(
+        padding: EdgeInsets.only(
+          top: isFirst ? 8 : 2, bottom: isLast ? 4 : 2,
+          left: isMe ? 56 : 0, right: isMe ? 0 : 56),
+        child: Align(
+          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.grey.withOpacity(0.35), width: 1)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.undo_rounded, size: 13, color: Colors.grey[500]),
+                  const SizedBox(width: 5),
+                  Text(isMe ? 'You unsent a message' : 'Message was unsent',
+                    style: TextStyle(
+                      color: Colors.grey[500], fontSize: 12,
+                      fontStyle: FontStyle.italic)),
+                ])),
+            ])));
     }
 
     return GestureDetector(
