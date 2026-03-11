@@ -34,13 +34,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final type = data['data']?['type'] as String? ?? '';
     switch (type) {
       case 'dm':
-        final chatId   = data['data']?['chatId'] as String? ?? '';
-        final senderId = data['data']?['senderId'] as String? ?? '';
+        final chatId     = data['data']?['chatId'] as String? ?? '';
+        final senderId   = data['data']?['senderId'] as String? ?? '';
         final senderName = data['data']?['senderName'] as String? ?? 'User';
         if (chatId.isNotEmpty) {
           Navigator.push(context, MaterialPageRoute(builder: (_) => ChatScreen(
             otherUid: senderId, otherName: senderName,
-            otherAvatar: senderName[0].toUpperCase(), chatId: chatId)));
+            otherAvatar: senderName.isNotEmpty ? senderName[0].toUpperCase() : 'U',
+            chatId: chatId)));
         }
         break;
       case 'group':
@@ -65,33 +66,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   IconData _icon(String type) {
     switch (type) {
-      case 'dm':             return Icons.chat_bubble_rounded;
-      case 'group':          return Icons.group_rounded;
-      case 'friend_request': return Icons.person_add_rounded;
-      case 'friend_accepted':return Icons.people_rounded;
-      case 'follow':         return Icons.person_rounded;
-      default:               return Icons.notifications_rounded;
+      case 'dm':              return Icons.chat_bubble_rounded;
+      case 'group':           return Icons.group_rounded;
+      case 'friend_request':  return Icons.person_add_rounded;
+      case 'friend_accepted': return Icons.people_rounded;
+      case 'follow':          return Icons.person_rounded;
+      default:                return Icons.notifications_rounded;
     }
   }
 
   Color _iconColor(String type) {
     switch (type) {
       case 'dm':
-      case 'group':          return kGreen;
-      case 'friend_request': return Colors.blue;
-      case 'friend_accepted':return Colors.green;
-      case 'follow':         return Colors.purple;
-      default:               return Colors.grey;
+      case 'group':           return kGreen;
+      case 'friend_request':  return Colors.blue;
+      case 'friend_accepted': return Colors.green;
+      case 'follow':          return Colors.purple;
+      default:                return Colors.grey;
     }
   }
 
   String _timeAgo(Timestamp? ts) {
     if (ts == null) return '';
     final diff = DateTime.now().difference(ts.toDate());
-    if (diff.inSeconds < 60)  return 'just now';
-    if (diff.inMinutes < 60)  return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24)    return '${diff.inHours}h ago';
-    if (diff.inDays < 7)      return '${diff.inDays}d ago';
+    if (diff.inSeconds < 60) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24)   return '${diff.inHours}h ago';
+    if (diff.inDays < 7)     return '${diff.inDays}d ago';
     return '${(diff.inDays / 7).floor()}w ago';
   }
 
@@ -114,16 +115,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           .limit(50)
           .snapshots(),
         builder: (_, snap) {
-          if (!snap.hasData) return const Center(child: CircularProgressIndicator(color: kGreen));
-
-          final docs = snap.data!.docs;
-          if (docs.isEmpty) {
+          // Error state — likely missing Firestore index
+          if (snap.hasError) {
             return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.notifications_none_rounded, size: 64, color: Colors.grey[600]),
               const SizedBox(height: 16),
               const Text('No notifications yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
               const SizedBox(height: 8),
-              Text('We\'ll notify you when something happens', style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+              Text("You'll be notified when something happens",
+                style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+            ]));
+          }
+
+          if (!snap.hasData) {
+            return const Center(child: CircularProgressIndicator(color: kGreen));
+          }
+
+          final docs = snap.data!.docs;
+          if (docs.isEmpty) {
+            return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                width: 80, height: 80,
+                decoration: BoxDecoration(
+                  color: kGreen.withOpacity(0.1),
+                  shape: BoxShape.circle),
+                child: const Icon(Icons.notifications_none_rounded, size: 40, color: kGreen)),
+              const SizedBox(height: 20),
+              const Text('No notifications yet',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text("You'll be notified when something happens",
+                style: TextStyle(color: Colors.grey[500], fontSize: 13)),
             ]));
           }
 
@@ -143,7 +165,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   color: read ? Colors.transparent : kGreen.withOpacity(0.06),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(children: [
-                    // Icon
                     Container(
                       width: 46, height: 46,
                       decoration: BoxDecoration(
@@ -151,7 +172,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         shape: BoxShape.circle),
                       child: Icon(_icon(type), color: _iconColor(type), size: 22)),
                     const SizedBox(width: 12),
-                    // Content
                     Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Text(data['title'] ?? '',
                         style: TextStyle(
@@ -162,9 +182,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         style: TextStyle(color: Colors.grey[500], fontSize: 13),
                         maxLines: 2, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
-                      Text(_timeAgo(ts), style: TextStyle(color: Colors.grey[600], fontSize: 11)),
+                      Text(_timeAgo(ts),
+                        style: TextStyle(color: Colors.grey[600], fontSize: 11)),
                     ])),
-                    // Unread dot
                     if (!read)
                       Container(
                         width: 8, height: 8,
