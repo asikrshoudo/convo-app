@@ -33,7 +33,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
           ?? u.phoneNumber ?? 'User';
       final username = _generateUsername(name, u.uid);
       await db.collection('users').doc(u.uid).set({
-        'uid': u.uid, 'name': name, 'username': username,
+        'uid': u.uid, 'name': name, 'nameLower': name.toLowerCase(), 'username': username,
         'email': u.email ?? '', 'phone': u.phoneNumber ?? '',
         'avatar': name[0].toUpperCase(), 'gender': '',
         'verified': false, 'verifiedWaitlist': false,

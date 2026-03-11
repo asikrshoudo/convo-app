@@ -128,7 +128,7 @@ class _RegisterScreenState extends State<RegisterScreen>
       final username = _generateUsername(name, uid);
 
       await db.collection('users').doc(uid).set({
-        'uid': uid, 'name': name, 'username': username,
+        'uid': uid, 'name': name, 'nameLower': name.toLowerCase(), 'username': username,
         'email': email,
         'phone': _phoneCtrl.text.trim(),
         'phoneNormalized':
