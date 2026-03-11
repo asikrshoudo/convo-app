@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../core/constants.dart';
 
@@ -6,33 +7,39 @@ class TypingDots extends StatefulWidget {
   @override State<TypingDots> createState() => _TypingDotsState();
 }
 
-class _TypingDotsState extends State<TypingDots> with TickerProviderStateMixin {
-  late List<AnimationController> _ctrls;
+class _TypingDotsState extends State<TypingDots> {
+  int _step = 0; // 0='' 1='.' 2='..' 3='...'
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _ctrls = List.generate(3, (i) =>
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 600))
-        ..repeat(reverse: true, period: Duration(milliseconds: 900 + i * 150)));
+    _timer = Timer.periodic(const Duration(milliseconds: 400), (_) {
+      if (mounted) setState(() => _step = (_step + 1) % 4);
+    });
   }
 
   @override
   void dispose() {
-    for (final c in _ctrls) c.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: List.generate(3, (i) => Padding(
-      padding: const EdgeInsets.only(right: 2),
-      child: AnimatedBuilder(
-        animation: _ctrls[i],
-        builder: (_, __) => Transform.translate(
-          offset: Offset(0, -3 * _ctrls[i].value),
-          child: Container(
-            width: 5, height: 5,
-            decoration: const BoxDecoration(color: kGreen, shape: BoxShape.circle)))))));
+  Widget build(BuildContext context) {
+    // Fixed-width SizedBox so layout never shifts when dots change
+    return SizedBox(
+      width: 28,
+      child: Text(
+        '.' * _step,
+        style: const TextStyle(
+          color: kGreen,
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          fontFamily: 'monospace',
+          letterSpacing: 3,
+        ),
+      ),
+    );
+  }
 }
