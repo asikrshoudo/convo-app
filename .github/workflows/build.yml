@@ -61,7 +61,7 @@ jobs:
 
       - name: Set version from run number
         run: |
-          sed -i "s/^version: .*/version: 1.0.0.${{ github.run_number }}+${{ github.run_number }}/" pubspec.yaml
+          sed -i "s/^version: .*/version: 1.0.${{ github.run_number }}+${{ github.run_number }}/" pubspec.yaml
 
       - name: Build APK
         run: |
@@ -76,8 +76,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0.${{ github.run_number }}
-          name: Convo v1.0.0.${{ github.run_number }}
+          tag_name: v1.0.${{ github.run_number }}
+          name: Convo v1.0.${{ github.run_number }}
           body: ${{ steps.commit.outputs.msg }}
           files: build/app/outputs/flutter-apk/*.apk
         env:
