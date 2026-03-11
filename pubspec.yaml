@@ -1,7 +1,7 @@
 name: convo
 description: Convo - Chat App by TheKami
 publish_to: 'none'
-version: 1.0.2+5
+version: 1.0.3+6
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -21,6 +21,9 @@ dependencies:
   flutter_local_notifications: ^17.0.0
   flutter_svg: ^2.0.10
   http: ^1.2.1
+  package_info_plus: ^8.0.0
+  open_file_plus: ^3.4.1
+  path_provider: ^2.1.4
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.1

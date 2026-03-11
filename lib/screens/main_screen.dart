@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../core/constants.dart';
+import '../core/update_service.dart';
 import 'chats/chats_screen.dart';
 import 'friends/friends_screen.dart';
 import 'profile/profile_screen.dart';
@@ -27,6 +28,10 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _setOnline(true);
     _setupFCM();
+    // Check for update after 3s so app loads first
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) UpdateService.checkForUpdate(context);
+    });
   }
 
   @override
