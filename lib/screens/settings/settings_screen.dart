@@ -9,6 +9,7 @@ import '../../widgets/common_widgets.dart';
 import '../auth/login_screen.dart';
 import '../profile/profile_screen.dart';
 import 'contact_sync_screen.dart';
+import 'app_version_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -38,21 +39,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await db.collection('users').doc(_myUid).update({'isOnline': false});
     await auth.signOut();
     if (mounted) Navigator.pushReplacement(
-        context, MaterialPageRoute(builder: (_) => const LoginScreen()));
+      context, MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
   Future<void> _update(Map<String, dynamic> data) =>
-      db.collection('users').doc(_myUid).update(data);
+    db.collection('users').doc(_myUid).update(data);
 
   @override
   Widget build(BuildContext context) {
-    // ⚠️ Read user data ONLY from _user (loaded once via _load).
-    // NO StreamBuilder here to avoid infinite setState → rebuild loop.
-    final name       = _user?['name']       as String? ?? 'User';
-    final username   = _user?['username']   as String? ?? '';
-    final phone      = _user?['phone']      as String? ?? '';
-    final phone2     = _user?['phone2']     as String? ?? '';
-    final isVerified = _user?['verified']   == true;
+    final name       = _user?['name']     as String? ?? 'User';
+    final username   = _user?['username'] as String? ?? '';
+    final phone      = _user?['phone']    as String? ?? '';
+    final phone2     = _user?['phone2']   as String? ?? '';
+    final isVerified = _user?['verified'] == true;
     final onWaitlist = _user?['verifiedWaitlist'] == true;
     final currentEmail = auth.currentUser?.email ?? '';
 
@@ -60,8 +59,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: kDark,
       appBar: AppBar(
         backgroundColor: kDark,
-        elevation: 0,
-        scrolledUnderElevation: 0,
+        elevation: 0, scrolledUnderElevation: 0,
         centerTitle: true,
         title: const Text('Settings',
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17))),
@@ -70,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         // ── Profile card ──────────────────────────────────────────────────
         GestureDetector(
           onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid))),
+            MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid))),
           child: Container(
             margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             padding: const EdgeInsets.all(16),
@@ -87,17 +85,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: kAccent.withOpacity(0.4), blurRadius: 12)]),
                 child: Center(child: Text(
                   name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                  style: const TextStyle(
-                    color: Colors.white, fontSize: 22,
+                  style: const TextStyle(color: Colors.white, fontSize: 22,
                     fontWeight: FontWeight.bold)))),
               const SizedBox(width: 14),
               Expanded(child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   Flexible(child: Text(name,
-                    style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.bold,
-                      color: kTextPrimary),
+                    style: const TextStyle(fontSize: 16,
+                      fontWeight: FontWeight.bold, color: kTextPrimary),
                     overflow: TextOverflow.ellipsis)),
                   if (isVerified) ...[ const SizedBox(width: 4),
                     const Icon(Icons.verified_rounded,
@@ -105,20 +101,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
                 if (username.isNotEmpty)
                   Text('@$username',
-                    style: const TextStyle(
-                      color: kTextSecondary, fontSize: 13)),
+                    style: const TextStyle(color: kTextSecondary, fontSize: 13)),
                 const SizedBox(height: 2),
                 const Text('View profile',
-                  style: TextStyle(
-                    color: kAccent, fontSize: 12,
+                  style: TextStyle(color: kAccent, fontSize: 12,
                     fontWeight: FontWeight.w500)),
               ])),
               const Icon(Icons.arrow_forward_ios_rounded,
                 color: kTextSecondary, size: 14),
-            ])),
-        ),
+            ]))),
 
-        // ── Account ────────────────────────────────────────────────────────
+        // ── Account ───────────────────────────────────────────────────────
         _sec('Account'),
         _tile(Icons.person_rounded, 'Edit Profile', 'Name, bio, socials',
           () => Navigator.push(context,
@@ -143,7 +136,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             : (onWaitlist ? 'On waitlist' : 'Join the waitlist'),
           () => _verify(context)),
 
-        // ── Profile Mode ───────────────────────────────────────────────────
+        // ── Profile Mode ──────────────────────────────────────────────────
         _sec('Profile Mode'),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -176,39 +169,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
               : 'Others can follow you. Use for public/creator profiles.',
             style: const TextStyle(color: kTextSecondary, fontSize: 12))),
 
-        // ── Privacy ────────────────────────────────────────────────────────
+        // ── Privacy ───────────────────────────────────────────────────────
         _sec('Privacy'),
-        _switchTile(
-          Icons.people_rounded, 'Public Friends List',
+        _switchTile(Icons.people_rounded, 'Public Friends List',
           'Show your friends on your profile',
           _friendsPublic, (v) {
             setState(() => _friendsPublic = v);
             _update({'friendsPublic': v});
           }),
+        _tile(Icons.block_rounded, 'Blocked Users',
+          'Manage blocked accounts',
+          () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const BlockedUsersScreen()))),
 
-        // ── Discovery ──────────────────────────────────────────────────────
+        // ── Discovery ─────────────────────────────────────────────────────
         _sec('Discovery'),
-        _switchTile(
-          Icons.person_search_rounded, 'Account Suggestions',
+        _switchTile(Icons.person_search_rounded, 'Account Suggestions',
           'Suggest your profile to others',
           _suggestions, (v) {
             setState(() => _suggestions = v);
             _update({'suggestionsEnabled': v});
           }),
 
-        // ── Preferences ────────────────────────────────────────────────────
+        // ── Preferences ───────────────────────────────────────────────────
         _sec('Preferences'),
         _tile(Icons.palette_rounded, 'Appearance', 'Theme and accent color',
           () => _showThemeDialog(context)),
         _tile(Icons.notifications_rounded, 'Notifications',
           'Manage push alerts', () {}),
 
-        // ── About ──────────────────────────────────────────────────────────
+        // ── About ─────────────────────────────────────────────────────────
         _sec('About'),
         _tile(Icons.favorite_rounded, 'Powered by TheKami', 'thekami.tech',
           () => launchUrl(Uri.parse('https://thekami.tech'),
             mode: LaunchMode.externalApplication)),
-        _tile(Icons.info_rounded, 'App Version', 'Convo v1.0.2', () {}),
+        // ← App Version now opens its own screen
+        _tile(Icons.system_update_rounded, 'App Version',
+          'Check for updates',
+          () => Navigator.push(context,
+            MaterialPageRoute(builder: (_) => const AppVersionScreen()))),
 
         const SizedBox(height: 24),
         Padding(
@@ -221,27 +220,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 color: kRed.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: kRed.withOpacity(0.3))),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center, children: const [
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center, children: [
                 Icon(Icons.logout_rounded, color: kRed, size: 20),
                 SizedBox(width: 8),
-                Text('Sign Out',
-                  style: TextStyle(
-                    color: kRed, fontWeight: FontWeight.w600,
-                    fontSize: 15)),
+                Text('Sign Out', style: TextStyle(color: kRed,
+                  fontWeight: FontWeight.w600, fontSize: 15)),
               ])))),
         const SizedBox(height: 40),
       ]));
   }
 
-  // ─── Section header ───────────────────────────────────────────────────────
+  // ─── Section header ─────────────────────────────────────────────────────
   Widget _sec(String t) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 24, 16, 6),
     child: Text(t.toUpperCase(), style: const TextStyle(
       color: kAccent, fontSize: 11,
       fontWeight: FontWeight.bold, letterSpacing: 1.4)));
 
-  // ─── List tile ────────────────────────────────────────────────────────────
   Widget _tile(IconData icon, String title, String sub, VoidCallback onTap) =>
     ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
@@ -255,7 +251,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         color: kTextSecondary, size: 20),
       onTap: onTap);
 
-  // ─── Switch tile ──────────────────────────────────────────────────────────
   Widget _switchTile(IconData icon, String title, String sub,
       bool value, ValueChanged<bool> onChanged) =>
     ListTile(
@@ -266,10 +261,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       subtitle: Text(sub,
         style: const TextStyle(color: kTextSecondary, fontSize: 12)),
       trailing: Switch.adaptive(
-        value: value, onChanged: onChanged,
-        activeColor: kAccent));
+        value: value, onChanged: onChanged, activeColor: kAccent));
 
-  // ─── Email change ─────────────────────────────────────────────────────────
+  // ─── Email change ──────────────────────────────────────────────────────
   void _changeEmail(BuildContext context) {
     final emailCtrl = TextEditingController();
     final passCtrl  = TextEditingController();
@@ -290,11 +284,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start, children: [
             _sheetHandle(),
             const SizedBox(height: 20),
-            const Text('Change Email',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-                color: kTextPrimary)),
+            const Text('Change Email', style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary)),
             const SizedBox(height: 16),
-            if (!_codeSent) ...[ 
+            if (!_codeSent) ...[
               _inputField(emailCtrl, 'New email address',
                 icon: Icons.email_outlined,
                 type: TextInputType.emailAddress),
@@ -339,12 +332,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('Verification email sent!',
-                      style: TextStyle(fontWeight: FontWeight.bold,
-                        color: kAccent)),
+                      style: TextStyle(fontWeight: FontWeight.bold, color: kAccent)),
                     const SizedBox(height: 4),
                     Text('Click the link sent to $_pendingEmail',
-                      style: const TextStyle(
-                        fontSize: 12, color: kTextSecondary)),
+                      style: const TextStyle(fontSize: 12, color: kTextSecondary)),
                   ])),
                 ])),
               const SizedBox(height: 16),
@@ -360,7 +351,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   if (ctx.mounted) {
                     Navigator.pop(ctx);
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text('Email updated!'), backgroundColor: kAccent));
+                      content: Text('Email updated!'),
+                      backgroundColor: kAccent));
                   }
                 } else {
                   if (ctx.mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -376,9 +368,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ]))));
   }
 
-  // ─── Phone ────────────────────────────────────────────────────────────────
   void _addPhone(BuildContext context, {required bool primary}) {
-    final field   = primary ? 'phone' : 'phone2';
+    final field   = primary ? 'phone'  : 'phone2';
     final label   = primary ? 'Primary Phone' : 'Secondary Phone';
     final current = primary ? (_user?['phone'] ?? '') : (_user?['phone2'] ?? '');
     final ctrl    = TextEditingController(text: current);
@@ -411,7 +402,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ]));
   }
 
-  // ─── Change Password ──────────────────────────────────────────────────────
   void _changePass(BuildContext context) {
     final c = TextEditingController();
     showDialog(context: context, builder: (_) => AlertDialog(
@@ -426,7 +416,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: const Text('Cancel', style: TextStyle(color: kTextSecondary))),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: kAccent,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10))),
           onPressed: () async {
             if (c.text.length >= 6) {
               await auth.currentUser?.updatePassword(c.text);
@@ -437,7 +428,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ]));
   }
 
-  // ─── Get Verified ─────────────────────────────────────────────────────────
   void _verify(BuildContext context) {
     final onWaitlist = _user?['verifiedWaitlist'] == true;
     final verified   = _user?['verified']         == true;
@@ -448,8 +438,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => Padding(
         padding: const EdgeInsets.all(28),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _sheetHandle(),
-          const SizedBox(height: 20),
+          _sheetHandle(), const SizedBox(height: 20),
           Container(
             width: 64, height: 64,
             decoration: BoxDecoration(
@@ -457,8 +446,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Icon(Icons.verified_rounded, color: kAccent, size: 36)),
           const SizedBox(height: 16),
           Text(verified ? 'You are Verified!' : 'Get Verified',
-            style: const TextStyle(
-              fontSize: 22, fontWeight: FontWeight.bold, color: kTextPrimary)),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+              color: kTextPrimary)),
           const SizedBox(height: 8),
           Text(
             verified ? 'Your account has a verified badge.'
@@ -472,8 +461,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               await db.collection('users').doc(_myUid)
                 .update({'verifiedWaitlist': true});
               await db.collection('verify_waitlist').doc(_myUid).set({
-                'uid': _myUid,
-                'name': _user?['name'],
+                'uid': _myUid, 'name': _user?['name'],
                 'username': _user?['username'],
                 'joinedAt': FieldValue.serverTimestamp()});
               if (mounted) {
@@ -491,7 +479,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ])));
   }
 
-  // ─── Appearance ───────────────────────────────────────────────────────────
   void _showThemeDialog(BuildContext context) {
     showModalBottomSheet(
       context: context, backgroundColor: kCard,
@@ -504,13 +491,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start, children: [
             Center(child: _sheetHandle()),
             const SizedBox(height: 16),
-            const Center(child: Text('Appearance',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-                color: kTextPrimary))),
+            const Center(child: Text('Appearance', style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary))),
             const SizedBox(height: 24),
-
-            const Text('THEME', style: TextStyle(
-              color: kAccent, fontSize: 11,
+            const Text('THEME', style: TextStyle(color: kAccent, fontSize: 11,
               fontWeight: FontWeight.bold, letterSpacing: 1.4)),
             const SizedBox(height: 10),
             Row(children: [
@@ -550,11 +534,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       fontSize: 11, fontWeight: FontWeight.w600)),
                   ]))));
             }).toList()),
-
             const SizedBox(height: 24),
-            const Text('ACCENT COLOR', style: TextStyle(
-              color: kAccent, fontSize: 11,
-              fontWeight: FontWeight.bold, letterSpacing: 1.4)),
+            const Text('ACCENT COLOR', style: TextStyle(color: kAccent,
+              fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.4)),
             const SizedBox(height: 14),
             Wrap(spacing: 14, runSpacing: 14,
               children: kAccentColors.entries.map((e) {
@@ -588,15 +570,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ]))));
   }
 
-  // ─── Small helpers ────────────────────────────────────────────────────────
   Widget _sheetHandle() => Container(
     width: 36, height: 4,
     decoration: BoxDecoration(
       color: kTextTertiary, borderRadius: BorderRadius.circular(2)));
 
   Widget _inputField(TextEditingController ctrl, String hint, {
-    IconData? icon, bool obscure = false,
-    TextInputType? type}) =>
+    IconData? icon, bool obscure = false, TextInputType? type}) =>
     TextField(
       controller: ctrl, obscureText: obscure, keyboardType: type,
       style: const TextStyle(color: kTextPrimary),
@@ -622,8 +602,127 @@ class _SettingsScreenState extends State<SettingsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14))),
         onPressed: onTap,
-        child: Text(label,
-          style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.w600,
-            fontSize: 15))));
+        child: Text(label, style: const TextStyle(
+          color: Colors.white, fontWeight: FontWeight.w600, fontSize: 15))));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Blocked Users Screen
+// ─────────────────────────────────────────────────────────────────────────────
+class BlockedUsersScreen extends StatelessWidget {
+  const BlockedUsersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final myUid = auth.currentUser!.uid;
+
+    return Scaffold(
+      backgroundColor: kDark,
+      appBar: AppBar(
+        backgroundColor: kDark,
+        title: const Text('Blocked Users',
+          style: TextStyle(fontWeight: FontWeight.bold))),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: db.collection('users').doc(myUid)
+          .collection('blocked').snapshots(),
+        builder: (_, snap) {
+          if (!snap.hasData) {
+            return const Center(child: CircularProgressIndicator(
+              color: kAccent, strokeWidth: 2));
+          }
+          if (snap.data!.docs.isEmpty) {
+            return Center(child: Column(
+              mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                width: 64, height: 64,
+                decoration: BoxDecoration(
+                  color: kCard, shape: BoxShape.circle),
+                child: const Icon(Icons.block_rounded,
+                  color: kTextSecondary, size: 32)),
+              const SizedBox(height: 16),
+              const Text('No blocked users',
+                style: TextStyle(fontWeight: FontWeight.bold,
+                  fontSize: 16, color: kTextPrimary)),
+              const SizedBox(height: 6),
+              const Text('Users you block won\'t find your profile',
+                style: TextStyle(color: kTextSecondary, fontSize: 13)),
+            ]));
+          }
+          return ListView.separated(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            itemCount: snap.data!.docs.length,
+            separatorBuilder: (_, __) =>
+              const Divider(height: 0, color: kDivider, indent: 72),
+            itemBuilder: (_, i) {
+              final doc      = snap.data!.docs[i];
+              final blockedUid = doc.id;
+
+              return FutureBuilder<DocumentSnapshot>(
+                future: db.collection('users').doc(blockedUid).get(),
+                builder: (_, uSnap) {
+                  final u = uSnap.data?.data() as Map<String, dynamic>? ?? {};
+                  final name     = u['name']     as String? ?? 'User';
+                  final username = u['username'] as String? ?? '';
+                  final avatar   = u['avatar']   as String? ?? '?';
+
+                  return ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 6),
+                    leading: Container(
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(
+                        color: kCard2, shape: BoxShape.circle),
+                      child: Center(child: Text(avatar,
+                        style: const TextStyle(color: kTextSecondary,
+                          fontWeight: FontWeight.bold, fontSize: 16)))),
+                    title: Text(name, style: const TextStyle(
+                      fontWeight: FontWeight.w600, color: kTextPrimary)),
+                    subtitle: username.isNotEmpty
+                      ? Text('@$username',
+                          style: const TextStyle(color: kTextSecondary,
+                            fontSize: 12))
+                      : null,
+                    trailing: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: kAccent.withOpacity(0.6)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10))),
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            backgroundColor: kCard,
+                            title: const Text('Unblock user?',
+                              style: TextStyle(color: kTextPrimary)),
+                            content: Text('Unblock $name?',
+                              style: const TextStyle(color: kTextSecondary)),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: const Text('Cancel')),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: kAccent),
+                                onPressed: () => Navigator.pop(context, true),
+                                child: const Text('Unblock',
+                                  style: TextStyle(color: Colors.white))),
+                            ]));
+                        if (confirm == true) {
+                          await db.collection('users').doc(myUid)
+                            .collection('blocked').doc(blockedUid).delete();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('$name unblocked'),
+                                backgroundColor: kAccent));
+                          }
+                        }
+                      },
+                      child: const Text('Unblock',
+                        style: TextStyle(color: kAccent, fontSize: 13))));
+                });
+            });
+        }));
+  }
 }

@@ -15,14 +15,34 @@ const AndroidNotificationChannel channel = AndroidNotificationChannel(
   'Convo Notifications',
   description: 'Notifications from Convo app',
   importance: Importance.max,
+  playSound: true,
+  enableVibration: true,
 );
 
 @pragma('vm:entry-point')
 Future<void> _bgHandler(RemoteMessage msg) async {
   await Firebase.initializeApp();
+  await _saveNotificationToFirestore(msg);
 }
 
-/// Save FCM token to Firestore for the current user
+/// Save incoming FCM notification to Firestore so NotificationsScreen can show it
+Future<void> _saveNotificationToFirestore(RemoteMessage msg) async {
+  try {
+    final data    = msg.data;
+    final toUid   = data['toUid'] as String?;
+    if (toUid == null || toUid.isEmpty) return;
+
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'uid':       toUid,
+      'title':     msg.notification?.title ?? data['title'] ?? '',
+      'body':      msg.notification?.body  ?? data['body']  ?? '',
+      'data':      data,
+      'read':      false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  } catch (_) {}
+}
+
 Future<void> saveFcmToken() async {
   final user = auth.currentUser;
   if (user == null) return;
@@ -30,16 +50,15 @@ Future<void> saveFcmToken() async {
     final token = await FirebaseMessaging.instance.getToken();
     if (token == null) return;
     await FirebaseFirestore.instance
-      .collection('users')
-      .doc(user.uid)
-      .update({'fcmToken': token});
-
-    // Refresh token when it changes
-    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-      FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
-        .update({'fcmToken': newToken});
+        .update({'fcmToken': token});
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'fcmToken': newToken});
     });
   } catch (_) {}
 }
@@ -49,33 +68,73 @@ void main() async {
   await Firebase.initializeApp();
   FirebaseMessaging.onBackgroundMessage(_bgHandler);
 
-  // Request notification permission
+  // Init local notifications
+  const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await flutterLocalNotificationsPlugin.initialize(
+    const InitializationSettings(android: android),
+    onDidReceiveNotificationResponse: (details) {
+      // tap handled via navigatorKey
+    });
+
+  // Request permission
   await FirebaseMessaging.instance.requestPermission(
     alert: true, badge: true, sound: true);
 
   // Create notification channel
   await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(channel);
 
-  // Set foreground notification options
   await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
     alert: true, badge: true, sound: true);
 
-  // Save FCM token if already logged in
-  await saveFcmToken();
+  // ── Foreground notification handler ────────────────────────────────────────
+  FirebaseMessaging.onMessage.listen((RemoteMessage msg) async {
+    final notification = msg.notification;
+    final android      = msg.notification?.android;
 
-  // Also save token whenever auth state changes (login/register)
+    // Show local notification popup
+    if (notification != null) {
+      flutterLocalNotificationsPlugin.show(
+        notification.hashCode,
+        notification.title,
+        notification.body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            channel.id, channel.name,
+            channelDescription: channel.description,
+            importance: Importance.max,
+            priority: Priority.high,
+            icon: '@mipmap/ic_launcher',
+            playSound: true,
+            enableVibration: true,
+          )),
+      );
+    }
+
+    // Save to Firestore so notifications screen updates
+    await _saveNotificationToFirestore(msg);
+  });
+
+  // Handle notification tap when app is in background
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage msg) {
+    // The app opens; navigation is handled by notifications screen tap
+  });
+
+  // Save FCM token
+  await saveFcmToken();
   auth.authStateChanges().listen((user) {
     if (user != null) saveFcmToken();
   });
 
-  // Restore saved theme
-  final prefs = await SharedPreferences.getInstance();
+  // Restore theme
+  final prefs      = await SharedPreferences.getInstance();
   final savedTheme = prefs.getInt('themeMode') ?? 1;
-  themeNotifier.value = [ThemeMode.system, ThemeMode.dark, ThemeMode.light][savedTheme.clamp(0, 2)];
+  themeNotifier.value =
+    [ThemeMode.system, ThemeMode.dark, ThemeMode.light][savedTheme.clamp(0, 2)];
 
-  // Restore saved accent color
+  // Restore accent
   final savedColor = prefs.getInt('accentColor');
   if (savedColor != null) accentColorNotifier.value = Color(savedColor);
 
