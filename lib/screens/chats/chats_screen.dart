@@ -5,6 +5,8 @@ import '../../widgets/chat_tile.dart';
 import '../friends/friends_screen.dart';
 import 'chat_screen.dart';
 import 'message_requests_screen.dart';
+import 'group_chat_screen.dart';
+import 'create_group_screen.dart';
 
 class ChatsScreen extends StatefulWidget {
   const ChatsScreen({super.key});
@@ -72,9 +74,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
             subtitle: const Text('Create a group chat'),
             onTap: () {
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('Group chat coming soon!'),
-                  backgroundColor: kGreen));
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateGroupScreen()));
             },
           ),
           const SizedBox(height: 12),
@@ -268,9 +268,10 @@ class _CombinedChatList extends StatelessWidget {
 
                 return GestureDetector(
                   onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                        content: Text('Group: ${d['name']}'),
-                        backgroundColor: kGreen));
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => GroupChatScreen(
+                        groupId: item['id'],
+                        groupName: d['name'] ?? 'Group')));
                   },
                   child: ListTile(
                     contentPadding: const EdgeInsets.symmetric(
