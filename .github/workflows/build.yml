@@ -59,6 +59,10 @@ jobs:
           storeFile=convo.jks
           EOL
 
+      - name: Set version from run number
+        run: |
+          sed -i "s/^version: .*/version: 1.0.0.${{ github.run_number }}+${{ github.run_number }}/" pubspec.yaml
+
       - name: Build APK
         run: |
           flutter pub get
