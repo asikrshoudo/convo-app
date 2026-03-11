@@ -42,6 +42,7 @@ class _ChatScreenState extends State<ChatScreen> {
     super.initState();
     _myUid = auth.currentUser!.uid;
     _clearUnread();
+    _markMessagesSeen();
     _loadDisappearSetting();
     _msgCtrl.addListener(_onTyping);
   }
@@ -76,6 +77,20 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _clearUnread() async =>
     db.collection('chats').doc(widget.chatId).set({'unread_$_myUid': 0}, SetOptions(merge: true));
 
+  Future<void> _markMessagesSeen() async {
+    final msgs = await db
+        .collection('chats').doc(widget.chatId)
+        .collection('messages')
+        .where('senderId', isNotEqualTo: _myUid)
+        .where('seen', isEqualTo: false)
+        .get();
+    final batch = db.batch();
+    for (final doc in msgs.docs) {
+      batch.update(doc.reference, {'seen': true, 'seenAt': FieldValue.serverTimestamp()});
+    }
+    if (msgs.docs.isNotEmpty) await batch.commit();
+  }
+
   Future<void> _send(String text) async {
     final t = text.trim();
     if (t.isEmpty) return;
@@ -94,7 +109,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final msgRef = await db.collection('chats').doc(widget.chatId).collection('messages').add({
       'text': t, 'senderId': _myUid,
       'senderName': auth.currentUser?.displayName ?? 'User',
-      'timestamp': FieldValue.serverTimestamp(), 'deleted': false,
+      'timestamp': FieldValue.serverTimestamp(), 'deleted': false, 'seen': false,
       if (reply != null)    'reply': reply,
       if (expiresAt != null) 'expiresAt': expiresAt,
     });
@@ -265,6 +280,7 @@ class _ChatScreenState extends State<ChatScreen> {
               if (_scrollCtrl.hasClients) _scrollCtrl.jumpTo(_scrollCtrl.position.maxScrollExtent);
             });
 
+            WidgetsBinding.instance.addPostFrameCallback((_) => _markMessagesSeen());
             return ListView.builder(
               controller: _scrollCtrl,
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
@@ -273,10 +289,13 @@ class _ChatScreenState extends State<ChatScreen> {
                 final data    = msgs[i].data() as Map<String, dynamic>;
                 final isMe    = data['senderId'] == _myUid;
                 final prevData = i > 0 ? msgs[i - 1].data() as Map<String, dynamic> : null;
+                final nextData = i < msgs.length - 1 ? msgs[i + 1].data() as Map<String, dynamic> : null;
                 final isFirst = prevData == null || prevData['senderId'] != data['senderId'];
+                final isLast  = nextData == null || nextData['senderId'] != data['senderId'];
                 return ChatBubble(
                   msgId: msgs[i].id, chatId: widget.chatId,
-                  data: data, isMe: isMe, isFirst: isFirst,
+                  data: data, isMe: isMe, isFirst: isFirst, isLast: isLast,
+                  myUid: _myUid,
                   onReply: (id, text, sender) =>
                     setState(() { _replyToId = id; _replyToText = text; _replyToSender = sender; }));
               });
