@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../core/constants.dart';
-import '../chats/chat_screen.dart';
-import '../chats/group_chat_screen.dart';
-import '../profile/profile_screen.dart';
+import 'chats/chat_screen.dart';
+import 'chats/group_chat_screen.dart';
+import 'profile/profile_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
