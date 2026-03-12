@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../../widgets/typing_dots.dart';
+import '../../widgets/markdown_text.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String groupId, groupName;
@@ -477,30 +478,40 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                                 ])),
 
                                           // Message text
-                                          Text(
-                                            deleted
-                                              ? (isMe
+                                          if (deleted)
+                                            Text(
+                                              isMe
                                                 ? 'You deleted this message'
-                                                : 'This message was deleted')
-                                              : text,
-                                            style: TextStyle(
-                                              color: deleted
-                                                ? (isMe
+                                                : 'This message was deleted',
+                                              style: TextStyle(
+                                                color: isMe
                                                   ? Colors.white38
                                                   : isDark
                                                     ? kTextSecondary
-                                                    : kLightTextSub)
-                                                : (isMe
+                                                    : kLightTextSub,
+                                                fontSize: 15,
+                                                height: 1.35,
+                                                fontStyle: FontStyle.italic))
+                                          else if (MarkdownText.hasMarkdown(text))
+                                            MarkdownText(
+                                              text: text,
+                                              textColor: isMe
+                                                ? Colors.white
+                                                : isDark
+                                                  ? kTextPrimary
+                                                  : kLightText,
+                                              isMe: isMe)
+                                          else
+                                            Text(text,
+                                              style: TextStyle(
+                                                color: isMe
                                                   ? Colors.white
                                                   : isDark
                                                     ? kTextPrimary
-                                                    : kLightText),
-                                              fontSize: 15,
-                                              height: 1.35,
-                                              letterSpacing: -0.1,
-                                              fontStyle: deleted
-                                                ? FontStyle.italic
-                                                : FontStyle.normal)),
+                                                    : kLightText,
+                                                fontSize: 15,
+                                                height: 1.35,
+                                                letterSpacing: -0.1)),
                                         ]))),
 
                                   // Reaction chips
