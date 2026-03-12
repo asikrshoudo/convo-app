@@ -112,6 +112,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _showMsgMenu(BuildContext context, String msgId, String text, String senderName) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark ? kCard : kLightCard,
@@ -137,7 +139,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(color: isDark ? kCard2 : kLightCard2, shape: BoxShape.circle),
                   child: Text(emoji, style: const TextStyle(fontSize: 22))))).toList())),
-        const Divider(height: 1, color: isDark ? kDivider : kLightDivider),
+        Divider(height: 1, color: isDark ? kDivider : kLightDivider),
         ListTile(
           leading: const Icon(Icons.reply_rounded, color: kAccent),
           title: const Text('Reply'),
@@ -150,7 +152,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             });
           }),
         ListTile(
-          leading: const Icon(Icons.copy_rounded, color: isDark ? kTextSecondary : kLightTextSub),
+          leading: Icon(Icons.copy_rounded, color: isDark ? kTextSecondary : kLightTextSub),
           title: const Text('Copy'),
           onTap: () { Navigator.pop(context); Clipboard.setData(ClipboardData(text: text)); }),
         ListTile(
@@ -483,7 +485,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
               ])),
               IconButton(
-                icon: const Icon(Icons.close_rounded, size: 18, color: isDark ? kTextSecondary : kLightTextSub),
+                icon: Icon(Icons.close_rounded, size: 18, color: isDark ? kTextSecondary : kLightTextSub),
                 onPressed: () => setState(() {
                   _replyToId = null; _replyToText = null; _replyToSender = null;
                 })),
@@ -530,6 +532,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _showGroupInfo(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -563,7 +567,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               Text('${members.length} members',
                 style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
               const SizedBox(height: 16),
-              const Divider(color: isDark ? kDivider : kLightDivider),
+              Divider(color: isDark ? kDivider : kLightDivider),
               Expanded(child: ListView.builder(
                 controller: ctrl,
                 itemCount: members.length,

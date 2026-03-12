@@ -155,7 +155,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Text('@$username', style: TextStyle(
                       color: isDark ? kTextSecondary : kLightTextSub, fontSize: 14)),
                     const SizedBox(width: 5),
-                    const Icon(Icons.copy_rounded, size: 12,
+                    Icon(Icons.copy_rounded, size: 12,
                       color: isDark ? kTextSecondary : kLightTextSub),
                   ])),
 
@@ -394,7 +394,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               color: isDark ? kTextPrimary : kLightText, fontWeight: FontWeight.w500, fontSize: 14)),
           ]),
         ])),
-      if (!isLast) const Divider(height: 0, indent: 66, color: isDark ? kDivider : kLightDivider),
+      if (!isLast) Divider(height: 0, indent: 66, color: isDark ? kDivider : kLightDivider),
     ]);
 
   Widget _actionBtn(IconData icon, String label, Color color,
@@ -454,6 +454,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _block() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -497,6 +499,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _report(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     String? reason;
     await showModalBottomSheet(
       context: context, backgroundColor: isDark ? kCard : kLightCard,
@@ -536,6 +540,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showUserMenu(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context, backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
@@ -547,7 +553,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           color: isDark ? kTextTertiary : kLightTextSub, borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 8),
         ListTile(
-          leading: const Icon(Icons.volume_off_rounded, color: isDark ? kTextSecondary : kLightTextSub),
+          leading: Icon(Icons.volume_off_rounded, color: isDark ? kTextSecondary : kLightTextSub),
           title: Text('Mute', style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
           onTap: () { Navigator.pop(context); _mute(); }),
         ListTile(
@@ -563,6 +569,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showEdit(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final nc = TextEditingController(text: _user?['name']     ?? '');
     final bc = TextEditingController(text: _user?['bio']      ?? '');
     final cc = TextEditingController(text: _user?['city']     ?? '');

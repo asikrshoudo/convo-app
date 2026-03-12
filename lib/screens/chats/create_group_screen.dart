@@ -123,7 +123,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   color: kAccent, fontSize: 13, fontWeight: FontWeight.w500)),
             ])),
 
-        const Divider(height: 0, color: isDark ? kDivider : kLightDivider),
+        Divider(height: 0, color: isDark ? kDivider : kLightDivider),
 
         // Friends list
         Expanded(child: _loading

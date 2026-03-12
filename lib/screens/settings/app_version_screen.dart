@@ -211,11 +211,11 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: isDark ? kDivider : kLightDivider),
+                      side: BorderSide(color: isDark ? kDivider : kLightDivider),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14))),
-                    icon: const Icon(Icons.open_in_new_rounded,
+                    icon: Icon(Icons.open_in_new_rounded,
                       color: isDark ? kTextSecondary : kLightTextSub, size: 18),
                     label: Text('View on GitHub',
                       style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub,
@@ -239,7 +239,7 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: isDark ? kCard : kLightCard, borderRadius: BorderRadius.circular(kCardRadius)),
-                  child: const Row(children: [
+                  child: Row(children: [
                     Icon(Icons.wifi_off_rounded, color: isDark ? kTextSecondary : kLightTextSub),
                     SizedBox(width: 10),
                     Text('Could not check for updates.',

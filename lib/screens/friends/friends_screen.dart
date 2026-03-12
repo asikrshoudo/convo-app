@@ -283,11 +283,11 @@ class _FriendsScreenState extends State<FriendsScreen>
                 style: TextStyle(color: isDark ? kTextPrimary : kLightText),
                 decoration: InputDecoration(
                   hintText: 'Search by name or username...',
-                  prefixIcon: const Icon(Icons.search_rounded,
+                  prefixIcon: Icon(Icons.search_rounded,
                     color: isDark ? kTextSecondary : kLightTextSub),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close_rounded,
+                        icon: Icon(Icons.close_rounded,
                           color: isDark ? kTextSecondary : kLightTextSub, size: 18),
                         onPressed: () {
                           _searchCtrl.clear();
@@ -305,7 +305,7 @@ class _FriendsScreenState extends State<FriendsScreen>
               SliverToBoxAdapter(child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Column(children: [
-                  const Icon(Icons.search_off_rounded,
+                  Icon(Icons.search_off_rounded,
                     size: 48, color: isDark ? kTextSecondary : kLightTextSub),
                   const SizedBox(height: 12),
                   Text('No users found for "${_searchCtrl.text}"',
@@ -488,7 +488,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                             color: online ? const Color(0xFF34C759) : isDark ? kTextSecondary : kLightTextSub,
                             fontSize: 12)),
                         trailing: PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert_rounded,
+                          icon: Icon(Icons.more_vert_rounded,
                             color: isDark ? kTextSecondary : kLightTextSub),
                           color: isDark ? kCard2 : kLightCard2,
                           onSelected: (v) async {
@@ -529,6 +529,8 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Future<void> _removeFriend(String uid, Map u, String chatId) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(

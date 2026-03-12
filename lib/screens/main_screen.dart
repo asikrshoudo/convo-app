@@ -62,6 +62,8 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Future<void> _setupFCM() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     await FirebaseMessaging.instance.requestPermission();
     final token = await FirebaseMessaging.instance.getToken();
     final uid   = auth.currentUser?.uid;
@@ -230,7 +232,7 @@ class _MainScreenState extends State<MainScreen>
             builder: (_, friendSnap) {
               final hasFriendReq = (friendSnap.data?.docs.length ?? 0) > 0;
               return Container(
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   color: isDark ? kCard : kLightCard,
                   border: Border(top: BorderSide(color: isDark ? kDivider : kLightDivider, width: 0.5)),
                 ),
@@ -245,7 +247,7 @@ class _MainScreenState extends State<MainScreen>
                   destinations: [
                     NavigationDestination(
                       icon: _countBadge(
-                        const Icon(Icons.chat_bubble_outline_rounded,
+                        Icon(Icons.chat_bubble_outline_rounded,
                           color: isDark ? kTextSecondary : kLightTextSub),
                         hasUnreadChat ? (chatSnap.data?.docs.length ?? 0) : 0),
                       selectedIcon: _countBadge(
@@ -254,7 +256,7 @@ class _MainScreenState extends State<MainScreen>
                       label: 'Chats'),
                     NavigationDestination(
                       icon: _badge(
-                        const Icon(Icons.people_outline_rounded,
+                        Icon(Icons.people_outline_rounded,
                           color: isDark ? kTextSecondary : kLightTextSub),
                         show: hasFriendReq),
                       selectedIcon: _badge(
@@ -268,7 +270,7 @@ class _MainScreenState extends State<MainScreen>
                       label: 'Profile'),
                     NavigationDestination(
                       icon: _badge(
-                        const Icon(Icons.settings_outlined,
+                        Icon(Icons.settings_outlined,
                           color: isDark ? kTextSecondary : kLightTextSub),
                         show: _hasUpdate),
                       selectedIcon: _badge(

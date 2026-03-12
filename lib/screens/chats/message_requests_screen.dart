@@ -60,7 +60,7 @@ class MessageRequestsScreen extends StatelessWidget {
           return ListView.separated(
             itemCount: docs.length,
             separatorBuilder: (_, __) =>
-              const Divider(height: 0, indent: 72, color: isDark ? kDivider : kLightDivider),
+              Divider(height: 0, indent: 72, color: isDark ? kDivider : kLightDivider),
             itemBuilder: (_, i) {
               final doc     = docs[i];
               final d       = doc.data() as Map<String, dynamic>;
@@ -236,7 +236,7 @@ class _RequestPreviewScreen extends StatelessWidget {
             if (!snap.hasData) return const Center(
               child: CircularProgressIndicator(color: kAccent, strokeWidth: 2));
             final msgs = snap.data!.docs;
-            if (msgs.isEmpty) return const Center(
+            if (msgs.isEmpty) return Center(
               child: Text('No messages',
                 style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)));
             return ListView.builder(

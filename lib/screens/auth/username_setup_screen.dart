@@ -83,7 +83,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
         Text('Setting up your account...',
           style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 14)),
       ] else ...[
-        const Icon(Icons.wifi_off_rounded, color: isDark ? kTextSecondary : kLightTextSub, size: 48),
+        Icon(Icons.wifi_off_rounded, color: isDark ? kTextSecondary : kLightTextSub, size: 48),
         const SizedBox(height: 16),
         Text('Connection error',
           style: TextStyle(color: isDark ? kTextPrimary : kLightText, fontSize: 16,

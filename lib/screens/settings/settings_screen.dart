@@ -43,6 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _deleteAccount(BuildContext context) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     // Step 1: Confirm dialog
     final confirm = await showDialog<bool>(
       context: context,
@@ -189,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(color: kAccent, fontSize: 12,
                     fontWeight: FontWeight.w500)),
               ])),
-              const Icon(Icons.arrow_forward_ios_rounded,
+              Icon(Icons.arrow_forward_ios_rounded,
                 color: isDark ? kTextSecondary : kLightTextSub, size: 14),
             ]))),
 
@@ -350,7 +352,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       subtitle: Text(sub,
         style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12),
         maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: const Icon(Icons.chevron_right_rounded,
+      trailing: Icon(Icons.chevron_right_rounded,
         color: isDark ? kTextSecondary : kLightTextSub, size: 20),
       onTap: onTap);
 
@@ -368,6 +370,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ─── Email change ──────────────────────────────────────────────────────
   void _changeEmail(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final emailCtrl = TextEditingController();
     final passCtrl  = TextEditingController();
     String? _pendingEmail;
@@ -472,6 +476,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _addPhone(BuildContext context, {required bool primary}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final field   = primary ? 'phone'  : 'phone2';
     final label   = primary ? 'Primary Phone' : 'Secondary Phone';
     final current = primary ? (_user?['phone'] ?? '') : (_user?['phone2'] ?? '');
@@ -506,6 +512,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _changePass(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final c = TextEditingController();
     showDialog(context: context, builder: (_) => AlertDialog(
       backgroundColor: isDark ? kCard : kLightCard,
@@ -532,6 +540,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _verify(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final onWaitlist = _user?['verifiedWaitlist'] == true;
     final verified   = _user?['verified']         == true;
     showModalBottomSheet(
@@ -583,6 +593,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showThemeDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context, backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
@@ -594,7 +606,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start, children: [
             Center(child: _sheetHandle()),
             const SizedBox(height: 16),
-            const Center(child: Text('Appearance', style: TextStyle(
+            Center(child: Text('Appearance', style: TextStyle(
               fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText))),
             const SizedBox(height: 24),
             const Text('THEME', style: TextStyle(color: kAccent, fontSize: 11,
@@ -709,7 +721,7 @@ class BlockedUsersScreen extends StatelessWidget {
                 width: 64, height: 64,
                 decoration: BoxDecoration(
                   color: isDark ? kCard : kLightCard, shape: BoxShape.circle),
-                child: const Icon(Icons.block_rounded,
+                child: Icon(Icons.block_rounded,
                   color: isDark ? kTextSecondary : kLightTextSub, size: 32)),
               const SizedBox(height: 16),
               Text('No blocked users',
@@ -724,7 +736,7 @@ class BlockedUsersScreen extends StatelessWidget {
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: snap.data!.docs.length,
             separatorBuilder: (_, __) =>
-              const Divider(height: 0, color: isDark ? kDivider : kLightDivider, indent: 72),
+              Divider(height: 0, color: isDark ? kDivider : kLightDivider, indent: 72),
             itemBuilder: (_, i) {
               final doc      = snap.data!.docs[i];
               final blockedUid = doc.id;

@@ -215,6 +215,8 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showChatSettings() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark ? kCard : kLightCard,
@@ -233,7 +235,7 @@ class _ChatScreenState extends State<ChatScreen> {
             const Text('Chat Settings',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
             const SizedBox(height: 16),
-            const Align(
+            Align(
               alignment: Alignment.centerLeft,
               child: Text('Disappearing Messages',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14,
@@ -501,7 +503,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
               ])),
               IconButton(
-                icon: const Icon(Icons.close_rounded,
+                icon: Icon(Icons.close_rounded,
                   size: 18, color: isDark ? kTextSecondary : kLightTextSub),
                 onPressed: () => setState(() {
                   _replyToId = null; _replyToText = null; _replyToSender = null;

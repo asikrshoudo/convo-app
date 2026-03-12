@@ -32,6 +32,8 @@ class _ChatsScreenState extends State<ChatsScreen> {
   }
 
   void _showNewChatOptions() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark ? kCard : kLightCard,
@@ -109,7 +111,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                 decoration: InputDecoration(
                   hintText: 'Search chats...',
                   hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 14),
-                  prefixIcon: const Icon(Icons.search_rounded,
+                  prefixIcon: Icon(Icons.search_rounded,
                     color: isDark ? kTextSecondary : kLightTextSub, size: 20),
                   suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
@@ -139,7 +141,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
                     child: IconButton(
-                      icon: const Icon(Icons.inbox_rounded,
+                      icon: Icon(Icons.inbox_rounded,
                         size: 20, color: isDark ? kTextSecondary : kLightTextSub),
                       onPressed: () => Navigator.push(context,
                         MaterialPageRoute(
@@ -287,7 +289,7 @@ class _CombinedChatList extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4, bottom: 80),
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) =>
-                    const Divider(height: 0, indent: 76, color: isDark ? kDivider : kLightDivider),
+                    Divider(height: 0, indent: 76, color: isDark ? kDivider : kLightDivider),
                   itemBuilder: (_, i) {
                     final item = filtered[i];
 
