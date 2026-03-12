@@ -106,7 +106,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
               controller: _nameCtrl,
               style: TextStyle(
                 color: isDark ? kTextPrimary : kLightText, fontSize: 16, fontWeight: FontWeight.w500),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: 'Group name',
                 hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub),
                 border: InputBorder.none))),

@@ -176,7 +176,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 class _CombinedChatList extends StatelessWidget {
-  bool get isDark => Theme.of(context).brightness == Brightness.dark;
 
 
   final String myUid;
@@ -195,6 +194,7 @@ class _CombinedChatList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // ── Outer stream: pending message-requests to ME ───────────────────────
     // Any chatId in here should NOT appear in the main chat list
     return StreamBuilder<QuerySnapshot>(

@@ -41,7 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return StreamBuilder<DocumentSnapshot>(
       stream: db.collection('users').doc(widget.uid).snapshots(),
       builder: (context, snap) {
-        if (!snap.hasData) return const Scaffold(
+        if (!snap.hasData) return Scaffold(
           backgroundColor: isDark ? kDark : kLightBg,
           body: Center(child: CircularProgressIndicator(
             color: kAccent, strokeWidth: 2)));
@@ -85,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 IconButton(
                   icon: const Icon(Icons.share_rounded, size: 22),
                   onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text('Share profile coming soon!'),
                       backgroundColor: isDark ? kCard2 : kLightCard2))),
                 IconButton(
@@ -148,7 +148,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 GestureDetector(
                   onTap: () {
                     Clipboard.setData(ClipboardData(text: '@$username'));
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text('Username copied!'),
                       backgroundColor: isDark ? kCard2 : kLightCard2, duration: Duration(seconds: 1)));
                   },
