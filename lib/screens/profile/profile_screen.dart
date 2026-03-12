@@ -693,6 +693,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (mounted) { Navigator.pop(context); _load(); }
           }),
         ]))));
+  }
 
   Widget _ef(String label, TextEditingController ctrl, {int lines = 1}) =>
     TextField(
