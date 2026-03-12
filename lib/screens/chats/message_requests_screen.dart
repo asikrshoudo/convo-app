@@ -141,6 +141,10 @@ class MessageRequestsScreen extends StatelessWidget {
     batch.set(
       db.collection('users').doc(fromUid).collection('friends').doc(myUid),
       {'uid': myUid, 'since': FieldValue.serverTimestamp()});
+    batch.update(db.collection('users').doc(myUid),
+      {'friendCount': FieldValue.increment(1)});
+    batch.update(db.collection('users').doc(fromUid),
+      {'friendCount': FieldValue.increment(1)});
     await batch.commit();
     if (context.mounted) {
       Navigator.push(context, MaterialPageRoute(
@@ -167,7 +171,6 @@ class _RequestPreviewScreen extends StatelessWidget {
   });
 
   Future<void> _accept(BuildContext context) async {
-    final d = requestDoc.data() as Map<String, dynamic>;
     await requestDoc.reference.update({'status': 'accepted'});
     final batch = db.batch();
     batch.set(
@@ -176,6 +179,10 @@ class _RequestPreviewScreen extends StatelessWidget {
     batch.set(
       db.collection('users').doc(fromUid).collection('friends').doc(myUid),
       {'uid': myUid, 'since': FieldValue.serverTimestamp()});
+    batch.update(db.collection('users').doc(myUid),
+      {'friendCount': FieldValue.increment(1)});
+    batch.update(db.collection('users').doc(fromUid),
+      {'friendCount': FieldValue.increment(1)});
     await batch.commit();
     if (context.mounted) {
       // Replace preview with full chat
@@ -233,11 +240,11 @@ class _RequestPreviewScreen extends StatelessWidget {
           stream: db.collection('chats').doc(chatId)
             .collection('messages').orderBy('timestamp').snapshots(),
           builder: (_, snap) {
-            if (!snap.hasData) return const Center(
+            if (snap.hasError || !snap.hasData) return const Center(
               child: CircularProgressIndicator(color: kAccent, strokeWidth: 2));
             final msgs = snap.data!.docs;
             if (msgs.isEmpty) return Center(
-              child: Text('No messages',
+              child: Text('No messages yet',
                 style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)));
             return ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),

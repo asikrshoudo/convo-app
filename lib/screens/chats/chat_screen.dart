@@ -54,8 +54,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _myUid = auth.currentUser!.uid;
-    _clearUnread();
-    _markMessagesSeen();
+    _clearUnreadSafe();
+    _markMessagesSeenSafe();
     _loadDisappearSetting();
     _loadRelationshipStatus();
     _msgCtrl.addListener(_onTyping);
@@ -137,6 +137,14 @@ class _ChatScreenState extends State<ChatScreen> {
     if (msgs.docs.isNotEmpty) await batch.commit();
   }
 
+  // chat doc henot exist করলে silently ignore করো
+  Future<void> _clearUnreadSafe() async {
+    try { await _clearUnread(); } catch (_) {}
+  }
+  Future<void> _markMessagesSeenSafe() async {
+    try { await _markMessagesSeen(); } catch (_) {}
+  }
+
   // ── Can the current user send? ────────────────────────────────────────────
   bool get _canSend =>
     _statusLoaded && !_iBlockedThem && !_theyBlockedMe && !widget.isRequest;
@@ -159,6 +167,17 @@ class _ChatScreenState extends State<ChatScreen> {
           DateTime.now().add(Duration(seconds: _disappearSeconds!)))
       : null;
 
+    // Step 1: chat doc আগে তৈরি করতে হবে — rules এ isChatParticipant চেক করে
+    await db.collection('chats').doc(widget.chatId).set({
+      'participants': [_myUid, widget.otherUid],
+      'lastMessage': t,
+      'lastTimestamp': FieldValue.serverTimestamp(),
+      'lastSender': _myUid,
+      'unread_${widget.otherUid}': FieldValue.increment(1),
+      'unread_$_myUid': 0,
+    }, SetOptions(merge: true));
+
+    // Step 2: এখন message লেখো (chat doc exists, rules pass)
     final msgRef = await db
       .collection('chats').doc(widget.chatId)
       .collection('messages').add({
@@ -170,16 +189,7 @@ class _ChatScreenState extends State<ChatScreen> {
         if (expiresAt != null) 'expiresAt': expiresAt,
       });
 
-    await db.collection('chats').doc(widget.chatId).set({
-      'participants': [_myUid, widget.otherUid],
-      'lastMessage': t,
-      'lastTimestamp': FieldValue.serverTimestamp(),
-      'lastSender': _myUid,
-      'unread_${widget.otherUid}': FieldValue.increment(1),
-      'unread_$_myUid': 0,
-    }, SetOptions(merge: true));
-
-    // ── If not friends, route to message_requests ─────────────────────────
+    // Step 3: friend না হলে message_requests এ সেভ করো
     if (!_isFriend) {
       final meDoc  = await db.collection('users').doc(_myUid).get();
       final myName = meDoc.data()?['name']   as String? ?? 'User';
@@ -423,6 +433,21 @@ class _ChatScreenState extends State<ChatScreen> {
           stream: db.collection('chats').doc(widget.chatId)
             .collection('messages').orderBy('timestamp').snapshots(),
           builder: (_, snap) {
+            if (snap.hasError) {
+              // chat doc এখনো নেই — empty state দেখাও
+              return Center(child: Column(
+                mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(width: 64, height: 64,
+                  decoration: BoxDecoration(
+                    color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
+                  child: const Icon(Icons.waving_hand_rounded,
+                    size: 30, color: kAccent)),
+                const SizedBox(height: 16),
+                Text('Say hi to ${widget.otherName}!',
+                  style: TextStyle(
+                    color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15)),
+              ]));
+            }
             if (!snap.hasData) return const Center(
               child: CircularProgressIndicator(color: kAccent, strokeWidth: 2));
 
@@ -452,7 +477,7 @@ class _ChatScreenState extends State<ChatScreen> {
               }
             });
             WidgetsBinding.instance.addPostFrameCallback(
-                (_) => _markMessagesSeen());
+                (_) => _markMessagesSeenSafe());
 
             return ListView.builder(
               controller: _scrollCtrl,

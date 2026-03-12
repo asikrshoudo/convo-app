@@ -125,8 +125,8 @@ class _FriendsScreenState extends State<FriendsScreen>
           backgroundColor: kAccent));
     } else {
       final ex = await db.collection('friend_requests')
-        .where('from', isEqualTo: _myUid)
-        .where('to', isEqualTo: toUid)
+        .where('fromUid', isEqualTo: _myUid)
+        .where('toUid', isEqualTo: toUid)
         .where('status', isEqualTo: 'pending').get();
       if (ex.docs.isNotEmpty) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(
@@ -135,10 +135,11 @@ class _FriendsScreenState extends State<FriendsScreen>
       }
       final my = await db.collection('users').doc(_myUid).get();
       await db.collection('friend_requests').add({
-        'from': _myUid,
+        'fromUid': _myUid,
         'fromName': my.data()?['name'] ?? 'User',
         'fromAvatar': my.data()?['avatar'] ?? 'U',
-        'to': toUid, 'toName': toName,
+        'fromUsername': (await db.collection('users').doc(_myUid).get()).data()?['username'] ?? '',
+        'toUid': toUid, 'toName': toName,
         'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
       });
@@ -226,8 +227,8 @@ class _FriendsScreenState extends State<FriendsScreen>
               }
               return StreamBuilder<QuerySnapshot>(
                 stream: db.collection('friend_requests')
-                  .where('from', isEqualTo: _myUid)
-                  .where('to', isEqualTo: uid)
+                  .where('fromUid', isEqualTo: _myUid)
+                  .where('toUid', isEqualTo: uid)
                   .where('status', isEqualTo: 'pending').snapshots(),
                 builder: (_, rSnap) {
                   final sent = (rSnap.data?.docs.isNotEmpty) == true;
@@ -361,7 +362,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           // ── Requests tab ───────────────────────────────────────────────────
           StreamBuilder<QuerySnapshot>(
             stream: db.collection('friend_requests')
-              .where('to', isEqualTo: _myUid)
+              .where('toUid', isEqualTo: _myUid)
               .where('status', isEqualTo: 'pending').snapshots(),
             builder: (_, snap) {
               if (!snap.hasData || snap.data!.docs.isEmpty) {
@@ -407,7 +408,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                       style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       GestureDetector(
-                        onTap: () => _accept(doc.id, d['from']),
+                        onTap: () => _accept(doc.id, d['fromUid']),
                         child: Container(
                           width: 38, height: 38,
                           decoration: BoxDecoration(
@@ -428,7 +429,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                             color: kRed, size: 22))),
                     ]),
                     onTap: () => Navigator.push(context,
-                      MaterialPageRoute(builder: (_) => ProfileScreen(uid: d['from']))));
+                      MaterialPageRoute(builder: (_) => ProfileScreen(uid: d['fromUid']))));
                 }).toList());
             }),
 
