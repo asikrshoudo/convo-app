@@ -9,7 +9,8 @@ class MessageRequestsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final myUid = auth.currentUser!.uid;
+    final myUid  = auth.currentUser!.uid;
+
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
@@ -25,7 +26,6 @@ class MessageRequestsScreen extends StatelessWidget {
           if (!snap.hasData) return const Center(
             child: CircularProgressIndicator(color: kAccent, strokeWidth: 2));
 
-          // Sort client-side (avoids composite index)
           final docs = [...snap.data!.docs];
           docs.sort((a, b) {
             final aTs = (a.data() as Map)['timestamp'] as Timestamp?;
@@ -43,16 +43,16 @@ class MessageRequestsScreen extends StatelessWidget {
                 width: 72, height: 72,
                 decoration: BoxDecoration(
                   color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
-                child: const Icon(Icons.inbox_rounded,
-                  size: 36, color: kAccent)),
+                child: const Icon(Icons.inbox_rounded, size: 36, color: kAccent)),
               const SizedBox(height: 16),
               Text('No message requests',
                 style: TextStyle(
-                  color: isDark ? kTextPrimary : kLightText, fontSize: 16,
-                  fontWeight: FontWeight.w500)),
+                  color: isDark ? kTextPrimary : kLightText,
+                  fontSize: 16, fontWeight: FontWeight.w500)),
               const SizedBox(height: 6),
               Text('Requests from people you don\'t know appear here',
-                style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13),
+                style: TextStyle(
+                  color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13),
                 textAlign: TextAlign.center),
             ]));
           }
@@ -60,12 +60,12 @@ class MessageRequestsScreen extends StatelessWidget {
           return ListView.separated(
             itemCount: docs.length,
             separatorBuilder: (_, __) =>
-              Divider(height: 0, indent: 72, color: isDark ? kDivider : kLightDivider),
+              Divider(height: 0, indent: 72,
+                color: isDark ? kDivider : kLightDivider),
             itemBuilder: (_, i) {
               final doc     = docs[i];
               final d       = doc.data() as Map<String, dynamic>;
               final fromUid = d['from']       as String? ?? '';
-              // Use stored chatId — don't regenerate it
               final chatId  = d['chatId']     as String? ?? doc.id;
               final name    = d['fromName']   as String? ?? 'User';
               final avatar  = d['fromAvatar'] as String? ?? 'U';
@@ -84,22 +84,23 @@ class MessageRequestsScreen extends StatelessWidget {
                       fontSize: 16)))),
                 title: Text(name,
                   style: TextStyle(
-                    fontWeight: FontWeight.w600, color: isDark ? kTextPrimary : kLightText)),
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? kTextPrimary : kLightText)),
                 subtitle: Text(
                   d['lastMessage'] ?? 'Wants to send you a message',
-                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12),
+                  style: TextStyle(
+                    color: isDark ? kTextSecondary : kLightTextSub,
+                    fontSize: 12),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
-                // Tap → read-only chat preview with Accept/Decline at bottom
                 onTap: () => Navigator.push(context, MaterialPageRoute(
                   builder: (_) => _RequestPreviewScreen(
                     requestDoc: doc,
-                    fromUid:  fromUid,
-                    fromName: name,
+                    fromUid:   fromUid,
+                    fromName:  name,
                     fromAvatar: avatar,
-                    chatId:   chatId,
-                    myUid:    myUid))),
+                    chatId:    chatId,
+                    myUid:     myUid))),
                 trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                  // Quick accept
                   GestureDetector(
                     onTap: () => _accept(context, doc, d, myUid, chatId),
                     child: Container(
@@ -110,9 +111,9 @@ class MessageRequestsScreen extends StatelessWidget {
                       child: const Icon(Icons.check_rounded,
                         color: kAccent, size: 22))),
                   const SizedBox(width: 8),
-                  // Quick decline
+                  // DELETE the doc — not update status
                   GestureDetector(
-                    onTap: () => doc.reference.update({'status': 'declined'}),
+                    onTap: () => doc.reference.delete(),
                     child: Container(
                       width: 38, height: 38,
                       decoration: BoxDecoration(
@@ -133,8 +134,8 @@ class MessageRequestsScreen extends StatelessWidget {
     String chatId,
   ) async {
     final fromUid = d['from'] as String? ?? '';
-    await doc.reference.update({'status': 'accepted'});
     final batch = db.batch();
+    batch.delete(doc.reference); // remove request doc
     batch.set(
       db.collection('users').doc(myUid).collection('friends').doc(fromUid),
       {'uid': fromUid, 'since': FieldValue.serverTimestamp()});
@@ -149,15 +150,15 @@ class MessageRequestsScreen extends StatelessWidget {
     if (context.mounted) {
       Navigator.push(context, MaterialPageRoute(
         builder: (_) => ChatScreen(
-          otherUid:   fromUid,
-          otherName:  d['fromName']   ?? 'User',
+          otherUid:    fromUid,
+          otherName:   d['fromName']   ?? 'User',
           otherAvatar: d['fromAvatar'] ?? 'U',
-          chatId:     chatId)));
+          chatId:      chatId)));
     }
   }
 }
 
-// ── Read-only preview before accepting ──────────────────────────────────────
+// ── Read-only preview ────────────────────────────────────────────────────────
 class _RequestPreviewScreen extends StatelessWidget {
   final DocumentSnapshot requestDoc;
   final String fromUid, fromName, fromAvatar, chatId, myUid;
@@ -171,8 +172,8 @@ class _RequestPreviewScreen extends StatelessWidget {
   });
 
   Future<void> _accept(BuildContext context) async {
-    await requestDoc.reference.update({'status': 'accepted'});
     final batch = db.batch();
+    batch.delete(requestDoc.reference);
     batch.set(
       db.collection('users').doc(myUid).collection('friends').doc(fromUid),
       {'uid': fromUid, 'since': FieldValue.serverTimestamp()});
@@ -185,7 +186,6 @@ class _RequestPreviewScreen extends StatelessWidget {
       {'friendCount': FieldValue.increment(1)});
     await batch.commit();
     if (context.mounted) {
-      // Replace preview with full chat
       Navigator.pushReplacement(context, MaterialPageRoute(
         builder: (_) => ChatScreen(
           otherUid:    fromUid,
@@ -196,7 +196,7 @@ class _RequestPreviewScreen extends StatelessWidget {
   }
 
   Future<void> _decline(BuildContext context) async {
-    await requestDoc.reference.update({'status': 'declined'});
+    await requestDoc.reference.delete();
     if (context.mounted) Navigator.pop(context);
   }
 
@@ -221,7 +221,6 @@ class _RequestPreviewScreen extends StatelessWidget {
               fontWeight: FontWeight.w600, fontSize: 15)),
         ])),
       body: Column(children: [
-        // Info banner
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -235,7 +234,6 @@ class _RequestPreviewScreen extends StatelessWidget {
               style: TextStyle(color: kAccent, fontSize: 12)),
           ])),
 
-        // Messages (read-only)
         Expanded(child: StreamBuilder<QuerySnapshot>(
           stream: db.collection('chats').doc(chatId)
             .collection('messages').orderBy('timestamp').snapshots(),
@@ -245,9 +243,11 @@ class _RequestPreviewScreen extends StatelessWidget {
             final msgs = snap.data!.docs;
             if (msgs.isEmpty) return Center(
               child: Text('No messages yet',
-                style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)));
+                style: TextStyle(
+                  color: isDark ? kTextSecondary : kLightTextSub)));
             return ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12, vertical: 16),
               itemCount: msgs.length,
               itemBuilder: (_, i) {
                 final m    = msgs[i].data() as Map<String, dynamic>;
@@ -266,17 +266,19 @@ class _RequestPreviewScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(16)),
                     child: Text(m['text'] ?? '',
                       style: TextStyle(
-                        color: isMe ? Colors.white : isDark ? kTextPrimary : kLightText,
+                        color: isMe
+                          ? Colors.white
+                          : isDark ? kTextPrimary : kLightText,
                         fontSize: 14))));
               });
           })),
 
-        // Accept / Decline
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           decoration: BoxDecoration(
             color: isDark ? kCard : kLightCard,
-            border: Border(top: BorderSide(color: isDark ? kDivider : kLightDivider, width: 0.5))),
+            border: Border(top: BorderSide(
+              color: isDark ? kDivider : kLightDivider, width: 0.5))),
           child: Row(children: [
             Expanded(child: OutlinedButton(
               style: OutlinedButton.styleFrom(
@@ -286,7 +288,8 @@ class _RequestPreviewScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12))),
               onPressed: () => _decline(context),
               child: const Text('Decline',
-                style: TextStyle(color: kRed, fontWeight: FontWeight.w600)))),
+                style: TextStyle(
+                  color: kRed, fontWeight: FontWeight.w600)))),
             const SizedBox(width: 12),
             Expanded(child: ElevatedButton(
               style: ElevatedButton.styleFrom(
@@ -296,8 +299,8 @@ class _RequestPreviewScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12))),
               onPressed: () => _accept(context),
               child: const Text('Accept',
-                style: TextStyle(color: Colors.white,
-                  fontWeight: FontWeight.bold)))),
+                style: TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold)))),
           ])),
       ]));
   }

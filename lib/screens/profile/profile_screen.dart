@@ -249,7 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ? isDark ? kTextSecondary : kLightTextSub : kAccent, size: 18),
                                   label: Text(
                                     isFollowing ? 'Unfollow'
-                                      : requestSent ? 'Requested'
+                                      : requestSent ? 'Requested ✕'
                                       : (profileMode == 'follow'
                                           ? 'Follow' : 'Add Friend'),
                                     style: TextStyle(
@@ -257,9 +257,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ? isDark ? kTextSecondary : kLightTextSub : kAccent,
                                       fontWeight: FontWeight.bold)),
                                   onPressed: isFollowing
-                                    ? _unfollow : requestSent ? null
-                                    : () => _sendRequest(
-                                        context, profileMode, name))),
+                                    ? _unfollow
+                                    : requestSent
+                                      ? () => _cancelRequest(
+                                          context,
+                                          reqSnap.data!.docs.first.id)
+                                      : () => _sendRequest(
+                                          context, profileMode, name))),
                                 const SizedBox(width: 10),
                                 Expanded(child: ElevatedButton.icon(
                                   style: ElevatedButton.styleFrom(
@@ -430,11 +434,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } else {
       final my = await db.collection('users').doc(_myUid).get();
       await db.collection('friend_requests').add({
-        'from': _myUid,
-        'fromName': my.data()?['name'] ?? 'User',
-        'fromAvatar': my.data()?['avatar'] ?? 'U',
-        'to': widget.uid, 'toName': name,
-        'status': 'pending',
+        'fromUid':      _myUid,
+        'fromName':     my.data()?['name']     ?? 'User',
+        'fromAvatar':   my.data()?['avatar']   ?? 'U',
+        'fromUsername': my.data()?['username'] ?? '',
+        'toUid':    widget.uid,
+        'toName':   name,
+        'status':   'pending',
         'timestamp': FieldValue.serverTimestamp(),
       });
     }
@@ -453,6 +459,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
       .update({'followerCount': FieldValue.increment(-1)});
     await db.collection('users').doc(_myUid)
       .update({'followingCount': FieldValue.increment(-1)});
+  }
+
+  Future<void> _cancelRequest(BuildContext context, String docId) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: isDark ? kCard : kLightCard,
+        title: Text('Withdraw Request?',
+          style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
+        content: Text('Cancel your friend request?',
+          style: TextStyle(
+            color: isDark ? kTextSecondary : kLightTextSub)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('No')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: kRed),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Withdraw')),
+        ]));
+    if (confirm != true) return;
+    await db.collection('friend_requests').doc(docId).delete();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Request withdrawn')));
   }
 
   Future<void> _block() async {
