@@ -318,6 +318,57 @@ class _ChatScreenState extends State<ChatScreen> {
     return null;
   }
 
+  // ── Time divider helpers ──────────────────────────────────────────────────
+  // Show divider when gap between messages >= 1 hour
+  bool _shouldShowDivider(Timestamp? prev, Timestamp? curr) {
+    if (prev == null || curr == null) return false;
+    return curr.toDate().difference(prev.toDate()).inMinutes >= 60;
+  }
+
+  String _dividerLabel(Timestamp ts) {
+    final now   = DateTime.now();
+    final date  = ts.toDate().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
+    final msgDay = DateTime(date.year, date.month, date.day);
+    final diff  = today.difference(msgDay).inDays;
+
+    final h    = date.hour > 12 ? date.hour - 12 : (date.hour == 0 ? 12 : date.hour);
+    final m    = date.minute.toString().padLeft(2, '0');
+    final ampm = date.hour >= 12 ? 'PM' : 'AM';
+    final time = '$h:$m $ampm';
+
+    if (diff == 0) return 'Today $time';
+    if (diff == 1) return 'Yesterday $time';
+    if (diff < 7) {
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      return '${days[date.weekday - 1]} $time';
+    }
+    const months = ['Jan','Feb','Mar','Apr','May','Jun',
+                    'Jul','Aug','Sep','Oct','Nov','Dec'];
+    return '${months[date.month - 1]} ${date.day}, $time';
+  }
+
+  Widget _timeDivider(String label) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: Row(children: [
+      Expanded(child: Container(
+        height: 0.5, color: isDark ? kDivider : kLightDivider)),
+      Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: isDark ? kCard2 : kLightCard2,
+          borderRadius: BorderRadius.circular(20)),
+        child: Text(label,
+          style: TextStyle(
+            fontSize: 11,
+            color: isDark ? kTextSecondary : kLightTextSub,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.2))),
+      Expanded(child: Container(
+        height: 0.5, color: isDark ? kDivider : kLightDivider)),
+    ]));
+
   Widget _banner(IconData icon, Color color, String msg) => Container(
     width: double.infinity,
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
@@ -494,18 +545,28 @@ class _ChatScreenState extends State<ChatScreen> {
                   prevData == null || prevData['senderId'] != data['senderId'];
                 final isLast   =
                   nextData == null || nextData['senderId'] != data['senderId'];
-                return ChatBubble(
-                  msgId: msgs[i].id, chatId: widget.chatId,
-                  data: data, isMe: isMe, isFirst: isFirst, isLast: isLast,
-                  myUid: _myUid, otherUid: widget.otherUid,
-                  onReply: (id, text, sender) {
-                    if (!_canSend) return;
-                    setState(() {
-                      _replyToId     = id;
-                      _replyToText   = text;
-                      _replyToSender = sender;
-                    });
-                  });
+                final prevTs = prevData?['timestamp'] as Timestamp?;
+                final currTs = data['timestamp'] as Timestamp?;
+                final showDiv = _shouldShowDivider(prevTs, currTs);
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (showDiv && currTs != null)
+                      _timeDivider(_dividerLabel(currTs)),
+                    ChatBubble(
+                      msgId: msgs[i].id, chatId: widget.chatId,
+                      data: data, isMe: isMe, isFirst: isFirst, isLast: isLast,
+                      myUid: _myUid, otherUid: widget.otherUid,
+                      onReply: (id, text, sender) {
+                        if (!_canSend) return;
+                        setState(() {
+                          _replyToId     = id;
+                          _replyToText   = text;
+                          _replyToSender = sender;
+                        });
+                      }),
+                  ]);
               });
           })),
 
