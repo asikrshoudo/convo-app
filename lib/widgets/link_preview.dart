@@ -6,7 +6,7 @@ import '../core/constants.dart';
 
 // ── URL detection ─────────────────────────────────────────────────────────────
 final _urlRegex = RegExp(
-  r'https?://[^\s\)\]\>\"\']+',
+  r"""https?://[^\s\)\]\>"']+""",
   caseSensitive: false,
 );
 
