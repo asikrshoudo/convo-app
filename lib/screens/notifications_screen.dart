@@ -77,7 +77,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'friend_request':  return const Color(0xFF2C7BE5);
       case 'friend_accepted': return const Color(0xFF34C759);
       case 'follow':          return const Color(0xFF7C3AED);
-      default:                return kTextSecondary;
+      default:                return isDark ? kTextSecondary : kLightTextSub;
     }
   }
 
@@ -100,20 +100,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       child: const Icon(Icons.notifications_none_rounded,
         size: 36, color: kAccent)),
     const SizedBox(height: 20),
-    const Text('No notifications yet',
+    Text('No notifications yet',
       style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold,
-        color: kTextPrimary)),
+        color: isDark ? kTextPrimary : kLightText)),
     const SizedBox(height: 8),
-    const Text("You'll be notified when something happens",
-      style: TextStyle(color: kTextSecondary, fontSize: 13)),
+    Text("You'll be notified when something happens",
+      style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
   ]));
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         title: const Text('Notifications',
           style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
@@ -150,7 +151,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           return ListView.separated(
             itemCount: docs.length,
             separatorBuilder: (_, __) =>
-              Divider(height: 0, color: kDivider.withOpacity(0.5)),
+              Divider(height: 0, color: isDark ? kDivider : kLightDivider.withOpacity(0.5)),
             itemBuilder: (_, i) {
               final doc   = docs[i];
               final data  = doc.data() as Map<String, dynamic>;
@@ -178,16 +179,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       Text(data['title'] ?? '',
                         style: TextStyle(
                           fontWeight: read ? FontWeight.normal : FontWeight.bold,
-                          fontSize: 14, color: kTextPrimary)),
+                          fontSize: 14, color: isDark ? kTextPrimary : kLightText)),
                       const SizedBox(height: 2),
                       Text(data['body'] ?? '',
-                        style: const TextStyle(
-                          color: kTextSecondary, fontSize: 13),
+                        style: TextStyle(
+                          color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13),
                         maxLines: 2, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 4),
                       Text(_timeAgo(ts),
-                        style: const TextStyle(
-                          color: kTextTertiary, fontSize: 11)),
+                        style: TextStyle(
+                          color: isDark ? kTextTertiary : kLightTextSub, fontSize: 11)),
                     ])),
                     if (!read) ...[
                       const SizedBox(width: 8),

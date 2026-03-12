@@ -8,11 +8,12 @@ class MessageRequestsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final myUid = auth.currentUser!.uid;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         title: const Text('Message Requests',
           style: TextStyle(fontWeight: FontWeight.bold))),
       body: StreamBuilder<QuerySnapshot>(
@@ -45,13 +46,13 @@ class MessageRequestsScreen extends StatelessWidget {
                 child: const Icon(Icons.inbox_rounded,
                   size: 36, color: kAccent)),
               const SizedBox(height: 16),
-              const Text('No message requests',
+              Text('No message requests',
                 style: TextStyle(
-                  color: kTextPrimary, fontSize: 16,
+                  color: isDark ? kTextPrimary : kLightText, fontSize: 16,
                   fontWeight: FontWeight.w500)),
               const SizedBox(height: 6),
-              const Text('Requests from people you don\'t know appear here',
-                style: TextStyle(color: kTextSecondary, fontSize: 13),
+              Text('Requests from people you don\'t know appear here',
+                style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13),
                 textAlign: TextAlign.center),
             ]));
           }
@@ -59,7 +60,7 @@ class MessageRequestsScreen extends StatelessWidget {
           return ListView.separated(
             itemCount: docs.length,
             separatorBuilder: (_, __) =>
-              const Divider(height: 0, indent: 72, color: kDivider),
+              const Divider(height: 0, indent: 72, color: isDark ? kDivider : kLightDivider),
             itemBuilder: (_, i) {
               final doc     = docs[i];
               final d       = doc.data() as Map<String, dynamic>;
@@ -82,11 +83,11 @@ class MessageRequestsScreen extends StatelessWidget {
                       color: kAccent, fontWeight: FontWeight.bold,
                       fontSize: 16)))),
                 title: Text(name,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600, color: kTextPrimary)),
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600, color: isDark ? kTextPrimary : kLightText)),
                 subtitle: Text(
                   d['lastMessage'] ?? 'Wants to send you a message',
-                  style: const TextStyle(color: kTextSecondary, fontSize: 12),
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
                 // Tap → read-only chat preview with Accept/Decline at bottom
                 onTap: () => Navigator.push(context, MaterialPageRoute(
@@ -194,10 +195,11 @@ class _RequestPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         title: Row(children: [
           Container(
             width: 34, height: 34,
@@ -236,7 +238,7 @@ class _RequestPreviewScreen extends StatelessWidget {
             final msgs = snap.data!.docs;
             if (msgs.isEmpty) return const Center(
               child: Text('No messages',
-                style: TextStyle(color: kTextSecondary)));
+                style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)));
             return ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
               itemCount: msgs.length,
@@ -253,11 +255,11 @@ class _RequestPreviewScreen extends StatelessWidget {
                     constraints: BoxConstraints(
                       maxWidth: MediaQuery.of(context).size.width * 0.72),
                     decoration: BoxDecoration(
-                      color: isMe ? kAccent : kCard,
+                      color: isMe ? kAccent : isDark ? kCard : kLightCard,
                       borderRadius: BorderRadius.circular(16)),
                     child: Text(m['text'] ?? '',
                       style: TextStyle(
-                        color: isMe ? Colors.white : kTextPrimary,
+                        color: isMe ? Colors.white : isDark ? kTextPrimary : kLightText,
                         fontSize: 14))));
               });
           })),
@@ -266,8 +268,8 @@ class _RequestPreviewScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 28),
           decoration: BoxDecoration(
-            color: kCard,
-            border: Border(top: BorderSide(color: kDivider, width: 0.5))),
+            color: isDark ? kCard : kLightCard,
+            border: Border(top: BorderSide(color: isDark ? kDivider : kLightDivider, width: 0.5))),
           child: Row(children: [
             Expanded(child: OutlinedButton(
               style: OutlinedButton.styleFrom(

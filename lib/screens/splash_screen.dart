@@ -69,8 +69,9 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       body: Center(
         child: FadeTransition(
           opacity: _fadeAnim,
@@ -101,18 +102,18 @@ class _SplashScreenState extends State<SplashScreen>
                       size: 44)),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                Text(
                   'Convo',
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: kTextPrimary,
+                    color: isDark ? kTextPrimary : kLightText,
                     letterSpacing: -0.5)),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Connect with friends',
                   style: TextStyle(
-                    color: kTextSecondary,
+                    color: isDark ? kTextSecondary : kLightTextSub,
                     fontSize: 14,
                     letterSpacing: 0.2)),
                 const SizedBox(height: 48),

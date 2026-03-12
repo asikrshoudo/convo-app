@@ -217,7 +217,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void _showChatSettings() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: kCard,
+      backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
               top: Radius.circular(kSheetRadius))),
@@ -227,7 +227,7 @@ class _ChatScreenState extends State<ChatScreen> {
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Container(width: 36, height: 4,
               decoration: BoxDecoration(
-                  color: kTextTertiary,
+                  color: isDark ? kTextTertiary : kLightTextSub,
                   borderRadius: BorderRadius.circular(2))),
             const SizedBox(height: 20),
             const Text('Chat Settings',
@@ -237,7 +237,7 @@ class _ChatScreenState extends State<ChatScreen> {
               alignment: Alignment.centerLeft,
               child: Text('Disappearing Messages',
                 style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14,
-                    color: kTextSecondary))),
+                    color: isDark ? kTextSecondary : kLightTextSub))),
             const SizedBox(height: 10),
             ..._disappearOptions.map((opt) => RadioListTile<int?>(
               value: opt['seconds'] as int?,
@@ -254,8 +254,8 @@ class _ChatScreenState extends State<ChatScreen> {
             ListTile(
               leading: const Icon(Icons.badge_outlined, color: kAccent),
               title: const Text('Set Nickname'),
-              subtitle: const Text('Give this chat a nickname',
-                  style: TextStyle(color: kTextSecondary, fontSize: 12)),
+              subtitle: Text('Give this chat a nickname',
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
               onTap: () {
                 Navigator.pop(context);
                 final c = TextEditingController();
@@ -318,11 +318,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         titleSpacing: 0,
         elevation: 0,
         leading: IconButton(
@@ -353,15 +354,15 @@ class _ChatScreenState extends State<ChatScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF34C759),
                         shape: BoxShape.circle,
-                        border: Border.all(color: kDark, width: 1.5))));
+                        border: Border.all(color: isDark ? kDark : kLightBg, width: 1.5))));
                 }),
             ]),
             const SizedBox(width: 10),
             Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(widget.otherName,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w600, fontSize: 15,
-                  color: kTextPrimary)),
+                  color: isDark ? kTextPrimary : kLightText)),
               StreamBuilder<DocumentSnapshot>(
                 stream: db.collection('chats').doc(widget.chatId)
                   .collection('typing').doc(widget.otherUid).snapshots(),
@@ -383,7 +384,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       if (text == null) return const SizedBox.shrink();
                       return Text(text,
                         style: TextStyle(
-                          color: online ? const Color(0xFF34C759) : kTextSecondary,
+                          color: online ? const Color(0xFF34C759) : isDark ? kTextSecondary : kLightTextSub,
                           fontSize: 11));
                     });
                 }),
@@ -438,7 +439,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     size: 30, color: kAccent)),
                 const SizedBox(height: 16),
                 Text('Say hi to ${widget.otherName}!',
-                  style: const TextStyle(color: kTextSecondary, fontSize: 15)),
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15)),
               ]));
             }
 
@@ -483,7 +484,7 @@ class _ChatScreenState extends State<ChatScreen> {
         // Reply preview
         if (_replyToId != null)
           Container(
-            color: kCard,
+            color: isDark ? kCard : kLightCard,
             padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
             child: Row(children: [
               Container(width: 3, height: 36,
@@ -497,11 +498,11 @@ class _ChatScreenState extends State<ChatScreen> {
                     color: kAccent, fontSize: 12, fontWeight: FontWeight.w700)),
                 Text(_replyToText ?? '',
                   maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: kTextSecondary, fontSize: 12)),
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
               ])),
               IconButton(
                 icon: const Icon(Icons.close_rounded,
-                  size: 18, color: kTextSecondary),
+                  size: 18, color: isDark ? kTextSecondary : kLightTextSub),
                 onPressed: () => setState(() {
                   _replyToId = null; _replyToText = null; _replyToSender = null;
                 })),
@@ -512,21 +513,21 @@ class _ChatScreenState extends State<ChatScreen> {
           Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
             decoration: BoxDecoration(
-              color: kCard,
-              border: Border(top: BorderSide(color: kDivider, width: 0.5))),
+              color: isDark ? kCard : kLightCard,
+              border: Border(top: BorderSide(color: isDark ? kDivider : kLightDivider, width: 0.5))),
             child: Row(children: [
               Expanded(child: Container(
                 constraints: const BoxConstraints(maxHeight: 120),
                 decoration: BoxDecoration(
-                  color: kCard2, borderRadius: BorderRadius.circular(22)),
+                  color: isDark ? kCard2 : kLightCard2, borderRadius: BorderRadius.circular(22)),
                 child: TextField(
                   controller: _msgCtrl,
                   textCapitalization: TextCapitalization.sentences,
                   maxLines: null, minLines: 1,
-                  style: const TextStyle(color: kTextPrimary, fontSize: 15),
+                  style: TextStyle(color: isDark ? kTextPrimary : kLightText, fontSize: 15),
                   decoration: const InputDecoration(
                     hintText: 'Message...',
-                    hintStyle: TextStyle(color: kTextSecondary, fontSize: 15),
+                    hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 16, vertical: 10))))),

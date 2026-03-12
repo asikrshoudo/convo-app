@@ -47,18 +47,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: kCard,
+        backgroundColor: isDark ? kCard : kLightCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Account',
-          style: TextStyle(fontWeight: FontWeight.bold, color: kTextPrimary)),
-        content: const Text(
+        title: Text('Delete Account',
+          style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
+        content: Text(
           'This will permanently delete your account and all your data. This cannot be undone.',
-          style: TextStyle(color: kTextSecondary)),
+          style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel',
-              style: TextStyle(color: kTextSecondary))),
+            child: Text('Cancel',
+              style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub))),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: kRed,
               shape: RoundedRectangleBorder(
@@ -76,18 +76,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final reauth = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
-          backgroundColor: kCard,
+          backgroundColor: isDark ? kCard : kLightCard,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20)),
-          title: const Text('Confirm Password',
-            style: TextStyle(fontWeight: FontWeight.bold, color: kTextPrimary)),
+          title: Text('Confirm Password',
+            style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
           content: _inputField(passCtrl, 'Enter your password',
             icon: Icons.lock_outline_rounded, obscure: true),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel',
-                style: TextStyle(color: kTextSecondary))),
+              child: Text('Cancel',
+                style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub))),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: kRed,
                 shape: RoundedRectangleBorder(
@@ -128,6 +128,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final name       = _user?['name']     as String? ?? 'User';
     final username   = _user?['username'] as String? ?? '';
     final phone      = _user?['phone']    as String? ?? '';
@@ -137,9 +138,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final currentEmail = auth.currentUser?.email ?? '';
 
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         elevation: 0, scrolledUnderElevation: 0,
         centerTitle: true,
         title: const Text('Settings',
@@ -154,7 +155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: kCard,
+              color: isDark ? kCard : kLightCard,
               borderRadius: BorderRadius.circular(kCardRadius),
               border: Border.all(color: kAccent.withOpacity(0.25))),
             child: Row(children: [
@@ -173,8 +174,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
                   Flexible(child: Text(name,
-                    style: const TextStyle(fontSize: 16,
-                      fontWeight: FontWeight.bold, color: kTextPrimary),
+                    style: TextStyle(fontSize: 16,
+                      fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText),
                     overflow: TextOverflow.ellipsis)),
                   if (isVerified) ...[ const SizedBox(width: 4),
                     const Icon(Icons.verified_rounded,
@@ -182,14 +183,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ]),
                 if (username.isNotEmpty)
                   Text('@$username',
-                    style: const TextStyle(color: kTextSecondary, fontSize: 13)),
+                    style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
                 const SizedBox(height: 2),
                 const Text('View profile',
                   style: TextStyle(color: kAccent, fontSize: 12,
                     fontWeight: FontWeight.w500)),
               ])),
               const Icon(Icons.arrow_forward_ios_rounded,
-                color: kTextSecondary, size: 14),
+                color: isDark ? kTextSecondary : kLightTextSub, size: 14),
             ]))),
 
         // ── Account ───────────────────────────────────────────────────────
@@ -226,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
-            color: kCard, borderRadius: BorderRadius.circular(14)),
+            color: isDark ? kCard : kLightCard, borderRadius: BorderRadius.circular(14)),
           child: Row(children: ['friend', 'follow'].map((mode) {
             final selected = _profileMode == mode;
             final label    = mode == 'friend' ? 'Friend Mode' : 'Follow Mode';
@@ -242,7 +243,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: selected ? kAccent : Colors.transparent,
                   borderRadius: BorderRadius.circular(10)),
                 child: Center(child: Text(label, style: TextStyle(
-                  color: selected ? Colors.white : kTextSecondary,
+                  color: selected ? Colors.white : isDark ? kTextSecondary : kLightTextSub,
                   fontWeight: FontWeight.w600, fontSize: 13))))));
           }).toList())),
         Padding(
@@ -251,7 +252,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _profileMode == 'friend'
               ? 'Others can send you friend requests and message you.'
               : 'Others can follow you. Use for public/creator profiles.',
-            style: const TextStyle(color: kTextSecondary, fontSize: 12))),
+            style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12))),
 
         // ── Privacy ───────────────────────────────────────────────────────
         _sec('Privacy'),
@@ -344,13 +345,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       leading: iconBox(icon),
-      title: Text(title, style: const TextStyle(
-        fontWeight: FontWeight.w500, color: kTextPrimary, fontSize: 14)),
+      title: Text(title, style: TextStyle(
+        fontWeight: FontWeight.w500, color: isDark ? kTextPrimary : kLightText, fontSize: 14)),
       subtitle: Text(sub,
-        style: const TextStyle(color: kTextSecondary, fontSize: 12),
+        style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12),
         maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: const Icon(Icons.chevron_right_rounded,
-        color: kTextSecondary, size: 20),
+        color: isDark ? kTextSecondary : kLightTextSub, size: 20),
       onTap: onTap);
 
   Widget _switchTile(IconData icon, String title, String sub,
@@ -358,10 +359,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       leading: iconBox(icon),
-      title: Text(title, style: const TextStyle(
-        fontWeight: FontWeight.w500, color: kTextPrimary, fontSize: 14)),
+      title: Text(title, style: TextStyle(
+        fontWeight: FontWeight.w500, color: isDark ? kTextPrimary : kLightText, fontSize: 14)),
       subtitle: Text(sub,
-        style: const TextStyle(color: kTextSecondary, fontSize: 12)),
+        style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
       trailing: Switch.adaptive(
         value: value, onChanged: onChanged, activeColor: kAccent));
 
@@ -374,7 +375,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     showModalBottomSheet(
       context: context, isScrollControlled: true,
-      backgroundColor: kCard,
+      backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => StatefulBuilder(
@@ -386,8 +387,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start, children: [
             _sheetHandle(),
             const SizedBox(height: 20),
-            const Text('Change Email', style: TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary)),
+            Text('Change Email', style: TextStyle(
+              fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
             const SizedBox(height: 16),
             if (!_codeSent) ...[
               _inputField(emailCtrl, 'New email address',
@@ -437,7 +438,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(fontWeight: FontWeight.bold, color: kAccent)),
                     const SizedBox(height: 4),
                     Text('Click the link sent to $_pendingEmail',
-                      style: const TextStyle(fontSize: 12, color: kTextSecondary)),
+                      style: TextStyle(fontSize: 12, color: isDark ? kTextSecondary : kLightTextSub)),
                   ])),
                 ])),
               const SizedBox(height: 16),
@@ -464,8 +465,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               }),
               Center(child: TextButton(
                 onPressed: () => setSt(() => _codeSent = false),
-                child: const Text('Use a different email',
-                  style: TextStyle(color: kTextSecondary)))),
+                child: Text('Use a different email',
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)))),
             ],
           ]))));
   }
@@ -477,16 +478,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final ctrl    = TextEditingController(text: current);
 
     showDialog(context: context, builder: (_) => AlertDialog(
-      backgroundColor: kCard,
+      backgroundColor: isDark ? kCard : kLightCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(label, style: const TextStyle(
-        fontWeight: FontWeight.bold, color: kTextPrimary)),
+      title: Text(label, style: TextStyle(
+        fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
       content: _inputField(ctrl, '+880 1XXXXXXXXX',
         icon: primary ? Icons.phone_rounded : Icons.phone_in_talk_rounded,
         type: TextInputType.phone),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: kTextSecondary))),
+          child: Text('Cancel', style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub))),
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: kAccent,
@@ -507,15 +508,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _changePass(BuildContext context) {
     final c = TextEditingController();
     showDialog(context: context, builder: (_) => AlertDialog(
-      backgroundColor: kCard,
+      backgroundColor: isDark ? kCard : kLightCard,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Change Password',
-        style: TextStyle(fontWeight: FontWeight.bold, color: kTextPrimary)),
+      title: Text('Change Password',
+        style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
       content: _inputField(c, 'New password (min 6)',
         icon: Icons.lock_outline_rounded, obscure: true),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: kTextSecondary))),
+          child: Text('Cancel', style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub))),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: kAccent,
             shape: RoundedRectangleBorder(
@@ -534,7 +535,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final onWaitlist = _user?['verifiedWaitlist'] == true;
     final verified   = _user?['verified']         == true;
     showModalBottomSheet(
-      context: context, backgroundColor: kCard,
+      context: context, backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => Padding(
@@ -548,15 +549,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: const Icon(Icons.verified_rounded, color: kAccent, size: 36)),
           const SizedBox(height: 16),
           Text(verified ? 'You are Verified!' : 'Get Verified',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
-              color: kTextPrimary)),
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
+              color: isDark ? kTextPrimary : kLightText)),
           const SizedBox(height: 8),
           Text(
             verified ? 'Your account has a verified badge.'
               : onWaitlist ? 'You are on the waitlist. We\'ll notify you!'
               : 'Join the waitlist to get your verified badge.',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: kTextSecondary)),
+            style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
           const SizedBox(height: 24),
           if (!verified && !onWaitlist)
             _actionButton('Join Waitlist', () async {
@@ -583,7 +584,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _showThemeDialog(BuildContext context) {
     showModalBottomSheet(
-      context: context, backgroundColor: kCard,
+      context: context, backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => StatefulBuilder(
@@ -594,7 +595,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Center(child: _sheetHandle()),
             const SizedBox(height: 16),
             const Center(child: Text('Appearance', style: TextStyle(
-              fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary))),
+              fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText))),
             const SizedBox(height: 24),
             const Text('THEME', style: TextStyle(color: kAccent, fontSize: 11,
               fontWeight: FontWeight.bold, letterSpacing: 1.4)),
@@ -622,17 +623,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   margin: const EdgeInsets.only(right: 8),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: selected ? kAccent : kCard2,
+                    color: selected ? kAccent : isDark ? kCard2 : kLightCard2,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: selected ? kAccent : kDivider, width: 1.5)),
+                      color: selected ? kAccent : isDark ? kDivider : kLightDivider, width: 1.5)),
                   child: Column(children: [
                     Icon(icon,
-                      color: selected ? Colors.white : kTextSecondary,
+                      color: selected ? Colors.white : isDark ? kTextSecondary : kLightTextSub,
                       size: 22),
                     const SizedBox(height: 5),
                     Text(label, style: TextStyle(
-                      color: selected ? Colors.white : kTextSecondary,
+                      color: selected ? Colors.white : isDark ? kTextSecondary : kLightTextSub,
                       fontSize: 11, fontWeight: FontWeight.w600)),
                   ]))));
             }).toList()),
@@ -643,19 +644,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _sheetHandle() => Container(
     width: 36, height: 4,
     decoration: BoxDecoration(
-      color: kTextTertiary, borderRadius: BorderRadius.circular(2)));
+      color: isDark ? kTextTertiary : kLightTextSub, borderRadius: BorderRadius.circular(2)));
 
   Widget _inputField(TextEditingController ctrl, String hint, {
     IconData? icon, bool obscure = false, TextInputType? type}) =>
     TextField(
       controller: ctrl, obscureText: obscure, keyboardType: type,
-      style: const TextStyle(color: kTextPrimary),
+      style: TextStyle(color: isDark ? kTextPrimary : kLightText),
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: kTextSecondary),
+        hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub),
         prefixIcon: icon != null
-          ? Icon(icon, color: kTextSecondary, size: 20) : null,
-        filled: true, fillColor: kCard2,
+          ? Icon(icon, color: isDark ? kTextSecondary : kLightTextSub, size: 20) : null,
+        filled: true, fillColor: isDark ? kCard2 : kLightCard2,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none),
@@ -684,12 +685,13 @@ class BlockedUsersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final myUid = auth.currentUser!.uid;
 
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         title: const Text('Blocked Users',
           style: TextStyle(fontWeight: FontWeight.bold))),
       body: StreamBuilder<QuerySnapshot>(
@@ -706,23 +708,23 @@ class BlockedUsersScreen extends StatelessWidget {
               Container(
                 width: 64, height: 64,
                 decoration: BoxDecoration(
-                  color: kCard, shape: BoxShape.circle),
+                  color: isDark ? kCard : kLightCard, shape: BoxShape.circle),
                 child: const Icon(Icons.block_rounded,
-                  color: kTextSecondary, size: 32)),
+                  color: isDark ? kTextSecondary : kLightTextSub, size: 32)),
               const SizedBox(height: 16),
-              const Text('No blocked users',
+              Text('No blocked users',
                 style: TextStyle(fontWeight: FontWeight.bold,
-                  fontSize: 16, color: kTextPrimary)),
+                  fontSize: 16, color: isDark ? kTextPrimary : kLightText)),
               const SizedBox(height: 6),
-              const Text('Users you block won\'t find your profile',
-                style: TextStyle(color: kTextSecondary, fontSize: 13)),
+              Text('Users you block won\'t find your profile',
+                style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
             ]));
           }
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: snap.data!.docs.length,
             separatorBuilder: (_, __) =>
-              const Divider(height: 0, color: kDivider, indent: 72),
+              const Divider(height: 0, color: isDark ? kDivider : kLightDivider, indent: 72),
             itemBuilder: (_, i) {
               final doc      = snap.data!.docs[i];
               final blockedUid = doc.id;
@@ -741,15 +743,15 @@ class BlockedUsersScreen extends StatelessWidget {
                     leading: Container(
                       width: 44, height: 44,
                       decoration: BoxDecoration(
-                        color: kCard2, shape: BoxShape.circle),
+                        color: isDark ? kCard2 : kLightCard2, shape: BoxShape.circle),
                       child: Center(child: Text(avatar,
-                        style: const TextStyle(color: kTextSecondary,
+                        style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub,
                           fontWeight: FontWeight.bold, fontSize: 16)))),
-                    title: Text(name, style: const TextStyle(
-                      fontWeight: FontWeight.w600, color: kTextPrimary)),
+                    title: Text(name, style: TextStyle(
+                      fontWeight: FontWeight.w600, color: isDark ? kTextPrimary : kLightText)),
                     subtitle: username.isNotEmpty
                       ? Text('@$username',
-                          style: const TextStyle(color: kTextSecondary,
+                          style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub,
                             fontSize: 12))
                       : null,
                     trailing: OutlinedButton(
@@ -763,11 +765,11 @@ class BlockedUsersScreen extends StatelessWidget {
                         final confirm = await showDialog<bool>(
                           context: context,
                           builder: (_) => AlertDialog(
-                            backgroundColor: kCard,
-                            title: const Text('Unblock user?',
-                              style: TextStyle(color: kTextPrimary)),
+                            backgroundColor: isDark ? kCard : kLightCard,
+                            title: Text('Unblock user?',
+                              style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
                             content: Text('Unblock $name?',
-                              style: const TextStyle(color: kTextSecondary)),
+                              style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
                             actions: [
                               TextButton(
                                 onPressed: () => Navigator.pop(context, false),

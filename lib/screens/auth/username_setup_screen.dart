@@ -68,7 +68,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    backgroundColor: kDark,
+    backgroundColor: isDark ? kDark : kLightBg,
     body: Center(child: Column(
       mainAxisAlignment: MainAxisAlignment.center, children: [
       if (!_retrying) ...[
@@ -80,17 +80,17 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
             child: CircularProgressIndicator(
               color: kAccent, strokeWidth: 2.5))),
         const SizedBox(height: 24),
-        const Text('Setting up your account...',
-          style: TextStyle(color: kTextSecondary, fontSize: 14)),
+        Text('Setting up your account...',
+          style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 14)),
       ] else ...[
-        const Icon(Icons.wifi_off_rounded, color: kTextSecondary, size: 48),
+        const Icon(Icons.wifi_off_rounded, color: isDark ? kTextSecondary : kLightTextSub, size: 48),
         const SizedBox(height: 16),
-        const Text('Connection error',
-          style: TextStyle(color: kTextPrimary, fontSize: 16,
+        Text('Connection error',
+          style: TextStyle(color: isDark ? kTextPrimary : kLightText, fontSize: 16,
             fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
-        const Text('Could not create your account.\nCheck your connection.',
-          style: TextStyle(color: kTextSecondary, fontSize: 13),
+        Text('Could not create your account.\nCheck your connection.',
+          style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13),
           textAlign: TextAlign.center),
         const SizedBox(height: 24),
         ElevatedButton(

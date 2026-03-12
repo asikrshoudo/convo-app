@@ -189,9 +189,9 @@ class _FriendsScreenState extends State<FriendsScreen>
           style: const TextStyle(color: kAccent,
             fontWeight: FontWeight.bold, fontSize: 16)))),
       title: Text(u['name'] ?? '',
-        style: const TextStyle(fontWeight: FontWeight.w600, color: kTextPrimary)),
+        style: TextStyle(fontWeight: FontWeight.w600, color: isDark ? kTextPrimary : kLightText)),
       subtitle: Text('@${u['username']}',
-        style: const TextStyle(color: kTextSecondary, fontSize: 12)),
+        style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
       trailing: widget.startChat
         ? FilledButton(
             style: FilledButton.styleFrom(
@@ -230,7 +230,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                   final sent = (rSnap.data?.docs.isNotEmpty) == true;
                   return OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: sent ? kDivider : kAccent),
+                      side: BorderSide(color: sent ? isDark ? kDivider : kLightDivider : kAccent),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 6),
                       shape: RoundedRectangleBorder(
@@ -241,7 +241,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                       sent ? 'Requested'
                         : (u['profileMode'] == 'follow' ? 'Follow' : 'Add'),
                       style: TextStyle(
-                        color: sent ? kTextSecondary : kAccent,
+                        color: sent ? isDark ? kTextSecondary : kLightTextSub : kAccent,
                         fontSize: 12)));
                 });
             }),
@@ -251,17 +251,18 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         title: Text(widget.startChat ? 'New Message' : 'Friends',
           style: const TextStyle(fontWeight: FontWeight.bold)),
         bottom: TabBar(
           controller: _tab,
           indicatorColor: kAccent,
           labelColor: kAccent,
-          unselectedLabelColor: kTextSecondary,
+          unselectedLabelColor: isDark ? kTextSecondary : kLightTextSub,
           indicatorWeight: 2.5,
           tabs: const [
             Tab(icon: Icon(Icons.search_rounded, size: 20), text: 'Search'),
@@ -279,15 +280,15 @@ class _FriendsScreenState extends State<FriendsScreen>
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: _search,
-                style: const TextStyle(color: kTextPrimary),
+                style: TextStyle(color: isDark ? kTextPrimary : kLightText),
                 decoration: InputDecoration(
                   hintText: 'Search by name or username...',
                   prefixIcon: const Icon(Icons.search_rounded,
-                    color: kTextSecondary),
+                    color: isDark ? kTextSecondary : kLightTextSub),
                   suffixIcon: _searchCtrl.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.close_rounded,
-                          color: kTextSecondary, size: 18),
+                          color: isDark ? kTextSecondary : kLightTextSub, size: 18),
                         onPressed: () {
                           _searchCtrl.clear();
                           _search('');
@@ -305,10 +306,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                 padding: const EdgeInsets.all(32),
                 child: Column(children: [
                   const Icon(Icons.search_off_rounded,
-                    size: 48, color: kTextSecondary),
+                    size: 48, color: isDark ? kTextSecondary : kLightTextSub),
                   const SizedBox(height: 12),
                   Text('No users found for "${_searchCtrl.text}"',
-                    style: const TextStyle(color: kTextSecondary),
+                    style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub),
                     textAlign: TextAlign.center),
                 ])))
             else if (_results.isNotEmpty)
@@ -345,8 +346,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                   if (i == _suggestions.length) {
                     return TextButton(
                       onPressed: _loadSuggestions,
-                      child: const Text('Refresh suggestions',
-                        style: TextStyle(color: kTextSecondary, fontSize: 12)));
+                      child: Text('Refresh suggestions',
+                        style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)));
                   }
                   return null;
                 },
@@ -371,8 +372,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                     child: const Icon(Icons.inbox_rounded,
                       size: 32, color: kAccent)),
                   const SizedBox(height: 12),
-                  const Text('No pending requests',
-                    style: TextStyle(color: kTextSecondary)),
+                  Text('No pending requests',
+                    style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
                 ]));
               }
               final docs = snap.data!.docs.toList()..sort((a, b) {
@@ -398,10 +399,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                         style: const TextStyle(color: kAccent,
                           fontWeight: FontWeight.bold, fontSize: 16)))),
                     title: Text(d['fromName'] ?? 'User',
-                      style: const TextStyle(fontWeight: FontWeight.w600,
-                        color: kTextPrimary)),
-                    subtitle: const Text('Sent you a friend request',
-                      style: TextStyle(color: kTextSecondary, fontSize: 12)),
+                      style: TextStyle(fontWeight: FontWeight.w600,
+                        color: isDark ? kTextPrimary : kLightText)),
+                    subtitle: Text('Sent you a friend request',
+                      style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
                     trailing: Row(mainAxisSize: MainAxisSize.min, children: [
                       GestureDetector(
                         onTap: () => _accept(doc.id, d['from']),
@@ -444,8 +445,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                     child: const Icon(Icons.people_outline_rounded,
                       size: 32, color: kAccent)),
                   const SizedBox(height: 12),
-                  const Text('No friends yet',
-                    style: TextStyle(color: kTextSecondary)),
+                  Text('No friends yet',
+                    style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
                 ]));
               }
               return ListView(
@@ -476,20 +477,20 @@ class _FriendsScreenState extends State<FriendsScreen>
                               decoration: BoxDecoration(
                                 color: const Color(0xFF34C759),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: kDark, width: 2)))),
+                                border: Border.all(color: isDark ? kDark : kLightBg, width: 2)))),
                         ]),
                         title: Text(u['name'] ?? 'User',
-                          style: const TextStyle(fontWeight: FontWeight.w600,
-                            color: kTextPrimary)),
+                          style: TextStyle(fontWeight: FontWeight.w600,
+                            color: isDark ? kTextPrimary : kLightText)),
                         subtitle: Text(
                           online ? 'Online' : '@${u['username'] ?? ''}',
                           style: TextStyle(
-                            color: online ? const Color(0xFF34C759) : kTextSecondary,
+                            color: online ? const Color(0xFF34C759) : isDark ? kTextSecondary : kLightTextSub,
                             fontSize: 12)),
                         trailing: PopupMenuButton<String>(
                           icon: const Icon(Icons.more_vert_rounded,
-                            color: kTextSecondary),
-                          color: kCard2,
+                            color: isDark ? kTextSecondary : kLightTextSub),
+                          color: isDark ? kCard2 : kLightCard2,
                           onSelected: (v) async {
                             if (v == 'remove') await _removeFriend(doc.id, u, chatId);
                             if (v == 'message') {
@@ -531,11 +532,11 @@ class _FriendsScreenState extends State<FriendsScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: kCard,
-        title: const Text('Remove friend?',
-          style: TextStyle(color: kTextPrimary)),
+        backgroundColor: isDark ? kCard : kLightCard,
+        title: Text('Remove friend?',
+          style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
         content: Text('Remove ${u['name'] ?? 'this user'} from friends?',
-          style: const TextStyle(color: kTextSecondary)),
+          style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel')),
@@ -566,6 +567,6 @@ class _FriendsScreenState extends State<FriendsScreen>
 
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${u['name']} removed'),
-        backgroundColor: kCard2));
+        backgroundColor: isDark ? kCard2 : kLightCard2));
   }
 }

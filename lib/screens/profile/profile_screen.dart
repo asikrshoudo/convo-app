@@ -35,17 +35,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return StreamBuilder<DocumentSnapshot>(
       stream: db.collection('users').doc(widget.uid).snapshots(),
       builder: (context, snap) {
         if (!snap.hasData) return const Scaffold(
-          backgroundColor: kDark,
+          backgroundColor: isDark ? kDark : kLightBg,
           body: Center(child: CircularProgressIndicator(
             color: kAccent, strokeWidth: 2)));
 
         final data = snap.data!.data() as Map<String, dynamic>?;
         if (data == null) return Scaffold(
-          backgroundColor: kDark,
+          backgroundColor: isDark ? kDark : kLightBg,
           appBar: AppBar(title: const Text('Profile')),
           body: const Center(child: Text('User not found')));
 
@@ -70,9 +71,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .toList();
 
         return Scaffold(
-          backgroundColor: kDark,
+          backgroundColor: isDark ? kDark : kLightBg,
           appBar: AppBar(
-            backgroundColor: kDark,
+            backgroundColor: isDark ? kDark : kLightBg,
             elevation: 0,
             scrolledUnderElevation: 0,
             title: Text(_isMe ? 'My Profile' : name,
@@ -84,7 +85,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Share profile coming soon!'),
-                      backgroundColor: kCard2))),
+                      backgroundColor: isDark ? kCard2 : kLightCard2))),
                 IconButton(
                   icon: const Icon(Icons.edit_rounded, size: 22),
                   onPressed: () => _showEdit(context)),
@@ -111,7 +112,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 88, height: 88,
                     decoration: BoxDecoration(
                       color: kAccent, shape: BoxShape.circle,
-                      border: Border.all(color: kDark, width: 3),
+                      border: Border.all(color: isDark ? kDark : kLightBg, width: 3),
                       boxShadow: [BoxShadow(
                         color: kAccent.withOpacity(0.35), blurRadius: 20)]),
                     child: Center(child: Text(
@@ -125,15 +126,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF34C759),
                         shape: BoxShape.circle,
-                        border: Border.all(color: kDark, width: 2.5)))),
+                        border: Border.all(color: isDark ? kDark : kLightBg, width: 2.5)))),
                 ]),
                 const SizedBox(height: 14),
 
                 // Name
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  Text(name, style: const TextStyle(
+                  Text(name, style: TextStyle(
                     fontSize: 22, fontWeight: FontWeight.bold,
-                    color: kTextPrimary)),
+                    color: isDark ? kTextPrimary : kLightText)),
                   if (verified) ...[
                     const SizedBox(width: 6),
                     const Icon(Icons.verified_rounded,
@@ -147,15 +148,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Clipboard.setData(ClipboardData(text: '@$username'));
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                       content: Text('Username copied!'),
-                      backgroundColor: kCard2, duration: Duration(seconds: 1)));
+                      backgroundColor: isDark ? kCard2 : kLightCard2, duration: Duration(seconds: 1)));
                   },
                   child: Row(mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                    Text('@$username', style: const TextStyle(
-                      color: kTextSecondary, fontSize: 14)),
+                    Text('@$username', style: TextStyle(
+                      color: isDark ? kTextSecondary : kLightTextSub, fontSize: 14)),
                     const SizedBox(width: 5),
                     const Icon(Icons.copy_rounded, size: 12,
-                      color: kTextSecondary),
+                      color: isDark ? kTextSecondary : kLightTextSub),
                   ])),
 
                 // Status
@@ -167,8 +168,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: 12),
                   Text(bio,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: kTextSecondary, fontSize: 13, height: 1.5)),
+                    style: TextStyle(
+                      color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13, height: 1.5)),
                 ],
                 const SizedBox(height: 20),
 
@@ -177,9 +178,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: const EdgeInsets.symmetric(
                     vertical: 16, horizontal: 8),
                   decoration: BoxDecoration(
-                    color: kCard,
+                    color: isDark ? kCard : kLightCard,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: kDivider, width: 0.5)),
+                    border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
                   child: Row(children: [
                     _statBox(followerCount.toString(), 'Followers'),
                     _divider(),
@@ -231,7 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   style: OutlinedButton.styleFrom(
                                     side: BorderSide(
                                       color: (isFollowing || requestSent)
-                                        ? kDivider : kAccent),
+                                        ? isDark ? kDivider : kLightDivider : kAccent),
                                     padding: const EdgeInsets.symmetric(
                                       vertical: 13),
                                     shape: RoundedRectangleBorder(
@@ -243,7 +244,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ? Icons.hourglass_top_rounded
                                         : Icons.person_add_alt_1_rounded,
                                     color: (isFollowing || requestSent)
-                                      ? kTextSecondary : kAccent, size: 18),
+                                      ? isDark ? kTextSecondary : kLightTextSub : kAccent, size: 18),
                                   label: Text(
                                     isFollowing ? 'Unfollow'
                                       : requestSent ? 'Requested'
@@ -251,7 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ? 'Follow' : 'Add Friend'),
                                     style: TextStyle(
                                       color: (isFollowing || requestSent)
-                                        ? kTextSecondary : kAccent,
+                                        ? isDark ? kTextSecondary : kLightTextSub : kAccent,
                                       fontWeight: FontWeight.bold)),
                                   onPressed: isFollowing
                                     ? _unfollow : requestSent ? null
@@ -291,9 +292,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Container(
                 margin: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
-                  color: kCard,
+                  color: isDark ? kCard : kLightCard,
                   borderRadius: BorderRadius.circular(kCardRadius),
-                  border: Border.all(color: kDivider, width: 0.5)),
+                  border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
                 child: Column(children: [
                   if (city.isNotEmpty)
                     _infoRow(Icons.location_city_rounded, 'City', city,
@@ -353,23 +354,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
   Widget _statBox(String val, String label) => Expanded(child: Column(children: [
-    Text(val, style: const TextStyle(
-      fontSize: 20, fontWeight: FontWeight.bold, color: kTextPrimary)),
+    Text(val, style: TextStyle(
+      fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
     const SizedBox(height: 2),
-    Text(label, style: const TextStyle(color: kTextSecondary, fontSize: 12)),
+    Text(label, style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
   ]));
 
   Widget _divider() => Container(
     width: 1, height: 36,
-    color: kDivider);
+    color: isDark ? kDivider : kLightDivider);
 
   Widget _secTitle(String t) => Padding(
     padding: const EdgeInsets.fromLTRB(16, 24, 16, 10),
     child: Row(children: [
-      Text(t, style: const TextStyle(
-        fontWeight: FontWeight.bold, fontSize: 15, color: kTextPrimary)),
+      Text(t, style: TextStyle(
+        fontWeight: FontWeight.bold, fontSize: 15, color: isDark ? kTextPrimary : kLightText)),
       const SizedBox(width: 10),
-      Expanded(child: Container(height: 0.5, color: kDivider)),
+      Expanded(child: Container(height: 0.5, color: isDark ? kDivider : kLightDivider)),
     ]));
 
   Widget _infoRow(IconData icon, String label, String value,
@@ -386,14 +387,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Icon(icon, color: kAccent, size: 18)),
           const SizedBox(width: 14),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(label, style: const TextStyle(
-              color: kTextSecondary, fontSize: 11)),
+            Text(label, style: TextStyle(
+              color: isDark ? kTextSecondary : kLightTextSub, fontSize: 11)),
             const SizedBox(height: 1),
-            Text(value, style: const TextStyle(
-              color: kTextPrimary, fontWeight: FontWeight.w500, fontSize: 14)),
+            Text(value, style: TextStyle(
+              color: isDark ? kTextPrimary : kLightText, fontWeight: FontWeight.w500, fontSize: 14)),
           ]),
         ])),
-      if (!isLast) const Divider(height: 0, indent: 66, color: kDivider),
+      if (!isLast) const Divider(height: 0, indent: 66, color: isDark ? kDivider : kLightDivider),
     ]);
 
   Widget _actionBtn(IconData icon, String label, Color color,
@@ -456,10 +457,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: kCard,
-        title: const Text('Block User?', style: TextStyle(color: kTextPrimary)),
-        content: const Text('They won\'t be able to find your profile.',
-          style: TextStyle(color: kTextSecondary)),
+        backgroundColor: isDark ? kCard : kLightCard,
+        title: Text('Block User?', style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
+        content: Text('They won\'t be able to find your profile.',
+          style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel')),
@@ -498,23 +499,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _report(BuildContext context) async {
     String? reason;
     await showModalBottomSheet(
-      context: context, backgroundColor: kCard,
+      context: context, backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Container(width: 36, height: 4, decoration: BoxDecoration(
-            color: kTextTertiary, borderRadius: BorderRadius.circular(2))),
+            color: isDark ? kTextTertiary : kLightTextSub, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
-          const Text('Report User', style: TextStyle(
-            fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary)),
+          Text('Report User', style: TextStyle(
+            fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
           const SizedBox(height: 12),
           ...['Spam', 'Harassment', 'Fake Account',
               'Inappropriate Content', 'Other'].map((r) =>
             ListTile(
               leading: const Icon(Icons.flag_rounded, color: kRed),
-              title: Text(r, style: const TextStyle(color: kTextPrimary)),
+              title: Text(r, style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
               onTap: () { reason = r; Navigator.pop(context); })),
         ])));
 
@@ -536,18 +537,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showUserMenu(BuildContext context) {
     showModalBottomSheet(
-      context: context, backgroundColor: kCard,
+      context: context, backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => SafeArea(child: Column(mainAxisSize: MainAxisSize.min,
         children: [
         const SizedBox(height: 8),
         Container(width: 36, height: 4, decoration: BoxDecoration(
-          color: kTextTertiary, borderRadius: BorderRadius.circular(2))),
+          color: isDark ? kTextTertiary : kLightTextSub, borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 8),
         ListTile(
-          leading: const Icon(Icons.volume_off_rounded, color: kTextSecondary),
-          title: const Text('Mute', style: TextStyle(color: kTextPrimary)),
+          leading: const Icon(Icons.volume_off_rounded, color: isDark ? kTextSecondary : kLightTextSub),
+          title: Text('Mute', style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
           onTap: () { Navigator.pop(context); _mute(); }),
         ListTile(
           leading: const Icon(Icons.block_rounded, color: kRed),
@@ -575,7 +576,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     };
 
     showModalBottomSheet(
-      context: context, isScrollControlled: true, backgroundColor: kCard,
+      context: context, isScrollControlled: true, backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => Padding(
@@ -585,10 +586,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min, children: [
           Container(width: 36, height: 4, decoration: BoxDecoration(
-            color: kTextTertiary, borderRadius: BorderRadius.circular(2))),
+            color: isDark ? kTextTertiary : kLightTextSub, borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
-          const Text('Edit Profile', style: TextStyle(
-            fontSize: 18, fontWeight: FontWeight.bold, color: kTextPrimary)),
+          Text('Edit Profile', style: TextStyle(
+            fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
           const SizedBox(height: 20),
           _ef('Name', nc),
           const SizedBox(height: 10),
@@ -603,21 +604,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _ef('Work', wc),
           const SizedBox(height: 20),
           Align(alignment: Alignment.centerLeft,
-            child: const Text('Social Links', style: TextStyle(
+            child: Text('Social Links', style: TextStyle(
               fontWeight: FontWeight.bold, fontSize: 13,
-              color: kTextSecondary))),
+              color: isDark ? kTextSecondary : kLightTextSub))),
           const SizedBox(height: 10),
           ...(_socialPlatforms.map((p) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: TextField(
               controller: socialCtrls[p['key']],
-              style: const TextStyle(color: kTextPrimary),
+              style: TextStyle(color: isDark ? kTextPrimary : kLightText),
               decoration: InputDecoration(
                 hintText: '${p['label']} username',
-                hintStyle: const TextStyle(color: kTextSecondary),
+                hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub),
                 prefixIcon: Icon(p['icon'] as IconData,
                   color: p['color'] as Color, size: 20),
-                filled: true, fillColor: kCard2,
+                filled: true, fillColor: isDark ? kCard2 : kLightCard2,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none),
@@ -647,11 +648,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _ef(String label, TextEditingController ctrl, {int lines = 1}) =>
     TextField(
       controller: ctrl, maxLines: lines,
-      style: const TextStyle(color: kTextPrimary),
+      style: TextStyle(color: isDark ? kTextPrimary : kLightText),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: kTextSecondary),
-        filled: true, fillColor: kCard2,
+        labelStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub),
+        filled: true, fillColor: isDark ? kCard2 : kLightCard2,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none),

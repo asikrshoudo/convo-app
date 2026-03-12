@@ -77,11 +77,12 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
         title: const Text('App Version'),
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         elevation: 0),
       body: _loading
         ? const Center(child: CircularProgressIndicator(color: kAccent, strokeWidth: 2))
@@ -94,9 +95,9 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: kCard,
+                  color: isDark ? kCard : kLightCard,
                   borderRadius: BorderRadius.circular(kCardRadius),
-                  border: Border.all(color: kDivider, width: 0.5)),
+                  border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
                 child: Column(children: [
                   Container(
                     width: 72, height: 72,
@@ -106,12 +107,12 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                     child: const Icon(Icons.chat_bubble_rounded,
                       color: kAccent, size: 36)),
                   const SizedBox(height: 12),
-                  const Text('Convo',
+                  Text('Convo',
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
-                      color: kTextPrimary)),
+                      color: isDark ? kTextPrimary : kLightText)),
                   const SizedBox(height: 4),
                   Text('Version $_currentVersion (installed)',
-                    style: const TextStyle(color: kTextSecondary, fontSize: 13)),
+                    style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
                 ])),
 
               const SizedBox(height: 16),
@@ -153,7 +154,7 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                         _hasUpdate
                           ? 'v$_currentVersion → v$_latestVersion'
                           : 'v$_latestVersion is the latest version',
-                        style: const TextStyle(color: kTextSecondary, fontSize: 13)),
+                        style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
                     ])),
                   ])),
 
@@ -164,25 +165,25 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: kCard,
+                      color: isDark ? kCard : kLightCard,
                       borderRadius: BorderRadius.circular(kCardRadius),
-                      border: Border.all(color: kDivider, width: 0.5)),
+                      border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
                         const Icon(Icons.article_outlined, color: kAccent, size: 16),
                         const SizedBox(width: 6),
-                        const Text("What's new",
+                        Text("What's new",
                           style: TextStyle(fontWeight: FontWeight.bold,
-                            color: kTextPrimary, fontSize: 14)),
+                            color: isDark ? kTextPrimary : kLightText, fontSize: 14)),
                       ]),
                       const SizedBox(height: 10),
                       Text(
                         _changelog.length > 500
                           ? '${_changelog.substring(0, 500)}...'
                           : _changelog,
-                        style: const TextStyle(
-                          color: kTextSecondary, fontSize: 13, height: 1.5)),
+                        style: TextStyle(
+                          color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13, height: 1.5)),
                     ])),
                 ],
 
@@ -210,14 +211,14 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: kDivider),
+                      side: const BorderSide(color: isDark ? kDivider : kLightDivider),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14))),
                     icon: const Icon(Icons.open_in_new_rounded,
-                      color: kTextSecondary, size: 18),
-                    label: const Text('View on GitHub',
-                      style: TextStyle(color: kTextSecondary,
+                      color: isDark ? kTextSecondary : kLightTextSub, size: 18),
+                    label: Text('View on GitHub',
+                      style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub,
                         fontWeight: FontWeight.w500)),
                     onPressed: () => launchUrl(
                       Uri.parse(_repoUrl),
@@ -237,12 +238,12 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: kCard, borderRadius: BorderRadius.circular(kCardRadius)),
+                    color: isDark ? kCard : kLightCard, borderRadius: BorderRadius.circular(kCardRadius)),
                   child: const Row(children: [
-                    Icon(Icons.wifi_off_rounded, color: kTextSecondary),
+                    Icon(Icons.wifi_off_rounded, color: isDark ? kTextSecondary : kLightTextSub),
                     SizedBox(width: 10),
                     Text('Could not check for updates.',
-                      style: TextStyle(color: kTextSecondary)),
+                      style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
                   ])),
                 const SizedBox(height: 12),
                 SizedBox(

@@ -68,10 +68,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         elevation: 0,
         title: const Text('New Group'),
         actions: [
@@ -90,7 +91,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       body: Column(children: [
         // Group name input
         Container(
-          color: kCard,
+          color: isDark ? kCard : kLightCard,
           padding: const EdgeInsets.all(16),
           child: Row(children: [
             Container(
@@ -101,11 +102,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
             const SizedBox(width: 12),
             Expanded(child: TextField(
               controller: _nameCtrl,
-              style: const TextStyle(
-                color: kTextPrimary, fontSize: 16, fontWeight: FontWeight.w500),
+              style: TextStyle(
+                color: isDark ? kTextPrimary : kLightText, fontSize: 16, fontWeight: FontWeight.w500),
               decoration: const InputDecoration(
                 hintText: 'Group name',
-                hintStyle: TextStyle(color: kTextSecondary),
+                hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub),
                 border: InputBorder.none))),
           ])),
 
@@ -122,7 +123,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   color: kAccent, fontSize: 13, fontWeight: FontWeight.w500)),
             ])),
 
-        const Divider(height: 0, color: kDivider),
+        const Divider(height: 0, color: isDark ? kDivider : kLightDivider),
 
         // Friends list
         Expanded(child: _loading
@@ -138,8 +139,8 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                   child: const Icon(Icons.people_outline_rounded,
                     size: 32, color: kAccent)),
                 const SizedBox(height: 12),
-                const Text('No friends yet',
-                  style: TextStyle(color: kTextSecondary)),
+                Text('No friends yet',
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
               ]))
             : ListView.builder(
                 itemCount: _friends.length,
@@ -159,11 +160,11 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                             color: kAccent,
                             fontWeight: FontWeight.bold, fontSize: 16)))),
                     title: Text(f['name'] ?? 'User',
-                      style: const TextStyle(
-                        color: kTextPrimary, fontWeight: FontWeight.w600)),
+                      style: TextStyle(
+                        color: isDark ? kTextPrimary : kLightText, fontWeight: FontWeight.w600)),
                     subtitle: Text('@${f['username'] ?? ''}',
-                      style: const TextStyle(
-                        color: kTextSecondary, fontSize: 12)),
+                      style: TextStyle(
+                        color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
                     trailing: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       width: 26, height: 26,
@@ -171,7 +172,7 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                         shape: BoxShape.circle,
                         color: selected ? kAccent : Colors.transparent,
                         border: Border.all(
-                          color: selected ? kAccent : kTextSecondary,
+                          color: selected ? kAccent : isDark ? kTextSecondary : kLightTextSub,
                           width: 2)),
                       child: selected
                         ? const Icon(Icons.check_rounded,

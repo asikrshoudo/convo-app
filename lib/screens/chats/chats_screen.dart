@@ -34,7 +34,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
   void _showNewChatOptions() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: kCard,
+      backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(kSheetRadius))),
@@ -43,7 +43,7 @@ class _ChatsScreenState extends State<ChatsScreen> {
           const SizedBox(height: 10),
           Container(width: 36, height: 4,
             decoration: BoxDecoration(
-              color: kTextTertiary,
+              color: isDark ? kTextTertiary : kLightTextSub,
               borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 20),
           ListTile(
@@ -54,11 +54,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
                 color: kAccent.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12)),
               child: const Icon(Icons.person_rounded, color: kAccent, size: 22)),
-            title: const Text('New Message',
+            title: Text('New Message',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15,
-                color: kTextPrimary)),
-            subtitle: const Text('Start a DM with a friend',
-              style: TextStyle(color: kTextSecondary, fontSize: 13)),
+                color: isDark ? kTextPrimary : kLightText)),
+            subtitle: Text('Start a DM with a friend',
+              style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context, MaterialPageRoute(
@@ -72,11 +72,11 @@ class _ChatsScreenState extends State<ChatsScreen> {
                 color: kAccent.withOpacity(0.12),
                 borderRadius: BorderRadius.circular(12)),
               child: const Icon(Icons.group_add_rounded, color: kAccent, size: 22)),
-            title: const Text('New Group',
+            title: Text('New Group',
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15,
-                color: kTextPrimary)),
-            subtitle: const Text('Create a group chat',
-              style: TextStyle(color: kTextSecondary, fontSize: 13)),
+                color: isDark ? kTextPrimary : kLightText)),
+            subtitle: Text('Create a group chat',
+              style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
             onTap: () {
               Navigator.pop(context);
               Navigator.push(context,
@@ -88,8 +88,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       body: Column(children: [
         // ── Search + inbox row ─────────────────────────────────────────────
         Padding(
@@ -98,22 +99,22 @@ class _ChatsScreenState extends State<ChatsScreen> {
             Expanded(child: Container(
               height: 44,
               decoration: BoxDecoration(
-                color: kCard,
+                color: isDark ? kCard : kLightCard,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: kDivider, width: 0.5)),
+                border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
               child: TextField(
                 controller: _searchCtrl,
                 onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
-                style: const TextStyle(fontSize: 14, color: kTextPrimary),
+                style: TextStyle(fontSize: 14, color: isDark ? kTextPrimary : kLightText),
                 decoration: InputDecoration(
                   hintText: 'Search chats...',
-                  hintStyle: const TextStyle(color: kTextSecondary, fontSize: 14),
+                  hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 14),
                   prefixIcon: const Icon(Icons.search_rounded,
-                    color: kTextSecondary, size: 20),
+                    color: isDark ? kTextSecondary : kLightTextSub, size: 20),
                   suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.close_rounded, size: 18),
-                        color: kTextSecondary,
+                        color: isDark ? kTextSecondary : kLightTextSub,
                         onPressed: () {
                           _searchCtrl.clear();
                           setState(() => _searchQuery = '');
@@ -134,12 +135,12 @@ class _ChatsScreenState extends State<ChatsScreen> {
                   Container(
                     width: 44, height: 44,
                     decoration: BoxDecoration(
-                      color: kCard,
+                      color: isDark ? kCard : kLightCard,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: kDivider, width: 0.5)),
+                      border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
                     child: IconButton(
                       icon: const Icon(Icons.inbox_rounded,
-                        size: 20, color: kTextSecondary),
+                        size: 20, color: isDark ? kTextSecondary : kLightTextSub),
                       onPressed: () => Navigator.push(context,
                         MaterialPageRoute(
                           builder: (_) => const MessageRequestsScreen())))),
@@ -188,6 +189,7 @@ class _CombinedChatList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // ── Outer stream: pending message-requests to ME ───────────────────────
     // Any chatId in here should NOT appear in the main chat list
     return StreamBuilder<QuerySnapshot>(
@@ -271,12 +273,12 @@ class _CombinedChatList extends StatelessWidget {
                       child: const Icon(Icons.chat_bubble_outline_rounded,
                         size: 36, color: kAccent)),
                     const SizedBox(height: 20),
-                    const Text('No chats yet',
+                    Text('No chats yet',
                       style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold,
-                        color: kTextPrimary)),
+                        color: isDark ? kTextPrimary : kLightText)),
                     const SizedBox(height: 8),
-                    const Text('Tap the pencil button to start a conversation',
-                      style: TextStyle(color: kTextSecondary, fontSize: 13),
+                    Text('Tap the pencil button to start a conversation',
+                      style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13),
                       textAlign: TextAlign.center),
                   ]));
                 }
@@ -285,7 +287,7 @@ class _CombinedChatList extends StatelessWidget {
                   padding: const EdgeInsets.only(top: 4, bottom: 80),
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) =>
-                    const Divider(height: 0, indent: 76, color: kDivider),
+                    const Divider(height: 0, indent: 76, color: isDark ? kDivider : kLightDivider),
                   itemBuilder: (_, i) {
                     final item = filtered[i];
 
@@ -329,11 +331,11 @@ class _CombinedChatList extends StatelessWidget {
                                 style: TextStyle(
                                   fontWeight: unread > 0
                                     ? FontWeight.bold : FontWeight.w600,
-                                  fontSize: 15, color: kTextPrimary),
+                                  fontSize: 15, color: isDark ? kTextPrimary : kLightText),
                                 overflow: TextOverflow.ellipsis)),
                               Text(_timeAgo(lastTs),
                                 style: TextStyle(
-                                  color: unread > 0 ? kAccent : kTextSecondary,
+                                  color: unread > 0 ? kAccent : isDark ? kTextSecondary : kLightTextSub,
                                   fontSize: 12,
                                   fontWeight: unread > 0
                                     ? FontWeight.w600 : FontWeight.normal)),
@@ -345,7 +347,7 @@ class _CombinedChatList extends StatelessWidget {
                                   ? '$lastSender: $lastMsg' : lastMsg,
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: unread > 0 ? kTextPrimary : kTextSecondary,
+                                  color: unread > 0 ? isDark ? kTextPrimary : kLightText : kTextSecondary,
                                   fontSize: 13,
                                   fontWeight: unread > 0
                                     ? FontWeight.w500 : FontWeight.normal))),

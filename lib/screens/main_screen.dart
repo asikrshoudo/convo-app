@@ -95,16 +95,16 @@ class _MainScreenState extends State<MainScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(n.title ?? '',
-                  style: const TextStyle(
+                  style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: kTextPrimary, fontSize: 13)),
+                      color: isDark ? kTextPrimary : kLightText, fontSize: 13)),
                 if (n.body != null)
                   Text(n.body!,
-                    style: const TextStyle(
-                        color: kTextSecondary, fontSize: 12)),
+                    style: TextStyle(
+                        color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
               ])),
           ]),
-          backgroundColor: kCard2,
+          backgroundColor: isDark ? kCard2 : kLightCard2,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 4),
           shape: RoundedRectangleBorder(
@@ -126,7 +126,7 @@ class _MainScreenState extends State<MainScreen>
           decoration: BoxDecoration(
             color: kRed,
             shape: BoxShape.circle,
-            border: Border.all(color: kDark, width: 1.5)))),
+            border: Border.all(color: isDark ? kDark : kLightBg, width: 1.5)))),
     ]);
   }
 
@@ -143,7 +143,7 @@ class _MainScreenState extends State<MainScreen>
           decoration: BoxDecoration(
             color: kRed,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: kDark, width: 1.5)),
+            border: Border.all(color: isDark ? kDark : kLightBg, width: 1.5)),
           child: Text(label,
             style: const TextStyle(
               color: Colors.white,
@@ -154,20 +154,21 @@ class _MainScreenState extends State<MainScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final uid = auth.currentUser!.uid;
     return Scaffold(
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: _idx == 0
         ? AppBar(
-            backgroundColor: kDark,
+            backgroundColor: isDark ? kDark : kLightBg,
             elevation: 0,
             centerTitle: false,
-            title: const Text('Convo',
+            title: Text('Convo',
               style: TextStyle(
                 fontWeight: FontWeight.w800,
                 fontSize: 24,
                 letterSpacing: -0.5,
-                color: kTextPrimary)),
+                color: isDark ? kTextPrimary : kLightText)),
             actions: [
               // Notification bell
               StreamBuilder<QuerySnapshot>(
@@ -230,8 +231,8 @@ class _MainScreenState extends State<MainScreen>
               final hasFriendReq = (friendSnap.data?.docs.length ?? 0) > 0;
               return Container(
                 decoration: const BoxDecoration(
-                  color: kCard,
-                  border: Border(top: BorderSide(color: kDivider, width: 0.5)),
+                  color: isDark ? kCard : kLightCard,
+                  border: Border(top: BorderSide(color: isDark ? kDivider : kLightDivider, width: 0.5)),
                 ),
                 child: NavigationBar(
                   selectedIndex: _idx,
@@ -245,7 +246,7 @@ class _MainScreenState extends State<MainScreen>
                     NavigationDestination(
                       icon: _countBadge(
                         const Icon(Icons.chat_bubble_outline_rounded,
-                          color: kTextSecondary),
+                          color: isDark ? kTextSecondary : kLightTextSub),
                         hasUnreadChat ? (chatSnap.data?.docs.length ?? 0) : 0),
                       selectedIcon: _countBadge(
                         const Icon(Icons.chat_bubble_rounded, color: kAccent),
@@ -254,7 +255,7 @@ class _MainScreenState extends State<MainScreen>
                     NavigationDestination(
                       icon: _badge(
                         const Icon(Icons.people_outline_rounded,
-                          color: kTextSecondary),
+                          color: isDark ? kTextSecondary : kLightTextSub),
                         show: hasFriendReq),
                       selectedIcon: _badge(
                         const Icon(Icons.people_rounded, color: kAccent),
@@ -262,13 +263,13 @@ class _MainScreenState extends State<MainScreen>
                       label: 'Friends'),
                     const NavigationDestination(
                       icon: Icon(Icons.person_outline_rounded,
-                        color: kTextSecondary),
+                        color: isDark ? kTextSecondary : kLightTextSub),
                       selectedIcon: Icon(Icons.person_rounded, color: kAccent),
                       label: 'Profile'),
                     NavigationDestination(
                       icon: _badge(
                         const Icon(Icons.settings_outlined,
-                          color: kTextSecondary),
+                          color: isDark ? kTextSecondary : kLightTextSub),
                         show: _hasUpdate),
                       selectedIcon: _badge(
                         const Icon(Icons.settings_rounded, color: kAccent),

@@ -114,13 +114,13 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   void _showMsgMenu(BuildContext context, String msgId, String text, String senderName) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: kCard,
+      backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
         const SizedBox(height: 10),
         Container(width: 36, height: 4,
-          decoration: BoxDecoration(color: kTextTertiary, borderRadius: BorderRadius.circular(2))),
+          decoration: BoxDecoration(color: isDark ? kTextTertiary : kLightTextSub, borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 12),
         // Emoji row
         Padding(
@@ -135,9 +135,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 },
                 child: Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: kCard2, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: isDark ? kCard2 : kLightCard2, shape: BoxShape.circle),
                   child: Text(emoji, style: const TextStyle(fontSize: 22))))).toList())),
-        const Divider(height: 1, color: kDivider),
+        const Divider(height: 1, color: isDark ? kDivider : kLightDivider),
         ListTile(
           leading: const Icon(Icons.reply_rounded, color: kAccent),
           title: const Text('Reply'),
@@ -150,14 +150,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             });
           }),
         ListTile(
-          leading: const Icon(Icons.copy_rounded, color: kTextSecondary),
+          leading: const Icon(Icons.copy_rounded, color: isDark ? kTextSecondary : kLightTextSub),
           title: const Text('Copy'),
           onTap: () { Navigator.pop(context); Clipboard.setData(ClipboardData(text: text)); }),
         ListTile(
           leading: const Icon(Icons.undo_rounded, color: kRed),
           title: const Text('Unsend', style: TextStyle(color: kRed)),
-          subtitle: const Text('Remove for everyone',
-            style: TextStyle(fontSize: 11, color: kTextSecondary)),
+          subtitle: Text('Remove for everyone',
+            style: TextStyle(fontSize: 11, color: isDark ? kTextSecondary : kLightTextSub)),
           onTap: () {
             Navigator.pop(context);
             db.collection('groups').doc(widget.groupId)
@@ -189,11 +189,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       resizeToAvoidBottomInset: true,
-      backgroundColor: kDark,
+      backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        backgroundColor: kDark,
+        backgroundColor: isDark ? kDark : kLightBg,
         titleSpacing: 0,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -210,17 +211,17 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(widget.groupName,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
-                color: kTextPrimary)),
+                color: isDark ? kTextPrimary : kLightText)),
             StreamBuilder<DocumentSnapshot>(
               stream: db.collection('groups').doc(widget.groupId).snapshots(),
               builder: (_, snap) {
                 final members = List<String>.from(
                     (snap.data?.data() as Map?)?['members'] ?? []);
                 return Text('${members.length} members',
-                  style: const TextStyle(color: kTextSecondary, fontSize: 11));
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 11));
               }),
           ]),
         ]),
@@ -249,7 +250,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: const Icon(Icons.group_rounded, size: 30, color: kAccent)),
               const SizedBox(height: 16),
               Text('Say hi to the group!',
-                style: const TextStyle(color: kTextSecondary, fontSize: 15)),
+                style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15)),
             ]));
 
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -303,15 +304,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
                           borderRadius: radius,
-                          border: Border.all(color: kDivider, width: 1)),
+                          border: Border.all(color: isDark ? kDivider : kLightDivider, width: 1)),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.undo_rounded, size: 12, color: kTextSecondary),
+                          Icon(Icons.undo_rounded, size: 12, color: isDark ? kTextSecondary : kLightTextSub),
                           const SizedBox(width: 5),
                           Text(
                             isMe ? 'You unsent a message'
                               : '${data['senderName'] ?? 'Someone'} unsent a message',
-                            style: const TextStyle(
-                              color: kTextSecondary, fontSize: 12,
+                            style: TextStyle(
+                              color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12,
                               fontStyle: FontStyle.italic)),
                         ]))));
                 }
@@ -386,7 +387,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                               style: TextStyle(
                                                 fontSize: 12,
                                                 color: isMe
-                                                  ? Colors.white54 : kTextSecondary)),
+                                                  ? Colors.white54 : isDark ? kTextSecondary : kLightTextSub)),
                                           ])),
 
                                     // Message text
@@ -397,8 +398,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                         : text,
                                       style: TextStyle(
                                         color: deleted
-                                          ? (isMe ? Colors.white38 : kTextSecondary)
-                                          : (isMe ? Colors.white : kTextPrimary),
+                                          ? (isMe ? Colors.white38 : isDark ? kTextSecondary : kLightTextSub)
+                                          : (isMe ? Colors.white : isDark ? kTextPrimary : kLightText),
                                         fontSize: 15,
                                         height: 1.35,
                                         letterSpacing: -0.1,
@@ -416,9 +417,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 7, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: kCard2,
+                                    color: isDark ? kCard2 : kLightCard2,
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: kDivider, width: 0.5),
+                                    border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5),
                                     boxShadow: kElevation1),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
@@ -435,8 +436,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                           if (isLast) ...[
                             SizedBox(height: reactionCounts.isNotEmpty ? 18.0 : 5.0),
                             Text(_fmt(ts),
-                              style: const TextStyle(
-                                color: kTextSecondary, fontSize: 10,
+                              style: TextStyle(
+                                color: isDark ? kTextSecondary : kLightTextSub, fontSize: 10,
                                 letterSpacing: 0.2)),
                           ] else
                             const SizedBox(height: 1),
@@ -467,7 +468,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         // ── Reply preview ─────────────────────────────────────────────────
         if (_replyToId != null)
           Container(
-            color: kCard,
+            color: isDark ? kCard : kLightCard,
             padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
             child: Row(children: [
               Container(width: 3, height: 36,
@@ -479,10 +480,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   style: const TextStyle(
                     color: kAccent, fontSize: 12, fontWeight: FontWeight.w700)),
                 Text(_replyToText ?? '', maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(color: kTextSecondary, fontSize: 12)),
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
               ])),
               IconButton(
-                icon: const Icon(Icons.close_rounded, size: 18, color: kTextSecondary),
+                icon: const Icon(Icons.close_rounded, size: 18, color: isDark ? kTextSecondary : kLightTextSub),
                 onPressed: () => setState(() {
                   _replyToId = null; _replyToText = null; _replyToSender = null;
                 })),
@@ -492,24 +493,24 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         Container(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
           decoration: BoxDecoration(
-            color: kCard,
-            border: Border(top: BorderSide(color: kDivider, width: 0.5))),
+            color: isDark ? kCard : kLightCard,
+            border: Border(top: BorderSide(color: isDark ? kDivider : kLightDivider, width: 0.5))),
           child: Row(children: [
             Expanded(
               child: Container(
                 constraints: const BoxConstraints(maxHeight: 120),
                 decoration: BoxDecoration(
-                  color: kCard2,
+                  color: isDark ? kCard2 : kLightCard2,
                   borderRadius: BorderRadius.circular(22)),
                 child: TextField(
                   controller: _msgCtrl,
                   textCapitalization: TextCapitalization.sentences,
                   maxLines: null,
                   minLines: 1,
-                  style: const TextStyle(color: kTextPrimary, fontSize: 15),
+                  style: TextStyle(color: isDark ? kTextPrimary : kLightText, fontSize: 15),
                   decoration: const InputDecoration(
                     hintText: 'Message...',
-                    hintStyle: TextStyle(color: kTextSecondary, fontSize: 15),
+                    hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 16, vertical: 10)),
@@ -532,7 +533,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: kCard,
+      backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => DraggableScrollableSheet(
@@ -548,7 +549,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               const SizedBox(height: 12),
               Container(width: 40, height: 4,
                 decoration: BoxDecoration(
-                  color: kTextTertiary, borderRadius: BorderRadius.circular(2))),
+                  color: isDark ? kTextTertiary : kLightTextSub, borderRadius: BorderRadius.circular(2))),
               const SizedBox(height: 16),
               Container(
                 width: 56, height: 56,
@@ -557,12 +558,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 child: const Icon(Icons.group_rounded, color: kAccent, size: 28)),
               const SizedBox(height: 10),
               Text(widget.groupName,
-                style: const TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.w700, color: kTextPrimary)),
+                style: TextStyle(
+                  fontSize: 18, fontWeight: FontWeight.w700, color: isDark ? kTextPrimary : kLightText)),
               Text('${members.length} members',
-                style: const TextStyle(color: kTextSecondary, fontSize: 13)),
+                style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
               const SizedBox(height: 16),
-              const Divider(color: kDivider),
+              const Divider(color: isDark ? kDivider : kLightDivider),
               Expanded(child: ListView.builder(
                 controller: ctrl,
                 itemCount: members.length,
@@ -583,11 +584,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               color: kAccent,
                               fontWeight: FontWeight.bold, fontSize: 16)))),
                       title: Text(u['name'] ?? 'User',
-                        style: const TextStyle(
-                          color: kTextPrimary, fontWeight: FontWeight.w500)),
+                        style: TextStyle(
+                          color: isDark ? kTextPrimary : kLightText, fontWeight: FontWeight.w500)),
                       subtitle: Text('@${u['username'] ?? ''}',
-                        style: const TextStyle(
-                          color: kTextSecondary, fontSize: 12)),
+                        style: TextStyle(
+                          color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
                       trailing: isAdmin
                         ? Container(
                             padding: const EdgeInsets.symmetric(
