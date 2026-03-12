@@ -17,6 +17,9 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen>
     with WidgetsBindingObserver {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   int _idx = 0;
   bool _hasUpdate = false;
 
@@ -62,7 +65,6 @@ class _MainScreenState extends State<MainScreen>
   }
 
   Future<void> _setupFCM() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     await FirebaseMessaging.instance.requestPermission();
     final token = await FirebaseMessaging.instance.getToken();
@@ -156,7 +158,6 @@ class _MainScreenState extends State<MainScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final uid = auth.currentUser!.uid;
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
@@ -263,7 +264,7 @@ class _MainScreenState extends State<MainScreen>
                         const Icon(Icons.people_rounded, color: kAccent),
                         show: hasFriendReq),
                       label: 'Friends'),
-                    const NavigationDestination(
+                    NavigationDestination(
                       icon: Icon(Icons.person_outline_rounded,
                         color: isDark ? kTextSecondary : kLightTextSub),
                       selectedIcon: Icon(Icons.person_rounded, color: kAccent),

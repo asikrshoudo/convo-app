@@ -25,6 +25,9 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   final _msgCtrl    = TextEditingController();
   final _scrollCtrl = ScrollController();
   String? _replyToId, _replyToText, _replyToSender;
@@ -215,7 +218,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showChatSettings() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,
@@ -266,7 +268,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   builder: (_) => AlertDialog(
                     title: const Text('Set Nickname'),
                     content: TextField(controller: c,
-                      decoration: const InputDecoration(hintText: 'Nickname...')),
+                      decoration: InputDecoration(hintText: 'Nickname...')),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
@@ -320,7 +322,6 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: isDark ? kDark : kLightBg,
@@ -527,7 +528,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   textCapitalization: TextCapitalization.sentences,
                   maxLines: null, minLines: 1,
                   style: TextStyle(color: isDark ? kTextPrimary : kLightText, fontSize: 15),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Message...',
                     hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15),
                     border: InputBorder.none,

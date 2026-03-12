@@ -14,6 +14,9 @@ class FriendsScreen extends StatefulWidget {
 
 class _FriendsScreenState extends State<FriendsScreen>
     with SingleTickerProviderStateMixin {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   static const _notifyBase = 'https://convo-notify.onrender.com';
 
   late TabController _tab;
@@ -251,7 +254,6 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
@@ -529,7 +531,6 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Future<void> _removeFriend(String uid, Map u, String chatId) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final confirm = await showDialog<bool>(
       context: context,

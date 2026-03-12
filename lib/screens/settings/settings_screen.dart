@@ -17,6 +17,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   bool   _suggestions  = true, _friendsPublic = true;
   String _profileMode  = 'friend';
   Map<String, dynamic>? _user;
@@ -43,7 +46,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _deleteAccount(BuildContext context) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // Step 1: Confirm dialog
     final confirm = await showDialog<bool>(
@@ -130,7 +132,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final name       = _user?['name']     as String? ?? 'User';
     final username   = _user?['username'] as String? ?? '';
     final phone      = _user?['phone']    as String? ?? '';
@@ -370,7 +371,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ─── Email change ──────────────────────────────────────────────────────
   void _changeEmail(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final emailCtrl = TextEditingController();
     final passCtrl  = TextEditingController();
@@ -476,7 +476,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _addPhone(BuildContext context, {required bool primary}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final field   = primary ? 'phone'  : 'phone2';
     final label   = primary ? 'Primary Phone' : 'Secondary Phone';
@@ -512,7 +511,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _changePass(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final c = TextEditingController();
     showDialog(context: context, builder: (_) => AlertDialog(
@@ -540,7 +538,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _verify(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final onWaitlist = _user?['verifiedWaitlist'] == true;
     final verified   = _user?['verified']         == true;
@@ -593,7 +590,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showThemeDialog(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context, backgroundColor: isDark ? kCard : kLightCard,
@@ -697,7 +693,6 @@ class BlockedUsersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final myUid = auth.currentUser!.uid;
 
     return Scaffold(

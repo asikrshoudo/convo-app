@@ -28,6 +28,14 @@ const Color kTextPrimary   = Color(0xFFFFFFFF);
 const Color kTextSecondary = Color(0xFF8E8E93);
 const Color kTextTertiary  = Color(0xFF48484A);
 
+// ─── Light Mode ──────────────────────────────────────────────
+const Color kLightBg      = Color(0xFFF2F2F7);
+const Color kLightText    = Color(0xFF1C1C1E);
+const Color kLightTextSub = Color(0xFF8E8E93);
+const Color kLightCard    = Color(0xFFFFFFFF);
+const Color kLightCard2   = Color(0xFFE5E5EA);
+const Color kLightDivider = Color(0xFFD1D1D6);
+
 // ─── Misc ────────────────────────────────────────────────────
 const Color kDivider = Color(0xFF38383A);
 const Color kRed     = Color(0xFFFF3B30);

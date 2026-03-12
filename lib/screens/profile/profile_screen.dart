@@ -14,6 +14,9 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   Map<String, dynamic>? _user;
   bool get _isMe => widget.uid == auth.currentUser?.uid;
   final _myUid = auth.currentUser!.uid;
@@ -35,7 +38,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return StreamBuilder<DocumentSnapshot>(
       stream: db.collection('users').doc(widget.uid).snapshots(),
       builder: (context, snap) {
@@ -454,7 +456,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _block() async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -499,7 +500,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _report(BuildContext context) async {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     String? reason;
     await showModalBottomSheet(
@@ -540,7 +540,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showUserMenu(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context, backgroundColor: isDark ? kCard : kLightCard,
@@ -569,7 +568,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _showEdit(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final nc = TextEditingController(text: _user?['name']     ?? '');
     final bc = TextEditingController(text: _user?['bio']      ?? '');

@@ -14,6 +14,9 @@ class GroupChatScreen extends StatefulWidget {
 }
 
 class _GroupChatScreenState extends State<GroupChatScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   final _msgCtrl    = TextEditingController();
   final _scrollCtrl = ScrollController();
   String? _replyToId, _replyToText, _replyToSender;
@@ -112,7 +115,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _showMsgMenu(BuildContext context, String msgId, String text, String senderName) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,
@@ -191,7 +193,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       resizeToAvoidBottomInset: true,
       backgroundColor: isDark ? kDark : kLightBg,
@@ -510,7 +511,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                   maxLines: null,
                   minLines: 1,
                   style: TextStyle(color: isDark ? kTextPrimary : kLightText, fontSize: 15),
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Message...',
                     hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15),
                     border: InputBorder.none,
@@ -532,7 +533,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   }
 
   void _showGroupInfo(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,

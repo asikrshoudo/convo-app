@@ -12,6 +12,9 @@ class AppVersionScreen extends StatefulWidget {
 }
 
 class _AppVersionScreenState extends State<AppVersionScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   String _currentVersion = '...';
   String _latestVersion  = '';
   String _changelog      = '';
@@ -77,7 +80,6 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(

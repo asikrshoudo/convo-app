@@ -9,6 +9,9 @@ class CreateGroupScreen extends StatefulWidget {
 }
 
 class _CreateGroupScreenState extends State<CreateGroupScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   final _nameCtrl = TextEditingController();
   final _myUid = auth.currentUser!.uid;
   final Set<String> _selected = {};
@@ -68,7 +71,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(

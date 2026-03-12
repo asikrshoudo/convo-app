@@ -15,6 +15,9 @@ class UsernameSetupScreen extends StatefulWidget {
 }
 
 class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   bool _retrying = false;
 
   @override void initState() { super.initState(); _autoSetup(); }

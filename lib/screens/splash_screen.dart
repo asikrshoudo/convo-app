@@ -13,6 +13,9 @@ class SplashScreen extends StatefulWidget {
 
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   late AnimationController _ctrl;
   late Animation<double> _fadeAnim;
   late Animation<double> _scaleAnim;
@@ -69,7 +72,6 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
       body: Center(

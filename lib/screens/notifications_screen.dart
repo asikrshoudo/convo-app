@@ -11,6 +11,9 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   final _myUid = auth.currentUser!.uid;
 
   Future<void> _markAllRead() async {
@@ -110,7 +113,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(

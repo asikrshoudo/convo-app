@@ -15,6 +15,9 @@ class ChatsScreen extends StatefulWidget {
 }
 
 class _ChatsScreenState extends State<ChatsScreen> {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   late final String _myUid;
   final _searchCtrl  = TextEditingController();
   String _searchQuery = '';
@@ -32,7 +35,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
   }
 
   void _showNewChatOptions() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
       context: context,
@@ -90,7 +92,6 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
       body: Column(children: [
@@ -175,6 +176,9 @@ class _ChatsScreenState extends State<ChatsScreen> {
 
 // ─────────────────────────────────────────────────────────────────────────────
 class _CombinedChatList extends StatelessWidget {
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+
   final String myUid;
   final String searchQuery;
   const _CombinedChatList({required this.myUid, required this.searchQuery});
@@ -191,7 +195,6 @@ class _CombinedChatList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     // ── Outer stream: pending message-requests to ME ───────────────────────
     // Any chatId in here should NOT appear in the main chat list
     return StreamBuilder<QuerySnapshot>(
