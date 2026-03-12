@@ -5,7 +5,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'core/constants.dart';
-import 'services/spotify_service.dart';
 import 'app.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
@@ -123,14 +122,11 @@ void main() async {
     // The app opens; navigation is handled by notifications screen tap
   });
 
-  // Save FCM token + resume Spotify if connected
+  // Save FCM token on auth change
   await saveFcmToken();
   auth.authStateChanges().listen((user) {
     if (user != null) {
       saveFcmToken();
-      SpotifyService.instance.resumeIfConnected(user.uid);
-    } else {
-      SpotifyService.instance.stopPolling();
     }
   });
 
