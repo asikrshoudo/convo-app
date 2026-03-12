@@ -63,7 +63,6 @@ android {
         targetSdkVersion 34
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
-        manifestPlaceholders += [appAuthRedirectScheme: 'convo']
     }
 
     buildTypes {

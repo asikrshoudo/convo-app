@@ -6,7 +6,7 @@ import '../../core/constants.dart';
 import '../../core/active_status.dart';
 import '../../widgets/common_widgets.dart';
 import '../chats/chat_screen.dart';
-import '../../services/spotify_service.dart';
+import '../../services/lanyard_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String uid;
@@ -354,9 +354,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }).toList())),
             ],
 
-            // ── Spotify ───────────────────────────────────────────────────
-            _secTitle('Spotify'),
-            _SpotifyCard(uid: widget.uid, isMe: _isMe),
+            // ── Activity ──────────────────────────────────────────────────
+            _secTitle('Activity'),
+            _LanyardCard(uid: widget.uid, isMe: _isMe),
 
             const SizedBox(height: 40),
           ])));
@@ -606,12 +606,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _showEdit(BuildContext context) {
 
-    final nc = TextEditingController(text: _user?['name']     ?? '');
-    final bc = TextEditingController(text: _user?['bio']      ?? '');
-    final cc = TextEditingController(text: _user?['city']     ?? '');
-    final hc = TextEditingController(text: _user?['hometown'] ?? '');
+    final nc = TextEditingController(text: _user?['name']      ?? '');
+    final bc = TextEditingController(text: _user?['bio']       ?? '');
+    final cc = TextEditingController(text: _user?['city']      ?? '');
+    final hc = TextEditingController(text: _user?['hometown']  ?? '');
     final ec = TextEditingController(text: _user?['education'] ?? '');
-    final wc = TextEditingController(text: _user?['work']     ?? '');
+    final wc = TextEditingController(text: _user?['work']      ?? '');
+    final dc = TextEditingController(text: _user?['discordId'] ?? '');
     final social = Map<String, dynamic>.from(_user?['social'] ?? {});
     final socialCtrls = {
       for (final p in _socialPlatforms)
@@ -648,6 +649,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _ef('Education', ec),
           const SizedBox(height: 10),
           _ef('Work', wc),
+          const SizedBox(height: 10),
+          _ef('Discord User ID', dc),
+          Padding(
+            padding: const EdgeInsets.only(top: 4, left: 4),
+            child: Text('Your 18-digit Discord ID for Activity status',
+              style: TextStyle(fontSize: 11,
+                color: isDark ? kTextTertiary : kLightTextSub))),
           const SizedBox(height: 20),
           Align(alignment: Alignment.centerLeft,
             child: Text('Social Links', style: TextStyle(
@@ -685,6 +693,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               'hometown':  hc.text.trim(),
               'education': ec.text.trim(),
               'work':      wc.text.trim(),
+              'discordId': dc.text.trim(),
               'social':    newSocial,
               'avatar':    nc.text.trim().isNotEmpty
                 ? nc.text.trim()[0].toUpperCase() : 'U',
@@ -712,245 +721,394 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Spotify card widget
+// Lanyard / Discord Activity card
 // ─────────────────────────────────────────────────────────────────────────────
-class _SpotifyCard extends StatefulWidget {
+class _LanyardCard extends StatefulWidget {
   final String uid;
   final bool   isMe;
-  const _SpotifyCard({required this.uid, required this.isMe});
-  @override State<_SpotifyCard> createState() => _SpotifyCardState();
+  const _LanyardCard({required this.uid, required this.isMe});
+  @override State<_LanyardCard> createState() => _LanyardCardState();
 }
 
-class _SpotifyCardState extends State<_SpotifyCard> {
-  bool _loading = false;
+class _LanyardCardState extends State<_LanyardCard> {
+  bool         _fetching = false;
+  LanyardData? _data;
+  String?      _discordId;
+  bool         _noId     = false;
+
   bool get isDark => Theme.of(context).brightness == Brightness.dark;
 
-  Future<void> _connect() async {
-    setState(() => _loading = true);
-    final ok = await SpotifyService.instance.connect(widget.uid);
-    if (mounted) {
-      setState(() => _loading = false);
-      if (!ok) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-          content: Text('Could not connect Spotify. Try again.')));
-      }
-    }
+  // Discord status colors
+  static const _statusColors = {
+    'online':  Color(0xFF23A55A),
+    'idle':    Color(0xFFF0B232),
+    'dnd':     Color(0xFFF23F43),
+    'offline': Color(0xFF80848E),
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDiscordId();
   }
 
-  Future<void> _disconnect() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: isDark ? kCard : kLightCard,
-        title: Text('Disconnect Spotify?',
-          style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
-        content: Text('Your Spotify activity will no longer show on your profile.',
-          style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel')),
-          TextButton(
-            style: TextButton.styleFrom(foregroundColor: const Color(0xFF1DB954)),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Disconnect')),
-        ]));
-    if (confirm == true) {
-      await SpotifyService.instance.disconnect(widget.uid);
-    }
+  Future<void> _loadDiscordId() async {
+    final doc = await db.collection('users').doc(widget.uid).get();
+    final id  = (doc.data()?['discordId'] as String? ?? '').trim();
+    if (!mounted) return;
+    if (id.isEmpty) { setState(() => _noId = true); return; }
+    setState(() { _discordId = id; _noId = false; });
+    _fetch();
+  }
+
+  Future<void> _fetch() async {
+    if (_discordId == null) return;
+    setState(() => _fetching = true);
+    final data = await LanyardService.fetch(_discordId!);
+    if (mounted) setState(() { _data = data; _fetching = false; });
   }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<DocumentSnapshot>(
-      stream: db.collection('users').doc(widget.uid).snapshots(),
-      builder: (context, snap) {
-        if (!snap.hasData) return const SizedBox.shrink();
+    // No Discord ID saved yet
+    if (_noId) {
+      if (!widget.isMe) return const SizedBox.shrink();
+      return _noIdPrompt();
+    }
 
-        final data      = snap.data!.data() as Map<String, dynamic>?;
-        final connected = data?['spotifyConnected'] == true;
-        final trackMap  = data?['spotifyTrack']     as Map<String, dynamic>?;
+    // Loading
+    if (_fetching && _data == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          height: 72,
+          decoration: BoxDecoration(
+            color: isDark ? kCard : kLightCard,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
+          child: const Center(child: SizedBox(
+            width: 20, height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2)))));
+    }
 
-        // Not connected — show connect button only to owner
-        if (!connected) {
-          if (!widget.isMe) return const SizedBox.shrink();
-          return _connectButton();
-        }
-
-        // Connected but no track yet
-        if (trackMap == null) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: isDark ? kCard : kLightCard,
-                borderRadius: BorderRadius.circular(kCardRadius),
-                border: Border.all(
-                  color: isDark ? kDivider : kLightDivider, width: 0.5)),
-              child: Row(children: [
-                _spotifyLogo(size: 28),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Not playing anything right now',
+    // Could not fetch (Lanyard not tracking this user)
+    if (_data == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: isDark ? kCard : kLightCard,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
+          child: Row(children: [
+            Icon(Icons.discord, color: isDark ? kTextSecondary : kLightTextSub, size: 22),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Discord not tracked',
                   style: TextStyle(
-                    color: isDark ? kTextSecondary : kLightTextSub,
-                    fontSize: 13))),
-                if (widget.isMe)
-                  GestureDetector(
-                    onTap: _disconnect,
-                    child: Icon(Icons.link_off_rounded,
-                      size: 18,
-                      color: isDark ? kTextSecondary : kLightTextSub)),
-              ])));
-        }
+                    fontSize: 13, fontWeight: FontWeight.w600,
+                    color: isDark ? kTextPrimary : kLightText)),
+                const SizedBox(height: 2),
+                Text('Join discord.gg/lanyard to enable status',
+                  style: TextStyle(fontSize: 11,
+                    color: isDark ? kTextSecondary : kLightTextSub)),
+              ])),
+            GestureDetector(
+              onTap: _fetch,
+              child: Icon(Icons.refresh_rounded, size: 18,
+                color: isDark ? kTextSecondary : kLightTextSub)),
+          ])));
+    }
 
-        final track = SpotifyTrack.fromMap(trackMap);
-        return _trackCard(track);
-      });
+    final d = _data!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(children: [
+
+        // ── Status header ──────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isDark ? kCard : kLightCard,
+            borderRadius: BorderRadius.circular(kCardRadius),
+            border: Border.all(
+              color: isDark ? kDivider : kLightDivider, width: 0.5)),
+          child: Row(children: [
+            // Discord avatar with status dot
+            Stack(children: [
+              d.avatarUrl != null
+                ? ClipOval(child: Image.network(
+                    d.avatarUrl!, width: 42, height: 42, fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => _defaultAvatar(42)))
+                : _defaultAvatar(42),
+              Positioned(right: 0, bottom: 0,
+                child: Container(
+                  width: 13, height: 13,
+                  decoration: BoxDecoration(
+                    color: _statusColors[d.discordStatus] ?? const Color(0xFF80848E),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isDark ? kCard : kLightCard, width: 2)))),
+            ]),
+            const SizedBox(width: 12),
+            Expanded(child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.discord, size: 13, color: Color(0xFF5865F2)),
+                  const SizedBox(width: 4),
+                  Text(d.discordUsername,
+                    style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.bold,
+                      color: isDark ? kTextPrimary : kLightText)),
+                ]),
+                if (d.customStatusText != null && d.customStatusText!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Row(children: [
+                    if (d.customStatusEmoji != null) ...[
+                      Text(d.customStatusEmoji!,
+                        style: const TextStyle(fontSize: 12)),
+                      const SizedBox(width: 4),
+                    ],
+                    Expanded(child: Text(d.customStatusText!,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12,
+                        color: isDark ? kTextSecondary : kLightTextSub))),
+                  ]),
+                ],
+              ])),
+            // Status badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: (_statusColors[d.discordStatus] ?? const Color(0xFF80848E))
+                  .withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20)),
+              child: Text(
+                d.discordStatus == 'dnd' ? 'Do Not Disturb'
+                  : d.discordStatus[0].toUpperCase() + d.discordStatus.substring(1),
+                style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w600,
+                  color: _statusColors[d.discordStatus] ?? const Color(0xFF80848E)))),
+          ])),
+
+        // ── Spotify listening ──────────────────────────────────────
+        if (d.spotify != null) ...[
+          const SizedBox(height: 8),
+          _spotifyCard(d.spotify!),
+        ],
+
+        // ── Other activities (games etc) ───────────────────────────
+        for (final act in d.activities) ...[
+          const SizedBox(height: 8),
+          _activityCard(act),
+        ],
+
+        // Refresh hint
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: _fetch,
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(Icons.refresh_rounded, size: 12,
+              color: isDark ? kTextTertiary : kLightTextSub),
+            const SizedBox(width: 4),
+            Text('Tap to refresh',
+              style: TextStyle(fontSize: 10,
+                color: isDark ? kTextTertiary : kLightTextSub)),
+          ])),
+      ]));
   }
 
-  Widget _connectButton() => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: GestureDetector(
-      onTap: _loading ? null : _connect,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1DB954).withOpacity(0.1),
-          borderRadius: BorderRadius.circular(kCardRadius),
-          border: Border.all(
-            color: const Color(0xFF1DB954).withOpacity(0.35))),
-        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-          if (_loading)
-            const SizedBox(
-              width: 18, height: 18,
-              child: CircularProgressIndicator(
-                color: Color(0xFF1DB954), strokeWidth: 2))
-          else ...[
-            _spotifyLogo(size: 22),
-            const SizedBox(width: 10),
-            const Text('Connect Spotify',
-              style: TextStyle(
-                color: Color(0xFF1DB954),
-                fontWeight: FontWeight.bold,
-                fontSize: 14)),
-          ],
-        ]))));
-
-  Widget _trackCard(SpotifyTrack track) => Padding(
-    padding: const EdgeInsets.symmetric(horizontal: 16),
-    child: GestureDetector(
+  // ── Spotify card ──────────────────────────────────────────────────────────
+  Widget _spotifyCard(LanyardSpotify sp) {
+    return GestureDetector(
       onTap: () async {
-        if (track.trackUrl.isNotEmpty) {
-          final uri = Uri.parse(track.trackUrl);
-          if (await canLaunchUrl(uri)) {
-            launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
+        if (sp.trackUrl.isNotEmpty) {
+          final uri = Uri.parse(sp.trackUrl);
+          if (await canLaunchUrl(uri)) launchUrl(uri, mode: LaunchMode.externalApplication);
         }
       },
       child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: isDark ? kCard : kLightCard,
           borderRadius: BorderRadius.circular(kCardRadius),
-          border: Border.all(
-            color: isDark ? kDivider : kLightDivider, width: 0.5),
+          border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5),
           gradient: LinearGradient(
             colors: [
-              const Color(0xFF1DB954).withOpacity(isDark ? 0.07 : 0.04),
+              const Color(0xFF1DB954).withOpacity(isDark ? 0.08 : 0.04),
               Colors.transparent,
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight)),
+            begin: Alignment.topLeft, end: Alignment.bottomRight)),
         child: Row(children: [
-
           // Album art
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: track.albumArt.isNotEmpty
-              ? Image.network(
-                  track.albumArt,
-                  width: 54, height: 54, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => _artPlaceholder())
-              : _artPlaceholder()),
-
-          const SizedBox(width: 14),
-
-          // Info
+            child: sp.albumArtUrl != null
+              ? Image.network(sp.albumArtUrl!,
+                  width: 50, height: 50, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _musicPlaceholder())
+              : _musicPlaceholder()),
+          const SizedBox(width: 12),
           Expanded(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status row
               Row(children: [
-                _spotifyLogo(size: 14),
-                const SizedBox(width: 5),
-                Text(
-                  track.isPlaying ? 'Listening now' : 'Last played',
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1DB954),
-                    letterSpacing: 0.3)),
-                if (track.isPlaying) ...[
-                  const SizedBox(width: 5),
-                  _PulsingDot(),
-                ],
+                const Icon(Icons.music_note_rounded,
+                  size: 11, color: Color(0xFF1DB954)),
+                const SizedBox(width: 3),
+                const Text('Listening to Spotify',
+                  style: TextStyle(
+                    fontSize: 10, fontWeight: FontWeight.w600,
+                    color: Color(0xFF1DB954), letterSpacing: 0.2)),
+                const SizedBox(width: 4),
+                _PulsingDot(color: const Color(0xFF1DB954)),
               ]),
-              const SizedBox(height: 5),
-              // Title
-              Text(track.title,
+              const SizedBox(height: 4),
+              Text(sp.song,
                 maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 14, fontWeight: FontWeight.bold,
+                  fontSize: 13, fontWeight: FontWeight.bold,
                   color: isDark ? kTextPrimary : kLightText)),
-              const SizedBox(height: 2),
-              // Artist
-              Text(track.artist,
+              const SizedBox(height: 1),
+              Text(sp.artist,
                 maxLines: 1, overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
+                style: TextStyle(fontSize: 11,
                   color: isDark ? kTextSecondary : kLightTextSub)),
+              const SizedBox(height: 6),
+              // Progress bar
+              ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: sp.progress,
+                  minHeight: 2,
+                  backgroundColor:
+                    (isDark ? kDivider : kLightDivider),
+                  valueColor: const AlwaysStoppedAnimation(Color(0xFF1DB954)))),
             ])),
-
           const SizedBox(width: 8),
+          const Icon(Icons.open_in_new_rounded,
+            size: 14, color: Color(0xFF1DB954)),
+        ])));
+  }
 
-          // Right side
-          Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Icon(Icons.open_in_new_rounded,
-                size: 15, color: Color(0xFF1DB954)),
-              if (widget.isMe) ...[
-                const SizedBox(height: 12),
-                GestureDetector(
-                  onTap: _disconnect,
-                  child: Icon(Icons.link_off_rounded,
-                    size: 15,
-                    color: isDark ? kTextTertiary : kLightTextSub)),
-              ],
+  // ── Game/app activity card ────────────────────────────────────────────────
+  Widget _activityCard(LanyardActivity act) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? kCard : kLightCard,
+        borderRadius: BorderRadius.circular(kCardRadius),
+        border: Border.all(
+          color: isDark ? kDivider : kLightDivider, width: 0.5),
+        gradient: LinearGradient(
+          colors: [
+            kAccent.withOpacity(isDark ? 0.07 : 0.03),
+            Colors.transparent,
+          ],
+          begin: Alignment.topLeft, end: Alignment.bottomRight)),
+      child: Row(children: [
+        // Game icon or fallback
+        if (act.largeImageUrl != null)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(act.largeImageUrl!,
+              width: 50, height: 50, fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _gamePlaceholder()))
+        else
+          _gamePlaceholder(),
+        const SizedBox(width: 12),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(children: [
+              Icon(Icons.gamepad_rounded, size: 11, color: kAccent),
+              const SizedBox(width: 3),
+              Text('Playing a game',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600,
+                  color: kAccent, letterSpacing: 0.2)),
             ]),
-        ]))));
+            const SizedBox(height: 4),
+            Text(act.name,
+              maxLines: 1, overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold,
+                color: isDark ? kTextPrimary : kLightText)),
+            if (act.details != null) ...[
+              const SizedBox(height: 1),
+              Text(act.details!,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11,
+                  color: isDark ? kTextSecondary : kLightTextSub)),
+            ],
+            if (act.state != null) ...[
+              const SizedBox(height: 1),
+              Text(act.state!,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 11,
+                  color: isDark ? kTextTertiary : kLightTextSub)),
+            ],
+          ])),
+      ]));
+  }
 
-  Widget _artPlaceholder() => Container(
-    width: 54, height: 54,
+  // ── No Discord ID prompt (own profile only) ───────────────────────────────
+  Widget _noIdPrompt() => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: isDark ? kCard : kLightCard,
+      borderRadius: BorderRadius.circular(kCardRadius),
+      border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
+    child: Row(children: [
+      Container(
+        width: 40, height: 40,
+        decoration: BoxDecoration(
+          color: const Color(0xFF5865F2).withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12)),
+        child: const Icon(Icons.discord, color: Color(0xFF5865F2), size: 22)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Connect Discord',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold,
+              color: isDark ? kTextPrimary : kLightText)),
+          const SizedBox(height: 2),
+          Text('Add your Discord ID in Edit Profile to show your activity',
+            style: TextStyle(fontSize: 11,
+              color: isDark ? kTextSecondary : kLightTextSub)),
+        ])),
+    ]));
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  Widget _defaultAvatar(double size) => Container(
+    width: size, height: size,
+    decoration: const BoxDecoration(
+      color: Color(0xFF5865F2), shape: BoxShape.circle),
+    child: Icon(Icons.discord, color: Colors.white, size: size * 0.5));
+
+  Widget _musicPlaceholder() => Container(
+    width: 50, height: 50,
     decoration: BoxDecoration(
       color: const Color(0xFF1DB954).withOpacity(0.15),
       borderRadius: BorderRadius.circular(8)),
     child: const Icon(Icons.music_note_rounded,
-      color: Color(0xFF1DB954), size: 24));
+      color: Color(0xFF1DB954), size: 22));
 
-  Widget _spotifyLogo({double size = 18}) => Image.network(
-    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/168px-Spotify_logo_without_text.svg.png',
-    width: size, height: size,
-    errorBuilder: (_, __, ___) => Icon(
-      Icons.music_note_rounded,
-      color: const Color(0xFF1DB954), size: size));
+  Widget _gamePlaceholder() => Container(
+    width: 50, height: 50,
+    decoration: BoxDecoration(
+      color: kAccent.withOpacity(0.15),
+      borderRadius: BorderRadius.circular(8)),
+    child: Icon(Icons.gamepad_rounded, color: kAccent, size: 22));
 }
 
-// Pulsing green dot for live playback
+// Pulsing dot for live activity
 class _PulsingDot extends StatefulWidget {
+  final Color color;
+  const _PulsingDot({this.color = const Color(0xFF1DB954)});
   @override State<_PulsingDot> createState() => _PulsingDotState();
 }
 
@@ -975,7 +1133,7 @@ class _PulsingDotState extends State<_PulsingDot>
     opacity: _anim,
     child: Container(
       width: 6, height: 6,
-      decoration: const BoxDecoration(
-        color: Color(0xFF1DB954),
+      decoration: BoxDecoration(
+        color: widget.color,
         shape: BoxShape.circle)));
 }
