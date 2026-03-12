@@ -70,21 +70,29 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // ── Load block + friend status ────────────────────────────────────────────
   Future<void> _loadRelationshipStatus() async {
-    final results = await Future.wait([
-      db.collection('users').doc(_myUid)
-          .collection('blocked').doc(widget.otherUid).get(),
-      db.collection('users').doc(widget.otherUid)
-          .collection('blocked').doc(_myUid).get(),
-      db.collection('users').doc(_myUid)
-          .collection('friends').doc(widget.otherUid).get(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _iBlockedThem  = results[0].exists;
-      _theyBlockedMe = results[1].exists;
-      _isFriend      = results[2].exists;
-      _statusLoaded  = true;
-    });
+    try {
+      // Only read what our rules allow: our own blocked + friends lists.
+      // We cannot read otherUid's blocked list (permission denied by rules).
+      // Instead, store a 'blockedBy' mirror doc when blocking someone.
+      final results = await Future.wait([
+        db.collection('users').doc(_myUid)
+            .collection('blocked').doc(widget.otherUid).get(),
+        db.collection('users').doc(_myUid)
+            .collection('blockedBy').doc(widget.otherUid).get(),
+        db.collection('users').doc(_myUid)
+            .collection('friends').doc(widget.otherUid).get(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _iBlockedThem  = results[0].exists;
+        _theyBlockedMe = results[1].exists; // mirror written when other blocks us
+        _isFriend      = results[2].exists;
+        _statusLoaded  = true;
+      });
+    } catch (_) {
+      // Fallback: if any read fails, allow sending (fail open).
+      if (mounted) setState(() => _statusLoaded = true);
+    }
   }
 
   Future<void> _loadDisappearSetting() async {
@@ -461,14 +469,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   msgId: msgs[i].id, chatId: widget.chatId,
                   data: data, isMe: isMe, isFirst: isFirst, isLast: isLast,
                   myUid: _myUid, otherUid: widget.otherUid,
-                  onReply: (id, text, sender) {
-                    if (!_canSend) return;
-                    setState(() {
-                      _replyToId     = id;
-                      _replyToText   = text;
-                      _replyToSender = sender;
-                    });
-                  });
+                  onReply: _canSend
+                    ? (id, text, sender) => setState(() {
+                        _replyToId     = id;
+                        _replyToText   = text;
+                        _replyToSender = sender;
+                      })
+                    : null);
               });
           })),
 

@@ -15,6 +15,8 @@ class UsernameSetupScreen extends StatefulWidget {
 }
 
 class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
+  bool _retrying = false;
+
   @override void initState() { super.initState(); _autoSetup(); }
 
   String _generateUsername(String name, String uid) {
@@ -27,6 +29,7 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
   }
 
   Future<void> _autoSetup() async {
+    if (mounted) setState(() => _retrying = false);
     try {
       final u = widget.user;
       final name = u.displayName ?? u.email?.split('@').first
@@ -54,9 +57,13 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
           db.collection('users').doc(u.uid).update({'fcmToken': fcm});
         }
       });
-    } catch (_) { /* silently continue */ }
-    if (mounted) Navigator.pushReplacement(
-        context, MaterialPageRoute(builder: (_) => const MainScreen()));
+      if (mounted) Navigator.pushReplacement(
+          context, MaterialPageRoute(builder: (_) => const MainScreen()));
+    } catch (_) {
+      // Show retry instead of silently failing — otherwise user lands in
+      // MainScreen without a Firestore doc and the app will crash.
+      if (mounted) setState(() => _retrying = true);
+    }
   }
 
   @override
@@ -64,15 +71,36 @@ class _UsernameSetupScreenState extends State<UsernameSetupScreen> {
     backgroundColor: kDark,
     body: Center(child: Column(
       mainAxisAlignment: MainAxisAlignment.center, children: [
-      Container(
-        width: 72, height: 72,
-        decoration: BoxDecoration(
-          color: kAccent.withOpacity(0.15), shape: BoxShape.circle),
-        child: const Center(
-          child: CircularProgressIndicator(
-            color: kAccent, strokeWidth: 2.5))),
-      const SizedBox(height: 24),
-      const Text('Setting up your account...',
-        style: TextStyle(color: kTextSecondary, fontSize: 14)),
+      if (!_retrying) ...[
+        Container(
+          width: 72, height: 72,
+          decoration: BoxDecoration(
+            color: kAccent.withOpacity(0.15), shape: BoxShape.circle),
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: kAccent, strokeWidth: 2.5))),
+        const SizedBox(height: 24),
+        const Text('Setting up your account...',
+          style: TextStyle(color: kTextSecondary, fontSize: 14)),
+      ] else ...[
+        const Icon(Icons.wifi_off_rounded, color: kTextSecondary, size: 48),
+        const SizedBox(height: 16),
+        const Text('Connection error',
+          style: TextStyle(color: kTextPrimary, fontSize: 16,
+            fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        const Text('Could not create your account.\nCheck your connection.',
+          style: TextStyle(color: kTextSecondary, fontSize: 13),
+          textAlign: TextAlign.center),
+        const SizedBox(height: 24),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: kAccent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12))),
+          onPressed: _autoSetup,
+          child: const Text('Retry',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+      ],
     ])));
 }
