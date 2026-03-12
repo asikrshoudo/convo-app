@@ -6,6 +6,7 @@ import '../../core/constants.dart';
 import '../../core/active_status.dart';
 import '../../widgets/common_widgets.dart';
 import '../chats/chat_screen.dart';
+import '../../services/spotify_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String uid;
@@ -353,6 +354,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   }).toList())),
             ],
 
+            // ── Spotify ───────────────────────────────────────────────────
+            _secTitle('Spotify'),
+            _SpotifyCard(uid: widget.uid, isMe: _isMe),
+
             const SizedBox(height: 40),
           ])));
       });
@@ -614,7 +619,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     };
 
     showModalBottomSheet(
-      context: context, isScrollControlled: true, backgroundColor: isDark ? kCard : kLightCard,
+      context: context, isScrollControlled: true,
+      backgroundColor: isDark ? kCard : kLightCard,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(kSheetRadius))),
       builder: (_) => Padding(
@@ -624,10 +630,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: SingleChildScrollView(child: Column(
           mainAxisSize: MainAxisSize.min, children: [
           Container(width: 36, height: 4, decoration: BoxDecoration(
-            color: isDark ? kTextTertiary : kLightTextSub, borderRadius: BorderRadius.circular(2))),
+            color: isDark ? kTextTertiary : kLightTextSub,
+            borderRadius: BorderRadius.circular(2))),
           const SizedBox(height: 16),
           Text('Edit Profile', style: TextStyle(
-            fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText)),
+            fontSize: 18, fontWeight: FontWeight.bold,
+            color: isDark ? kTextPrimary : kLightText)),
           const SizedBox(height: 20),
           _ef('Name', nc),
           const SizedBox(height: 10),
@@ -653,7 +661,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: TextStyle(color: isDark ? kTextPrimary : kLightText),
               decoration: InputDecoration(
                 hintText: '${p['label']} username',
-                hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub),
+                hintStyle: TextStyle(
+                  color: isDark ? kTextSecondary : kLightTextSub),
                 prefixIcon: Icon(p['icon'] as IconData,
                   color: p['color'] as Color, size: 20),
                 filled: true, fillColor: isDark ? kCard2 : kLightCard2,
@@ -670,18 +679,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 p['key'] as String: socialCtrls[p['key']]!.text.trim()
             };
             await db.collection('users').doc(widget.uid).update({
-              'name': nc.text.trim(), 'bio': bc.text.trim(),
-              'city': cc.text.trim(), 'hometown': hc.text.trim(),
-              'education': ec.text.trim(), 'work': wc.text.trim(),
-              'social': newSocial,
-              'avatar': nc.text.trim().isNotEmpty
+              'name':      nc.text.trim(),
+              'bio':       bc.text.trim(),
+              'city':      cc.text.trim(),
+              'hometown':  hc.text.trim(),
+              'education': ec.text.trim(),
+              'work':      wc.text.trim(),
+              'social':    newSocial,
+              'avatar':    nc.text.trim().isNotEmpty
                 ? nc.text.trim()[0].toUpperCase() : 'U',
             });
             await auth.currentUser?.updateDisplayName(nc.text.trim());
             if (mounted) { Navigator.pop(context); _load(); }
           }),
         ]))));
-  }
 
   Widget _ef(String label, TextEditingController ctrl, {int lines = 1}) =>
     TextField(
@@ -697,4 +708,273 @@ class _ProfileScreenState extends State<ProfileScreen> {
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: kAccent))));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Spotify card widget
+// ─────────────────────────────────────────────────────────────────────────────
+class _SpotifyCard extends StatefulWidget {
+  final String uid;
+  final bool   isMe;
+  const _SpotifyCard({required this.uid, required this.isMe});
+  @override State<_SpotifyCard> createState() => _SpotifyCardState();
+}
+
+class _SpotifyCardState extends State<_SpotifyCard> {
+  bool _loading = false;
+  bool get isDark => Theme.of(context).brightness == Brightness.dark;
+
+  Future<void> _connect() async {
+    setState(() => _loading = true);
+    final ok = await SpotifyService.instance.connect(widget.uid);
+    if (mounted) {
+      setState(() => _loading = false);
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Could not connect Spotify. Try again.')));
+      }
+    }
+  }
+
+  Future<void> _disconnect() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: isDark ? kCard : kLightCard,
+        title: Text('Disconnect Spotify?',
+          style: TextStyle(color: isDark ? kTextPrimary : kLightText)),
+        content: Text('Your Spotify activity will no longer show on your profile.',
+          style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel')),
+          TextButton(
+            style: TextButton.styleFrom(foregroundColor: const Color(0xFF1DB954)),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Disconnect')),
+        ]));
+    if (confirm == true) {
+      await SpotifyService.instance.disconnect(widget.uid);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: db.collection('users').doc(widget.uid).snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData) return const SizedBox.shrink();
+
+        final data      = snap.data!.data() as Map<String, dynamic>?;
+        final connected = data?['spotifyConnected'] == true;
+        final trackMap  = data?['spotifyTrack']     as Map<String, dynamic>?;
+
+        // Not connected — show connect button only to owner
+        if (!connected) {
+          if (!widget.isMe) return const SizedBox.shrink();
+          return _connectButton();
+        }
+
+        // Connected but no track yet
+        if (trackMap == null) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: isDark ? kCard : kLightCard,
+                borderRadius: BorderRadius.circular(kCardRadius),
+                border: Border.all(
+                  color: isDark ? kDivider : kLightDivider, width: 0.5)),
+              child: Row(children: [
+                _spotifyLogo(size: 28),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Not playing anything right now',
+                  style: TextStyle(
+                    color: isDark ? kTextSecondary : kLightTextSub,
+                    fontSize: 13))),
+                if (widget.isMe)
+                  GestureDetector(
+                    onTap: _disconnect,
+                    child: Icon(Icons.link_off_rounded,
+                      size: 18,
+                      color: isDark ? kTextSecondary : kLightTextSub)),
+              ])));
+        }
+
+        final track = SpotifyTrack.fromMap(trackMap);
+        return _trackCard(track);
+      });
+  }
+
+  Widget _connectButton() => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: GestureDetector(
+      onTap: _loading ? null : _connect,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1DB954).withOpacity(0.1),
+          borderRadius: BorderRadius.circular(kCardRadius),
+          border: Border.all(
+            color: const Color(0xFF1DB954).withOpacity(0.35))),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          if (_loading)
+            const SizedBox(
+              width: 18, height: 18,
+              child: CircularProgressIndicator(
+                color: Color(0xFF1DB954), strokeWidth: 2))
+          else ...[
+            _spotifyLogo(size: 22),
+            const SizedBox(width: 10),
+            const Text('Connect Spotify',
+              style: TextStyle(
+                color: Color(0xFF1DB954),
+                fontWeight: FontWeight.bold,
+                fontSize: 14)),
+          ],
+        ]))));
+
+  Widget _trackCard(SpotifyTrack track) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    child: GestureDetector(
+      onTap: () async {
+        if (track.trackUrl.isNotEmpty) {
+          final uri = Uri.parse(track.trackUrl);
+          if (await canLaunchUrl(uri)) {
+            launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? kCard : kLightCard,
+          borderRadius: BorderRadius.circular(kCardRadius),
+          border: Border.all(
+            color: isDark ? kDivider : kLightDivider, width: 0.5),
+          gradient: LinearGradient(
+            colors: [
+              const Color(0xFF1DB954).withOpacity(isDark ? 0.07 : 0.04),
+              Colors.transparent,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight)),
+        child: Row(children: [
+
+          // Album art
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: track.albumArt.isNotEmpty
+              ? Image.network(
+                  track.albumArt,
+                  width: 54, height: 54, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _artPlaceholder())
+              : _artPlaceholder()),
+
+          const SizedBox(width: 14),
+
+          // Info
+          Expanded(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Status row
+              Row(children: [
+                _spotifyLogo(size: 14),
+                const SizedBox(width: 5),
+                Text(
+                  track.isPlaying ? 'Listening now' : 'Last played',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1DB954),
+                    letterSpacing: 0.3)),
+                if (track.isPlaying) ...[
+                  const SizedBox(width: 5),
+                  _PulsingDot(),
+                ],
+              ]),
+              const SizedBox(height: 5),
+              // Title
+              Text(track.title,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14, fontWeight: FontWeight.bold,
+                  color: isDark ? kTextPrimary : kLightText)),
+              const SizedBox(height: 2),
+              // Artist
+              Text(track.artist,
+                maxLines: 1, overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? kTextSecondary : kLightTextSub)),
+            ])),
+
+          const SizedBox(width: 8),
+
+          // Right side
+          Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Icon(Icons.open_in_new_rounded,
+                size: 15, color: Color(0xFF1DB954)),
+              if (widget.isMe) ...[
+                const SizedBox(height: 12),
+                GestureDetector(
+                  onTap: _disconnect,
+                  child: Icon(Icons.link_off_rounded,
+                    size: 15,
+                    color: isDark ? kTextTertiary : kLightTextSub)),
+              ],
+            ]),
+        ]))));
+
+  Widget _artPlaceholder() => Container(
+    width: 54, height: 54,
+    decoration: BoxDecoration(
+      color: const Color(0xFF1DB954).withOpacity(0.15),
+      borderRadius: BorderRadius.circular(8)),
+    child: const Icon(Icons.music_note_rounded,
+      color: Color(0xFF1DB954), size: 24));
+
+  Widget _spotifyLogo({double size = 18}) => Image.network(
+    'https://upload.wikimedia.org/wikipedia/commons/thumb/1/19/Spotify_logo_without_text.svg/168px-Spotify_logo_without_text.svg.png',
+    width: size, height: size,
+    errorBuilder: (_, __, ___) => Icon(
+      Icons.music_note_rounded,
+      color: const Color(0xFF1DB954), size: size));
+}
+
+// Pulsing green dot for live playback
+class _PulsingDot extends StatefulWidget {
+  @override State<_PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<_PulsingDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ac;
+  late Animation<double>    _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ac = AnimationController(
+      vsync: this, duration: const Duration(milliseconds: 900))
+      ..repeat(reverse: true);
+    _anim = Tween(begin: 0.4, end: 1.0).animate(_ac);
+  }
+
+  @override void dispose() { _ac.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => FadeTransition(
+    opacity: _anim,
+    child: Container(
+      width: 6, height: 6,
+      decoration: const BoxDecoration(
+        color: Color(0xFF1DB954),
+        shape: BoxShape.circle)));
 }
