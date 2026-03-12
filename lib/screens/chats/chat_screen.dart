@@ -461,13 +461,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   msgId: msgs[i].id, chatId: widget.chatId,
                   data: data, isMe: isMe, isFirst: isFirst, isLast: isLast,
                   myUid: _myUid, otherUid: widget.otherUid,
-                  onReply: _canSend
-                    ? (id, text, sender) => setState(() {
-                        _replyToId     = id;
-                        _replyToText   = text;
-                        _replyToSender = sender;
-                      })
-                    : null);
+                  onReply: (id, text, sender) {
+                    if (!_canSend) return;
+                    setState(() {
+                      _replyToId     = id;
+                      _replyToText   = text;
+                      _replyToSender = sender;
+                    });
+                  });
               });
           })),
 
