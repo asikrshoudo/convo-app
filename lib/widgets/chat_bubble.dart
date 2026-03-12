@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../core/constants.dart';
 import 'markdown_text.dart';
+import 'link_preview.dart';
 
 class ChatBubble extends StatefulWidget {
   final String msgId, chatId;
@@ -59,17 +60,16 @@ class _ChatBubbleState extends State<ChatBubble>
   @override
   void didUpdateWidget(ChatBubble old) {
     super.didUpdateWidget(old);
-    final nowSeen = widget.data['seen'] == true;
-    final wasSeen = old.data['seen'] == true;
-    if (nowSeen && !wasSeen) _maybeStartSeenTimer();
+    if (widget.data['seen'] == true && old.data['seen'] != true) {
+      _maybeStartSeenTimer();
+    }
   }
 
   void _maybeStartSeenTimer() {
     if (!widget.isMe || widget.data['seen'] != true) return;
     _seenTimer?.cancel();
-    _seenTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) { if (mounted) setState(() {}); });
+    _seenTimer = Timer.periodic(const Duration(seconds: 30),
+        (_) { if (mounted) setState(() {}); });
   }
 
   @override
@@ -79,7 +79,7 @@ class _ChatBubbleState extends State<ChatBubble>
     super.dispose();
   }
 
-  // ── Drag helpers ──────────────────────────────────────────────────────
+  // ── Drag ──────────────────────────────────────────────────────────────
   void _onDragUpdate(DragUpdateDetails d) {
     if (widget.data['deleted'] == true) return;
     final delta = widget.isMe ? d.delta.dx : -d.delta.dx;
@@ -97,8 +97,8 @@ class _ChatBubbleState extends State<ChatBubble>
 
   void _onDragEnd(DragEndDetails _) {
     if (_replyTriggered && widget.data['deleted'] != true) {
-      final text = widget.data['text'] as String? ?? '';
-      widget.onReply(widget.msgId, text, widget.data['senderName'] ?? '');
+      final t = widget.data['text'] as String? ?? '';
+      widget.onReply(widget.msgId, t, widget.data['senderName'] ?? '');
     }
     final from = _dragOffset;
     _snapAnim = Tween<double>(begin: from, end: 0).animate(
@@ -107,7 +107,7 @@ class _ChatBubbleState extends State<ChatBubble>
     setState(() { _dragOffset = 0; _replyTriggered = false; });
   }
 
-  // ── Time formatters ───────────────────────────────────────────────────
+  // ── Formatters ────────────────────────────────────────────────────────
   String _fmt(Timestamp? ts) {
     if (ts == null) return '';
     final d    = ts.toDate().toLocal();
@@ -117,9 +117,8 @@ class _ChatBubbleState extends State<ChatBubble>
     return '$h:$m $ampm';
   }
 
-  // Live-updating "Seen now → Seen 2m ago → ..."
   String _seenLabel(Timestamp? seenAt) {
-    if (seenAt == null) return 'Seen';
+    if (seenAt == null) return 'Seen now';
     final diff = DateTime.now().difference(seenAt.toDate());
     if (diff.inSeconds < 60) return 'Seen now';
     if (diff.inMinutes < 60) return 'Seen ${diff.inMinutes}m ago';
@@ -147,6 +146,8 @@ class _ChatBubbleState extends State<ChatBubble>
             color: isDark ? kTextTertiary : kLightTextSub,
             borderRadius: BorderRadius.circular(2))),
         const SizedBox(height: 12),
+
+        // Emoji reactions
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
@@ -161,7 +162,9 @@ class _ChatBubbleState extends State<ChatBubble>
                     shape: BoxShape.circle),
                   child: Text(emoji,
                     style: const TextStyle(fontSize: 22))))).toList())),
+
         Divider(height: 1, color: isDark ? kDivider : kLightDivider),
+
         ListTile(
           leading: const Icon(Icons.reply_rounded, color: kAccent),
           title: const Text('Reply'),
@@ -178,10 +181,18 @@ class _ChatBubbleState extends State<ChatBubble>
             Navigator.pop(ctx);
             Clipboard.setData(ClipboardData(text: text));
           }),
+
         if (widget.isMe) ...[
           ListTile(
-            leading: const Icon(Icons.delete_outline_rounded,
-                color: kOrange),
+            leading: const Icon(Icons.edit_rounded, color: kAccent),
+            title: const Text('Edit'),
+            onTap: () {
+              Navigator.pop(ctx);
+              _editMessage(ctx, text);
+            }),
+          ListTile(
+            leading: const Icon(
+                Icons.delete_outline_rounded, color: kOrange),
             title: const Text('Delete for me',
                 style: TextStyle(color: kOrange)),
             onTap: () {
@@ -225,23 +236,17 @@ class _ChatBubbleState extends State<ChatBubble>
               leading: Icon(Icons.volume_off_rounded,
                   color: isDark ? kTextSecondary : kLightTextSub),
               title: const Text('Mute notifications'),
-              onTap: () {
-                Navigator.pop(ctx); _muteUser(ctx);
-              }),
+              onTap: () { Navigator.pop(ctx); _muteUser(ctx); }),
             ListTile(
               leading: const Icon(Icons.block_rounded, color: kRed),
               title: const Text('Block user',
                   style: TextStyle(color: kRed)),
-              onTap: () {
-                Navigator.pop(ctx); _blockUser(ctx);
-              }),
+              onTap: () { Navigator.pop(ctx); _blockUser(ctx); }),
             ListTile(
               leading: const Icon(Icons.flag_rounded, color: kOrange),
               title: const Text('Report',
                   style: TextStyle(color: kOrange)),
-              onTap: () {
-                Navigator.pop(ctx); _reportUser(ctx, text);
-              }),
+              onTap: () { Navigator.pop(ctx); _reportUser(ctx, text); }),
           ],
         ],
         const SizedBox(height: 16),
@@ -261,6 +266,75 @@ class _ChatBubbleState extends State<ChatBubble>
         .update({'reactions': reactions});
   }
 
+  // ── Edit message ─────────────────────────────────────────────────────────
+  void _editMessage(BuildContext ctx, String currentText) {
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+    final ctrl   = TextEditingController(text: currentText);
+    ctrl.selection = TextSelection(
+      baseOffset:   0,
+      extentOffset: currentText.length);
+
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: isDark ? kCard : kLightCard,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+              top: Radius.circular(kSheetRadius))),
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16, right: 16, top: 16,
+          bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: isDark ? kTextTertiary : kLightTextSub,
+              borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? kCard2 : kLightCard2,
+                borderRadius: BorderRadius.circular(14)),
+              child: TextField(
+                controller: ctrl,
+                autofocus: true,
+                maxLines: null,
+                textCapitalization: TextCapitalization.sentences,
+                style: TextStyle(
+                  color: isDark ? kTextPrimary : kLightText,
+                  fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: 'Edit message...',
+                  hintStyle: TextStyle(
+                    color: isDark ? kTextSecondary : kLightTextSub),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10))))),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () {
+                final newText = ctrl.text.trim();
+                if (newText.isEmpty || newText == currentText) {
+                  Navigator.pop(sheetCtx);
+                  return;
+                }
+                Navigator.pop(sheetCtx);
+                db.collection('chats').doc(widget.chatId)
+                    .collection('messages').doc(widget.msgId)
+                    .update({'text': newText});
+              },
+              child: Container(
+                width: 40, height: 40,
+                decoration: const BoxDecoration(
+                  color: kAccent, shape: BoxShape.circle),
+                child: const Icon(Icons.check_rounded,
+                  color: Colors.white, size: 20))),
+          ]),
+        ])));
+    ctrl.dispose;
+  }
+
   Future<void> _muteUser(BuildContext ctx) async {
     await db.collection('users').doc(widget.myUid)
         .collection('muted').doc(widget.otherUid)
@@ -275,7 +349,7 @@ class _ChatBubbleState extends State<ChatBubble>
       context: ctx,
       builder: (_) => AlertDialog(
         title: const Text('Block user?'),
-        content: const Text('They won\'t be able to message you.'),
+        content: const Text("They won't be able to message you."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false),
               child: const Text('Cancel')),
@@ -353,6 +427,9 @@ class _ChatBubbleState extends State<ChatBubble>
     if (deletedFor.contains(widget.myUid)) return const SizedBox.shrink();
     if (widget.data['unsent'] == true)      return const SizedBox.shrink();
 
+    // Detect link in the message text
+    final linkUrl = deleted ? null : extractFirstUrl(text);
+
     final reactionCounts = <String, int>{};
     for (final e in reactions.values) {
       reactionCounts[e as String] = (reactionCounts[e] ?? 0) + 1;
@@ -379,19 +456,9 @@ class _ChatBubbleState extends State<ChatBubble>
     return GestureDetector(
       onHorizontalDragUpdate: _onDragUpdate,
       onHorizontalDragEnd:    _onDragEnd,
-
-      // Single tap → toggle sent time
-      onTap: () {
-        if (ts == null) return;
-        setState(() => _showTime = !_showTime);
-      },
-
-      // Double tap → ❤️ react
+      onTap: () { if (ts != null) setState(() => _showTime = !_showTime); },
       onDoubleTap: () { if (!deleted) _addReaction('❤️'); },
-
-      // Long press → menu
       onLongPress: () => _showMenu(context),
-
       child: Padding(
         padding: EdgeInsets.only(
           top:    widget.isFirst ? 10 : 1,
@@ -411,10 +478,8 @@ class _ChatBubbleState extends State<ChatBubble>
 
                 // Swipe arrow
                 Positioned(
-                  left:  widget.isMe ? null
-                                     : (arrowOpacity > 0 ? 0 : -36),
-                  right: widget.isMe ? (arrowOpacity > 0 ? 0 : -36)
-                                     : null,
+                  left:  widget.isMe ? null : (arrowOpacity > 0 ? 0 : -36),
+                  right: widget.isMe ? (arrowOpacity > 0 ? 0 : -36) : null,
                   top: 0, bottom: 0,
                   child: Opacity(
                     opacity: arrowOpacity,
@@ -426,7 +491,7 @@ class _ChatBubbleState extends State<ChatBubble>
                       child: const Icon(Icons.reply_rounded,
                           color: kAccent, size: 16))))),
 
-                // Bubble
+                // ── Bubble ─────────────────────────────────────────
                 Transform.translate(
                   offset: Offset(offset, 0),
                   child: Container(
@@ -448,8 +513,7 @@ class _ChatBubbleState extends State<ChatBubble>
                           if (reply != null)
                             Container(
                               margin: const EdgeInsets.only(bottom: 8),
-                              padding: const EdgeInsets.fromLTRB(
-                                  10, 7, 10, 7),
+                              padding: const EdgeInsets.fromLTRB(10, 7, 10, 7),
                               decoration: BoxDecoration(
                                 color: Colors.black.withOpacity(
                                     widget.isMe ? 0.18 : 0.06),
@@ -459,8 +523,7 @@ class _ChatBubbleState extends State<ChatBubble>
                                       ? Colors.white54 : kAccent,
                                   width: 3))),
                               child: Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(reply['sender'] ?? '',
                                     style: TextStyle(
@@ -473,13 +536,13 @@ class _ChatBubbleState extends State<ChatBubble>
                                   Text(reply['text'] ?? '',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(fontSize: 12,
+                                    style: TextStyle(
+                                      fontSize: 12,
                                       color: widget.isMe
-                                          ? Colors.white54
-                                          : subtleColor)),
+                                          ? Colors.white54 : subtleColor)),
                                 ])),
 
-                          // Message text
+                          // ── Message text ──────────────────────────
                           if (deleted)
                             Text(
                               widget.isMe
@@ -500,6 +563,12 @@ class _ChatBubbleState extends State<ChatBubble>
                                 color: textColor,
                                 fontSize: 15, height: 1.35,
                                 letterSpacing: -0.1)),
+
+                          // ── Link Preview ──────────────────────────
+                          if (linkUrl != null)
+                            LinkPreviewCard(
+                              url:  linkUrl,
+                              isMe: widget.isMe),
                         ])))),
 
                 // Reaction chips
@@ -529,19 +598,17 @@ class _ChatBubbleState extends State<ChatBubble>
                                   fontSize: 12)))).toList()))),
               ]),
 
-              // ── isLast: fixed tick + seen label ─────────────────
+              // ── isLast: tick + seen ────────────────────────────────
               if (widget.isLast) ...[
-                SizedBox(
-                    height: reactionCounts.isNotEmpty ? 18.0 : 5.0),
+                SizedBox(height: reactionCounts.isNotEmpty ? 18.0 : 5.0),
                 Row(mainAxisSize: MainAxisSize.min, children: [
                   if (expiresAt != null) ...[
-                    Icon(Icons.timer_outlined,
-                        size: 10, color: subtleColor),
+                    Icon(Icons.timer_outlined, size: 10, color: subtleColor),
                     const SizedBox(width: 3),
                   ],
                   Text(_fmt(ts),
                     style: TextStyle(color: subtleColor,
-                      fontSize: 10, letterSpacing: 0.2)),
+                        fontSize: 10, letterSpacing: 0.2)),
                   if (widget.isMe) ...[
                     const SizedBox(width: 4),
                     ts == null
@@ -554,12 +621,9 @@ class _ChatBubbleState extends State<ChatBubble>
                               size: 13, color: subtleColor),
                   ],
                 ]),
-
-                // Seen label — live timer
                 if (widget.isMe && seen) ...[
                   const SizedBox(height: 3),
-                  Text(
-                    _seenLabel(seenAt),
+                  Text(_seenLabel(seenAt),
                     style: TextStyle(
                       fontSize: 11,
                       color: kAccent.withOpacity(0.85),
@@ -569,18 +633,16 @@ class _ChatBubbleState extends State<ChatBubble>
               ] else
                 const SizedBox(height: 1),
 
-              // ── Single-tap: animated time reveal ────────────────
+              // ── Tap-to-reveal time ─────────────────────────────────
               AnimatedSize(
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeOut,
                 child: _showTime
                   ? Padding(
                       padding: const EdgeInsets.only(top: 4, bottom: 2),
-                      child: Text(
-                        _fmt(ts),
+                      child: Text(_fmt(ts),
                         style: TextStyle(
-                          fontSize: 11,
-                          color: subtleColor,
+                          fontSize: 11, color: subtleColor,
                           letterSpacing: 0.1)))
                   : const SizedBox.shrink()),
 

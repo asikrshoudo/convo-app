@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import '../../core/constants.dart';
 import '../../widgets/typing_dots.dart';
 import '../../widgets/markdown_text.dart';
+import '../../widgets/link_preview.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String groupId, groupName;
@@ -116,7 +117,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     });
   }
 
-  void _showMsgMenu(BuildContext ctx, String msgId, String text, String senderName) {
+  void _showMsgMenu(BuildContext ctx, String msgId, String text, String senderName, {bool isSender = false}) {
     showModalBottomSheet(
       context: ctx,
       backgroundColor: isDark ? kCard : kLightCard,
@@ -163,6 +164,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             Navigator.pop(ctx);
             Clipboard.setData(ClipboardData(text: text));
           }),
+        if (isSender)
+          ListTile(
+            leading: const Icon(Icons.edit_rounded, color: kAccent),
+            title: const Text('Edit'),
+            onTap: () {
+              Navigator.pop(ctx);
+              _editGroupMessage(ctx, msgId, text);
+            }),
         ListTile(
           leading: const Icon(Icons.undo_rounded, color: kRed),
           title: const Text('Unsend', style: TextStyle(color: kRed)),
@@ -193,6 +202,74 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     await db.collection('groups').doc(widget.groupId)
       .collection('messages').doc(msgId)
       .update({'reactions': reactions});
+  }
+
+  // ── Edit message ──────────────────────────────────────────────────────────
+  void _editGroupMessage(BuildContext ctx, String msgId, String currentText) {
+    final isDark = Theme.of(ctx).brightness == Brightness.dark;
+    final ctrl   = TextEditingController(text: currentText);
+    ctrl.selection = TextSelection(
+      baseOffset:   0,
+      extentOffset: currentText.length);
+
+    showModalBottomSheet(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: isDark ? kCard : kLightCard,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+              top: Radius.circular(kSheetRadius))),
+      builder: (sheetCtx) => Padding(
+        padding: EdgeInsets.only(
+          left: 16, right: 16, top: 16,
+          bottom: MediaQuery.of(sheetCtx).viewInsets.bottom + 24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 36, height: 4,
+            decoration: BoxDecoration(
+              color: isDark ? kTextTertiary : kLightTextSub,
+              borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 16),
+          Row(children: [
+            Expanded(child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? kCard2 : kLightCard2,
+                borderRadius: BorderRadius.circular(14)),
+              child: TextField(
+                controller: ctrl,
+                autofocus: true,
+                maxLines: null,
+                textCapitalization: TextCapitalization.sentences,
+                style: TextStyle(
+                  color: isDark ? kTextPrimary : kLightText,
+                  fontSize: 15),
+                decoration: InputDecoration(
+                  hintText: 'Edit message...',
+                  hintStyle: TextStyle(
+                    color: isDark ? kTextSecondary : kLightTextSub),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 10))))),
+            const SizedBox(width: 10),
+            GestureDetector(
+              onTap: () {
+                final newText = ctrl.text.trim();
+                if (newText.isEmpty || newText == currentText) {
+                  Navigator.pop(sheetCtx);
+                  return;
+                }
+                Navigator.pop(sheetCtx);
+                db.collection('groups').doc(widget.groupId)
+                    .collection('messages').doc(msgId)
+                    .update({'text': newText});
+              },
+              child: Container(
+                width: 40, height: 40,
+                decoration: const BoxDecoration(
+                  color: kAccent, shape: BoxShape.circle),
+                child: const Icon(Icons.check_rounded,
+                  color: Colors.white, size: 20))),
+          ]),
+        ])));
   }
 
   // ── Time helpers ──────────────────────────────────────────────────────────
@@ -395,7 +472,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         onDoubleTap: () => _addReaction(msgs[i].id, '❤️'),
                         onLongPress: () => _showMsgMenu(
                           context, msgs[i].id, text,
-                          data['senderName'] as String? ?? ''),
+                          data['senderName'] as String? ?? '',
+                          isSender: isMe),
                         child: Padding(
                           padding: EdgeInsets.only(
                             top: isFirst ? 10 : 1, bottom: 1,
@@ -512,6 +590,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                                 fontSize: 15,
                                                 height: 1.35,
                                                 letterSpacing: -0.1)),
+
+                                          // Link Preview
+                                          if (!deleted && hasUrl(text))
+                                            LinkPreviewCard(
+                                              url:  extractFirstUrl(text)!,
+                                              isMe: isMe),
                                         ]))),
 
                                   // Reaction chips
