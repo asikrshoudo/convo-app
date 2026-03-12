@@ -403,7 +403,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 decoration: BoxDecoration(
                                   color: kAccent, shape: BoxShape.circle)),
                             ],
-                          ]))));
+                          ])))));
                 })),
             ]);
           })),
