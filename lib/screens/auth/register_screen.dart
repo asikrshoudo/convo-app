@@ -456,13 +456,13 @@ class _RegisterScreenState extends State<RegisterScreen>
     btnLabel: 'Continue', onContinue: _step0,
     children: [
       PremiumField(label: 'First Name', ctrl: _firstCtrl,
-          hint: 'Enter your first name'),
+          hint: 'Enter your first name', icon: Icons.person_outline),
       const SizedBox(height: 16),
       PremiumField(label: 'Middle Name (optional)', ctrl: _middleCtrl,
-          hint: 'Optional'),
+          hint: 'Optional', icon: Icons.person_outline),
       const SizedBox(height: 16),
       PremiumField(label: 'Last Name', ctrl: _lastCtrl,
-          hint: 'Enter your last name'),
+          hint: 'Enter your last name', icon: Icons.person_outline),
     ],
   );
 
