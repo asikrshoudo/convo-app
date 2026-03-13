@@ -83,9 +83,242 @@ class _AppVersionScreenState extends State<AppVersionScreen> {
     return Scaffold(
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
-        title: const Text('App Version'),
         backgroundColor: isDark ? kDark : kLightBg,
-        elevation: 0),
+        elevation: 0, scrolledUnderElevation: 0,
+        title: Text('App Version', style: TextStyle(
+          fontWeight: FontWeight.bold, fontSize: 20,
+          color: isDark ? kTextPrimary : kLightText))),
+      body: _loading
+        ? const Center(child: CircularProgressIndicator(
+            color: kAccent, strokeWidth: 2))
+        : SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Column(children: [
+
+              // ── App logo card ───────────────────────────────────────────
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                decoration: BoxDecoration(
+                  color: isDark ? kCard : kLightCard,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark ? kDivider : kLightDivider, width: 0.5)),
+                child: Column(children: [
+                  Container(
+                    width: 80, height: 80,
+                    decoration: BoxDecoration(
+                      color: kAccent.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: kAccent.withOpacity(0.3), width: 1.5)),
+                    child: const Icon(Icons.chat_bubble_rounded,
+                      color: kAccent, size: 38)),
+                  const SizedBox(height: 16),
+                  Text('Convo', style: TextStyle(
+                    fontSize: 24, fontWeight: FontWeight.bold,
+                    color: isDark ? kTextPrimary : kLightText,
+                    letterSpacing: -0.5)),
+                  const SizedBox(height: 4),
+                  Text('by TheKami.tech', style: TextStyle(
+                    color: isDark ? kTextSecondary : kLightTextSub,
+                    fontSize: 13)),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: kAccent.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: kAccent.withOpacity(0.3))),
+                    child: Text('v$_currentVersion installed',
+                      style: const TextStyle(
+                        color: kAccent, fontSize: 13,
+                        fontWeight: FontWeight.w700))),
+                ])),
+
+              const SizedBox(height: 16),
+
+              // ── Update status ───────────────────────────────────────────
+              if (_latestVersion.isNotEmpty) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: _hasUpdate
+                      ? kAccent.withOpacity(0.08)
+                      : const Color(0xFF34C759).withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: _hasUpdate
+                        ? kAccent.withOpacity(0.35)
+                        : const Color(0xFF34C759).withOpacity(0.3))),
+                  child: Row(children: [
+                    Container(
+                      width: 52, height: 52,
+                      decoration: BoxDecoration(
+                        color: (_hasUpdate
+                          ? kAccent : const Color(0xFF34C759)).withOpacity(0.15),
+                        shape: BoxShape.circle),
+                      child: Icon(
+                        _hasUpdate
+                          ? Icons.system_update_rounded
+                          : Icons.check_circle_rounded,
+                        color: _hasUpdate ? kAccent : const Color(0xFF34C759),
+                        size: 28)),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _hasUpdate ? 'Update Available' : 'You\'re up to date',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 15,
+                            color: _hasUpdate
+                              ? kAccent : const Color(0xFF34C759))),
+                        const SizedBox(height: 3),
+                        Text(
+                          _hasUpdate
+                            ? 'v$_currentVersion  →  v$_latestVersion'
+                            : 'v$_latestVersion is the latest',
+                          style: TextStyle(
+                            color: isDark ? kTextSecondary : kLightTextSub,
+                            fontSize: 13)),
+                      ])),
+                  ])),
+
+                // ── Changelog ───────────────────────────────────────────
+                if (_changelog.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: isDark ? kCard : kLightCard,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isDark ? kDivider : kLightDivider, width: 0.5)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(children: [
+                          Container(
+                            width: 28, height: 28,
+                            decoration: BoxDecoration(
+                              color: kAccent.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(8)),
+                            child: const Icon(Icons.auto_awesome_rounded,
+                              color: kAccent, size: 16)),
+                          const SizedBox(width: 10),
+                          Text("What's new in v$_latestVersion",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14,
+                              color: isDark ? kTextPrimary : kLightText)),
+                        ]),
+                        const SizedBox(height: 12),
+                        Text(
+                          _changelog.length > 500
+                            ? '${_changelog.substring(0, 500)}...'
+                            : _changelog,
+                          style: TextStyle(
+                            color: isDark ? kTextSecondary : kLightTextSub,
+                            fontSize: 13, height: 1.6)),
+                      ])),
+                ],
+
+                const SizedBox(height: 20),
+
+                // ── Action buttons ───────────────────────────────────────
+                if (_hasUpdate && _downloadUrl.isNotEmpty) ...[
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: kAccent, elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14))),
+                      icon: const Icon(Icons.download_rounded,
+                        color: Colors.white, size: 20),
+                      label: const Text('Download Update',
+                        style: TextStyle(color: Colors.white,
+                          fontWeight: FontWeight.bold, fontSize: 15)),
+                      onPressed: () => UpdateService.checkForUpdate(context))),
+                  const SizedBox(height: 10),
+                ],
+
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(
+                        color: isDark ? kDivider : kLightDivider),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14))),
+                    icon: Icon(Icons.open_in_new_rounded,
+                      color: isDark ? kTextSecondary : kLightTextSub, size: 18),
+                    label: Text('View Releases on GitHub',
+                      style: TextStyle(
+                        color: isDark ? kTextSecondary : kLightTextSub,
+                        fontWeight: FontWeight.w500, fontSize: 14)),
+                    onPressed: () => launchUrl(
+                      Uri.parse(_repoUrl),
+                      mode: LaunchMode.externalApplication))),
+
+                const SizedBox(height: 10),
+                Center(child: TextButton.icon(
+                  icon: const Icon(Icons.refresh_rounded,
+                    color: kAccent, size: 18),
+                  label: const Text('Check Again',
+                    style: TextStyle(color: kAccent,
+                      fontWeight: FontWeight.w600)),
+                  onPressed: _check)),
+
+              ] else ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: isDark ? kCard : kLightCard,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: isDark ? kDivider : kLightDivider, width: 0.5)),
+                  child: Row(children: [
+                    Container(
+                      width: 44, height: 44,
+                      decoration: BoxDecoration(
+                        color: kOrange.withOpacity(0.12),
+                        shape: BoxShape.circle),
+                      child: const Icon(Icons.wifi_off_rounded,
+                        color: kOrange, size: 22)),
+                    const SizedBox(width: 14),
+                    Expanded(child: Text(
+                      'Could not check for updates.\nCheck your connection.',
+                      style: TextStyle(
+                        color: isDark ? kTextSecondary : kLightTextSub,
+                        fontSize: 13, height: 1.5))),
+                  ])),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: kAccent, elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14))),
+                    icon: const Icon(Icons.refresh_rounded,
+                      color: Colors.white, size: 20),
+                    label: const Text('Retry',
+                      style: TextStyle(color: Colors.white,
+                        fontWeight: FontWeight.bold)),
+                    onPressed: _check)),
+              ],
+            ])));
+  }
+}
       body: _loading
         ? const Center(child: CircularProgressIndicator(color: kAccent, strokeWidth: 2))
         : SingleChildScrollView(

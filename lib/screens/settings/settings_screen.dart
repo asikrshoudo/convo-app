@@ -131,6 +131,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     db.collection('users').doc(_myUid).update(data);
 
   @override
+  @override
   Widget build(BuildContext context) {
     final name       = _user?['name']     as String? ?? 'User';
     final username   = _user?['username'] as String? ?? '';
@@ -145,228 +146,294 @@ class _SettingsScreenState extends State<SettingsScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? kDark : kLightBg,
         elevation: 0, scrolledUnderElevation: 0,
-        centerTitle: true,
-        title: const Text('Settings',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17))),
-      body: ListView(children: [
+        centerTitle: false,
+        title: Text('Settings', style: TextStyle(
+          fontWeight: FontWeight.bold, fontSize: 22,
+          color: isDark ? kTextPrimary : kLightText))),
+      body: ListView(
+        padding: const EdgeInsets.only(bottom: 48),
+        children: [
 
-        // ── Profile card ──────────────────────────────────────────────────
-        GestureDetector(
-          onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid))),
-          child: Container(
-            margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            padding: const EdgeInsets.all(16),
+          // ── Profile card ────────────────────────────────────────────────
+          GestureDetector(
+            onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid))),
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [kAccent.withOpacity(0.18), kAccent.withOpacity(0.06)],
+                  begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: kAccent.withOpacity(0.3))),
+              child: Row(children: [
+                Container(
+                  width: 58, height: 58,
+                  decoration: BoxDecoration(
+                    color: kAccent, shape: BoxShape.circle,
+                    boxShadow: [BoxShadow(
+                      color: kAccent.withOpacity(0.4), blurRadius: 16,
+                      offset: const Offset(0, 4))]),
+                  child: Center(child: Text(
+                    name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                    style: const TextStyle(color: Colors.white, fontSize: 24,
+                      fontWeight: FontWeight.bold)))),
+                const SizedBox(width: 16),
+                Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Flexible(child: Text(name, style: TextStyle(
+                      fontSize: 17, fontWeight: FontWeight.bold,
+                      color: isDark ? kTextPrimary : kLightText),
+                      overflow: TextOverflow.ellipsis)),
+                    if (isVerified) ...[ const SizedBox(width: 5),
+                      const Icon(Icons.verified_rounded, color: kAccent, size: 17)],
+                  ]),
+                  if (username.isNotEmpty) ...[ const SizedBox(height: 2),
+                    Text('@$username', style: TextStyle(
+                      color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13))],
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: kAccent.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8)),
+                    child: const Text('View Profile', style: TextStyle(
+                      color: kAccent, fontSize: 11, fontWeight: FontWeight.w700))),
+                ])),
+                Icon(Icons.arrow_forward_ios_rounded,
+                  color: kAccent.withOpacity(0.6), size: 14),
+              ]))),
+
+          // ── Account ──────────────────────────────────────────────────────
+          _secHeader('Account'),
+          _card([
+            _tile(Icons.person_rounded, 'Edit Profile', 'Name, bio, socials',
+              () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid)))),
+            _divider(),
+            _tile(Icons.email_rounded, 'Change Email',
+              currentEmail.isNotEmpty ? currentEmail : 'No email',
+              () => _changeEmail(context)),
+            _divider(),
+            _tile(Icons.phone_rounded, 'Primary Phone',
+              phone.isNotEmpty ? phone : 'Add phone number',
+              () => _addPhone(context, primary: true)),
+            _divider(),
+            _tile(Icons.phone_in_talk_rounded, 'Secondary Phone',
+              phone2.isNotEmpty ? phone2 : 'Add 2nd phone',
+              () => _addPhone(context, primary: false)),
+            _divider(),
+            _tile(Icons.contacts_rounded, 'Sync Contacts',
+              'Find friends from your contacts',
+              () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const ContactSyncScreen()))),
+            if (auth.currentUser?.providerData
+                .any((p) => p.providerId == 'password') == true) ...[
+              _divider(),
+              _tile(Icons.lock_rounded, 'Change Password', 'Update your password',
+                () => _changePass(context)),
+            ],
+            _divider(),
+            _tile(Icons.verified_rounded, 'Get Verified',
+              isVerified ? 'Verified ✓'
+                : (onWaitlist ? 'On waitlist' : 'Join the waitlist'),
+              () => _verify(context),
+              trailingColor: isVerified ? kAccent : null),
+          ]),
+
+          // ── Profile Mode ─────────────────────────────────────────────────
+          _secHeader('Profile Mode'),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
               color: isDark ? kCard : kLightCard,
-              borderRadius: BorderRadius.circular(kCardRadius),
-              border: Border.all(color: kAccent.withOpacity(0.25))),
-            child: Row(children: [
-              Container(
-                width: 54, height: 54,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? kDivider : kLightDivider, width: 0.5)),
+            child: Row(children: ['friend', 'follow'].map((mode) {
+              final selected = _profileMode == mode;
+              final label    = mode == 'friend' ? 'Friend Mode' : 'Follow Mode';
+              return Expanded(child: GestureDetector(
+                onTap: () {
+                  setState(() => _profileMode = mode);
+                  _update({'profileMode': mode});
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  decoration: BoxDecoration(
+                    color: selected ? kAccent : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12)),
+                  child: Center(child: Text(label, style: TextStyle(
+                    color: selected ? Colors.white
+                      : isDark ? kTextSecondary : kLightTextSub,
+                    fontWeight: FontWeight.w600, fontSize: 13))))));
+            }).toList())),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+            child: Text(
+              _profileMode == 'friend'
+                ? 'People send you friend requests to chat.'
+                : 'People follow you. Great for public profiles.',
+              style: TextStyle(
+                color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12))),
+
+          // ── Privacy ──────────────────────────────────────────────────────
+          _secHeader('Privacy'),
+          _card([
+            _switchTile(Icons.people_rounded, 'Public Friends List',
+              'Show your friends on your profile',
+              _friendsPublic, (v) {
+                setState(() => _friendsPublic = v);
+                _update({'friendsPublic': v});
+              }),
+            _divider(),
+            _tile(Icons.block_rounded, 'Blocked Users',
+              'Manage blocked accounts',
+              () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const BlockedUsersScreen()))),
+          ]),
+
+          // ── Discovery ────────────────────────────────────────────────────
+          _secHeader('Discovery'),
+          _card([
+            _switchTile(Icons.person_search_rounded, 'Account Suggestions',
+              'Let others discover your profile',
+              _suggestions, (v) {
+                setState(() => _suggestions = v);
+                _update({'suggestionsEnabled': v});
+              }),
+          ]),
+
+          // ── Preferences ──────────────────────────────────────────────────
+          _secHeader('Preferences'),
+          _card([
+            _tile(Icons.palette_rounded, 'Appearance', 'Theme settings',
+              () => _showThemeDialog(context)),
+            _divider(),
+            _tile(Icons.notifications_rounded, 'Notifications',
+              'Manage push alerts', () {}),
+          ]),
+
+          // ── About ────────────────────────────────────────────────────────
+          _secHeader('About'),
+          _card([
+            _tile(Icons.favorite_rounded, 'Powered by TheKami', 'thekami.tech',
+              () => launchUrl(Uri.parse('https://thekami.tech'),
+                mode: LaunchMode.externalApplication),
+              iconColor: kRed),
+            _divider(),
+            _tile(Icons.system_update_rounded, 'App Version', 'Check for updates',
+              () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const AppVersionScreen()))),
+          ]),
+
+          const SizedBox(height: 24),
+
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: _signOut,
+              child: Container(
+                height: 54,
                 decoration: BoxDecoration(
-                  color: kAccent, shape: BoxShape.circle,
-                  boxShadow: [BoxShadow(
-                    color: kAccent.withOpacity(0.4), blurRadius: 12)]),
-                child: Center(child: Text(
-                  name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                  style: const TextStyle(color: Colors.white, fontSize: 22,
-                    fontWeight: FontWeight.bold)))),
-              const SizedBox(width: 14),
-              Expanded(child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Flexible(child: Text(name,
-                    style: TextStyle(fontSize: 16,
-                      fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText),
-                    overflow: TextOverflow.ellipsis)),
-                  if (isVerified) ...[ const SizedBox(width: 4),
-                    const Icon(Icons.verified_rounded,
-                      color: kAccent, size: 16)],
-                ]),
-                if (username.isNotEmpty)
-                  Text('@$username',
-                    style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 13)),
-                const SizedBox(height: 2),
-                const Text('View profile',
-                  style: TextStyle(color: kAccent, fontSize: 12,
-                    fontWeight: FontWeight.w500)),
-              ])),
-              Icon(Icons.arrow_forward_ios_rounded,
-                color: isDark ? kTextSecondary : kLightTextSub, size: 14),
-            ]))),
+                  color: kRed.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: kRed.withOpacity(0.3))),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.logout_rounded, color: kRed, size: 20),
+                    SizedBox(width: 10),
+                    Text('Sign Out', style: TextStyle(
+                      color: kRed, fontWeight: FontWeight.w700, fontSize: 15)),
+                  ])))),
 
-        // ── Account ───────────────────────────────────────────────────────
-        _sec('Account'),
-        _tile(Icons.person_rounded, 'Edit Profile', 'Name, bio, socials',
-          () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => ProfileScreen(uid: _myUid)))),
-        _tile(Icons.email_rounded, 'Change Email',
-          currentEmail.isNotEmpty ? currentEmail : 'No email',
-          () => _changeEmail(context)),
-        _tile(Icons.phone_rounded, 'Primary Phone',
-          phone.isNotEmpty ? phone : 'Add phone number',
-          () => _addPhone(context, primary: true)),
-        _tile(Icons.phone_in_talk_rounded, 'Secondary Phone',
-          phone2.isNotEmpty ? phone2 : 'Add 2nd phone',
-          () => _addPhone(context, primary: false)),
-        _tile(Icons.contacts_rounded, 'Sync Contacts',
-          'Find friends from your contacts',
-          () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const ContactSyncScreen()))),
-        // Only show Change Password for email/password users (not GitHub/Google)
-        if (auth.currentUser?.providerData
-            .any((p) => p.providerId == 'password') == true)
-          _tile(Icons.lock_rounded, 'Change Password', 'Update your password',
-            () => _changePass(context)),
-        _tile(Icons.verified_rounded, 'Get Verified',
-          isVerified ? 'You are verified ✓'
-            : (onWaitlist ? 'On waitlist' : 'Join the waitlist'),
-          () => _verify(context)),
+          const SizedBox(height: 10),
 
-        // ── Profile Mode ──────────────────────────────────────────────────
-        _sec('Profile Mode'),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            color: isDark ? kCard : kLightCard, borderRadius: BorderRadius.circular(14)),
-          child: Row(children: ['friend', 'follow'].map((mode) {
-            final selected = _profileMode == mode;
-            final label    = mode == 'friend' ? 'Friend Mode' : 'Follow Mode';
-            return Expanded(child: GestureDetector(
-              onTap: () {
-                setState(() => _profileMode = mode);
-                _update({'profileMode': mode});
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: GestureDetector(
+              onTap: () => _deleteAccount(context),
+              child: Container(
+                height: 54,
                 decoration: BoxDecoration(
-                  color: selected ? kAccent : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10)),
-                child: Center(child: Text(label, style: TextStyle(
-                  color: selected ? Colors.white : isDark ? kTextSecondary : kLightTextSub,
-                  fontWeight: FontWeight.w600, fontSize: 13))))));
-          }).toList())),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            _profileMode == 'friend'
-              ? 'Others can send you friend requests and message you.'
-              : 'Others can follow you. Use for public/creator profiles.',
-            style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12))),
-
-        // ── Privacy ───────────────────────────────────────────────────────
-        _sec('Privacy'),
-        _switchTile(Icons.people_rounded, 'Public Friends List',
-          'Show your friends on your profile',
-          _friendsPublic, (v) {
-            setState(() => _friendsPublic = v);
-            _update({'friendsPublic': v});
-          }),
-        _tile(Icons.block_rounded, 'Blocked Users',
-          'Manage blocked accounts',
-          () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const BlockedUsersScreen()))),
-
-        // ── Discovery ─────────────────────────────────────────────────────
-        _sec('Discovery'),
-        _switchTile(Icons.person_search_rounded, 'Account Suggestions',
-          'Suggest your profile to others',
-          _suggestions, (v) {
-            setState(() => _suggestions = v);
-            _update({'suggestionsEnabled': v});
-          }),
-
-        // ── Preferences ───────────────────────────────────────────────────
-        _sec('Preferences'),
-        _tile(Icons.palette_rounded, 'Appearance', 'Theme and accent color',
-          () => _showThemeDialog(context)),
-        _tile(Icons.notifications_rounded, 'Notifications',
-          'Manage push alerts', () {}),
-
-        // ── About ─────────────────────────────────────────────────────────
-        _sec('About'),
-        _tile(Icons.favorite_rounded, 'Powered by TheKami', 'thekami.tech',
-          () => launchUrl(Uri.parse('https://thekami.tech'),
-            mode: LaunchMode.externalApplication)),
-        // ← App Version now opens its own screen
-        _tile(Icons.system_update_rounded, 'App Version',
-          'Check for updates',
-          () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => const AppVersionScreen()))),
-
-        const SizedBox(height: 24),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: GestureDetector(
-            onTap: _signOut,
-            child: Container(
-              height: 52,
-              decoration: BoxDecoration(
-                color: kRed.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: kRed.withOpacity(0.3))),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.logout_rounded, color: kRed, size: 20),
-                SizedBox(width: 8),
-                Text('Sign Out', style: TextStyle(color: kRed,
-                  fontWeight: FontWeight.w600, fontSize: 15)),
-              ])))),
-        const SizedBox(height: 12),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: GestureDetector(
-            onTap: () => _deleteAccount(context),
-            child: Container(
-              height: 52,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: kRed.withOpacity(0.2))),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.delete_forever_rounded, color: kRed, size: 20),
-                SizedBox(width: 8),
-                Text('Delete Account', style: TextStyle(color: kRed,
-                  fontWeight: FontWeight.w500, fontSize: 15)),
-              ])))),
-        const SizedBox(height: 40),
-      ]));
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? kDivider : kLightDivider)),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.delete_forever_rounded,
+                      color: isDark ? kTextSecondary : kLightTextSub, size: 20),
+                    const SizedBox(width: 10),
+                    Text('Delete Account', style: TextStyle(
+                      color: isDark ? kTextSecondary : kLightTextSub,
+                      fontWeight: FontWeight.w500, fontSize: 14)),
+                  ])))),
+        ]));
   }
 
-  // ─── Section header ─────────────────────────────────────────────────────
-  Widget _sec(String t) => Padding(
-    padding: const EdgeInsets.fromLTRB(16, 24, 16, 6),
+  Widget _secHeader(String t) => Padding(
+    padding: const EdgeInsets.fromLTRB(20, 24, 20, 10),
     child: Text(t.toUpperCase(), style: const TextStyle(
       color: kAccent, fontSize: 11,
-      fontWeight: FontWeight.bold, letterSpacing: 1.4)));
+      fontWeight: FontWeight.bold, letterSpacing: 1.5)));
 
-  Widget _tile(IconData icon, String title, String sub, VoidCallback onTap) =>
+  Widget _card(List<Widget> children) => Container(
+    margin: const EdgeInsets.symmetric(horizontal: 16),
+    decoration: BoxDecoration(
+      color: isDark ? kCard : kLightCard,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(
+        color: isDark ? kDivider : kLightDivider, width: 0.5)),
+    child: Column(children: children));
+
+  Widget _divider() => Divider(
+    height: 0, indent: 56,
+    color: isDark ? kDivider : kLightDivider);
+
+  Widget _tile(IconData icon, String title, String sub, VoidCallback onTap,
+      {Color? iconColor, Color? trailingColor}) =>
     ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: iconBox(icon),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+      leading: Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: (iconColor ?? kAccent).withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: iconColor ?? kAccent, size: 18)),
       title: Text(title, style: TextStyle(
-        fontWeight: FontWeight.w500, color: isDark ? kTextPrimary : kLightText, fontSize: 14)),
-      subtitle: Text(sub,
-        style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12),
+        fontWeight: FontWeight.w500, fontSize: 14,
+        color: isDark ? kTextPrimary : kLightText)),
+      subtitle: Text(sub, style: TextStyle(
+        color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12),
         maxLines: 1, overflow: TextOverflow.ellipsis),
       trailing: Icon(Icons.chevron_right_rounded,
-        color: isDark ? kTextSecondary : kLightTextSub, size: 20),
+        color: trailingColor ?? (isDark ? kTextSecondary : kLightTextSub),
+        size: 18),
       onTap: onTap);
 
   Widget _switchTile(IconData icon, String title, String sub,
       bool value, ValueChanged<bool> onChanged) =>
     ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: iconBox(icon),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+      leading: Container(
+        width: 36, height: 36,
+        decoration: BoxDecoration(
+          color: kAccent.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, color: kAccent, size: 18)),
       title: Text(title, style: TextStyle(
-        fontWeight: FontWeight.w500, color: isDark ? kTextPrimary : kLightText, fontSize: 14)),
-      subtitle: Text(sub,
-        style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
+        fontWeight: FontWeight.w500, fontSize: 14,
+        color: isDark ? kTextPrimary : kLightText)),
+      subtitle: Text(sub, style: TextStyle(
+        color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
       trailing: Switch.adaptive(
+        value: value, onChanged: onChanged, activeColor: kAccent));
+
         value: value, onChanged: onChanged, activeColor: kAccent));
 
   // ─── Email change ──────────────────────────────────────────────────────

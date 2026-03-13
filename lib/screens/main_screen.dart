@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../core/constants.dart';
 import '../core/update_service.dart';
 import 'chats/chats_screen.dart';
 import 'friends/friends_screen.dart';
-import 'profile/profile_screen.dart';
-import 'settings/settings_screen.dart';
 import 'notifications_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -156,131 +155,114 @@ class _MainScreenState extends State<MainScreen>
     ]);
   }
 
+
   @override
   Widget build(BuildContext context) {
     final uid = auth.currentUser!.uid;
-    return Scaffold(
-      backgroundColor: isDark ? kDark : kLightBg,
-      appBar: _idx == 0
-        ? AppBar(
-            backgroundColor: isDark ? kDark : kLightBg,
-            elevation: 0,
-            centerTitle: false,
-            title: Text('Convo',
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: isDark
+        ? SystemUiOverlayStyle.light.copyWith(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: isDark ? kCard : kLightCard)
+        : SystemUiOverlayStyle.dark.copyWith(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: isDark ? kCard : kLightCard),
+      child: Scaffold(
+        backgroundColor: isDark ? kDark : kLightBg,
+        body: IndexedStack(index: _idx, children: [
+          const ChatsScreen(),
+          const FriendsScreen(),
+        ]),
+        bottomNavigationBar: _buildNavBar(uid),
+      ));
+  }
+
+  Widget _buildNavBar(String uid) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: db.collection('friend_requests')
+        .where('toUid', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots(),
+      builder: (_, friendSnap) {
+        final hasFriendReq = (friendSnap.data?.docs.length ?? 0) > 0;
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? kCard : kLightCard,
+            border: Border(
+              top: BorderSide(
+                color: isDark ? kDivider : kLightDivider,
+                width: 0.5))),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _navItem(
+                    icon: Icons.chat_bubble_outline_rounded,
+                    activeIcon: Icons.chat_bubble_rounded,
+                    label: 'Chats',
+                    index: 0,
+                    badge: false),
+                  _navItem(
+                    icon: Icons.search_rounded,
+                    activeIcon: Icons.search_rounded,
+                    label: 'Find',
+                    index: 1,
+                    badge: hasFriendReq),
+                ]))));
+      });
+  }
+
+  Widget _navItem({
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required int index,
+    required bool badge,
+  }) {
+    final active = _idx == index;
+    final color  = active ? kAccent
+      : isDark ? kTextSecondary : kLightTextSub;
+
+    return GestureDetector(
+      onTap: () => setState(() => _idx = index),
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? kAccent.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(14)),
+        child: Stack(clipBehavior: Clip.none, children: [
+          Column(mainAxisSize: MainAxisSize.min, children: [
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: Icon(
+                active ? activeIcon : icon,
+                key: ValueKey(active),
+                color: color, size: 24)),
+            const SizedBox(height: 3),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 180),
               style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 24,
-                letterSpacing: -0.5,
-                color: isDark ? kTextPrimary : kLightText)),
-            actions: [
-              // Notification bell
-              StreamBuilder<QuerySnapshot>(
-                stream: db.collection('notifications')
-                  .where('uid', isEqualTo: uid)
-                  .where('read', isEqualTo: false)
-                  .snapshots(),
-                builder: (_, snap) {
-                  final count = snap.data?.docs.length ?? 0;
-                  return Stack(children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications_outlined),
-                      onPressed: () => Navigator.push(context,
-                        MaterialPageRoute(
-                            builder: (_) =>
-                                const NotificationsScreen()))),
-                    if (count > 0)
-                      Positioned(
-                        right: 8, top: 8,
-                        child: Container(
-                          width: 16, height: 16,
-                          decoration: const BoxDecoration(
-                              color: kRed, shape: BoxShape.circle),
-                          child: Center(
-                            child: Text(
-                              count > 9 ? '9+' : count.toString(),
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 9,
-                                  fontWeight:
-                                      FontWeight.bold))))),
-                  ]);
-                }),
-            ])
-        : null,
-
-      body: IndexedStack(index: _idx, children: [
-        const ChatsScreen(),
-        const FriendsScreen(),
-        ProfileScreen(uid: uid),
-        const SettingsScreen(),
-      ]),
-
-      bottomNavigationBar: StreamBuilder<QuerySnapshot>(
-        // Unread messages badge for Chats tab
-        stream: db.collection('notifications')
-          .where('uid', isEqualTo: uid)
-          .where('read', isEqualTo: false)
-          .where('data.type', whereIn: ['dm', 'group'])
-          .snapshots(),
-        builder: (_, chatSnap) {
-          final hasUnreadChat = (chatSnap.data?.docs.length ?? 0) > 0;
-          return StreamBuilder<QuerySnapshot>(
-            // Pending friend requests badge for Friends tab
-            stream: db.collection('friendRequests')
-              .where('toUid', isEqualTo: uid)
-              .where('status', isEqualTo: 'pending')
-              .snapshots(),
-            builder: (_, friendSnap) {
-              final hasFriendReq = (friendSnap.data?.docs.length ?? 0) > 0;
-              return Container(
+                color: color, fontSize: 11,
+                fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                letterSpacing: 0.2),
+              child: Text(label)),
+          ]),
+          if (badge)
+            Positioned(right: -4, top: -2,
+              child: Container(
+                width: 8, height: 8,
                 decoration: BoxDecoration(
-                  color: isDark ? kCard : kLightCard,
-                  border: Border(top: BorderSide(color: isDark ? kDivider : kLightDivider, width: 0.5)),
-                ),
-                child: NavigationBar(
-                  selectedIndex: _idx,
-                  onDestinationSelected: (i) => setState(() => _idx = i),
-                  backgroundColor: Colors.transparent,
-                  surfaceTintColor: Colors.transparent,
-                  indicatorColor: kAccent.withOpacity(0.15),
-                  height: 64,
-                  labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-                  destinations: [
-                    NavigationDestination(
-                      icon: _countBadge(
-                        Icon(Icons.chat_bubble_outline_rounded,
-                          color: isDark ? kTextSecondary : kLightTextSub),
-                        hasUnreadChat ? (chatSnap.data?.docs.length ?? 0) : 0),
-                      selectedIcon: _countBadge(
-                        const Icon(Icons.chat_bubble_rounded, color: kAccent),
-                        hasUnreadChat ? (chatSnap.data?.docs.length ?? 0) : 0),
-                      label: 'Chats'),
-                    NavigationDestination(
-                      icon: _badge(
-                        Icon(Icons.people_outline_rounded,
-                          color: isDark ? kTextSecondary : kLightTextSub),
-                        show: hasFriendReq),
-                      selectedIcon: _badge(
-                        const Icon(Icons.people_rounded, color: kAccent),
-                        show: hasFriendReq),
-                      label: 'Friends'),
-                    NavigationDestination(
-                      icon: Icon(Icons.person_outline_rounded,
-                        color: isDark ? kTextSecondary : kLightTextSub),
-                      selectedIcon: Icon(Icons.person_rounded, color: kAccent),
-                      label: 'Profile'),
-                    NavigationDestination(
-                      icon: _badge(
-                        Icon(Icons.settings_outlined,
-                          color: isDark ? kTextSecondary : kLightTextSub),
-                        show: _hasUpdate),
-                      selectedIcon: _badge(
-                        const Icon(Icons.settings_rounded, color: kAccent),
-                        show: _hasUpdate),
-                      label: 'Settings'),
-                  ]));
-            });
-        }),
-    );
+                  color: kRed,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isDark ? kDark : kLightBg,
+                    width: 1.5)))),
+        ])));
   }
 }
