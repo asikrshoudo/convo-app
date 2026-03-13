@@ -1,3 +1,9 @@
+// lib/screens/auth/login_screen.dart
+// ═══════════════════════════════════════════════════════════════════════════
+//  Convo — Premium Login Screen
+//  Supports: Email/pass · Google · GitHub · Phone OTP
+// ═══════════════════════════════════════════════════════════════════════════
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -8,557 +14,594 @@ import 'username_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
-  @override State<LoginScreen> createState() => _LoginScreenState();
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-  bool   _obscure = true, _loading = false;
-  bool   _showPhone = false, _otpSent = false;
-  final  _emailCtrl = TextEditingController();
-  final  _passCtrl  = TextEditingController();
-  final  _phoneCtrl = TextEditingController();
-  final  _otpCtrl   = TextEditingController();
+
+  // ── State ──────────────────────────────────────────────────────────────
+  bool _obscure  = true;
+  bool _loading  = false;
+  bool _usePhone = false;
+  bool _otpSent  = false;
   String? _error, _verificationId;
+
+  final _emailCtrl = TextEditingController();
+  final _passCtrl  = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _otpCtrl   = TextEditingController();
+
   late AnimationController _animCtrl;
   late Animation<double>   _fadeAnim;
+  late Animation<Offset>   _slideAnim;
 
   @override
   void initState() {
     super.initState();
     _animCtrl = AnimationController(
-      vsync: this, duration: const Duration(milliseconds: 600));
-    _fadeAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+        vsync: this, duration: const Duration(milliseconds: 700));
+    _fadeAnim  = CurvedAnimation(parent: _animCtrl, curve: Curves.easeOut);
+    _slideAnim = Tween<Offset>(
+        begin: const Offset(0, 0.06), end: Offset.zero).animate(
+        CurvedAnimation(parent: _animCtrl, curve: Curves.easeOutCubic));
     _animCtrl.forward();
   }
 
   @override
   void dispose() {
     _animCtrl.dispose();
-    _emailCtrl.dispose();
-    _passCtrl.dispose();
-    _phoneCtrl.dispose();
-    _otpCtrl.dispose();
+    _emailCtrl.dispose(); _passCtrl.dispose();
+    _phoneCtrl.dispose(); _otpCtrl.dispose();
     super.dispose();
   }
 
-  // ── Email sign-in ─────────────────────────────────────────────────────────
-  Future<void> _signIn() async {
-    if (_emailCtrl.text.isEmpty || _passCtrl.text.isEmpty) {
-      setState(() => _error = 'Fill all fields'); return;
+  // ── Auth methods ───────────────────────────────────────────────────────
+  Future<void> _emailSignIn() async {
+    if (_emailCtrl.text.trim().isEmpty || _passCtrl.text.isEmpty) {
+      _err('Please fill in all fields'); return;
     }
-    setState(() { _loading = true; _error = null; });
+    _begin();
     try {
       await auth.signInWithEmailAndPassword(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text.trim());
-      await _afterLogin();
+          email: _emailCtrl.text.trim(), password: _passCtrl.text);
+      await _done();
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = _errMsg(e.code));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+      _err(_authErr(e.code));
+    } finally { _end(); }
   }
 
-  // ── Google sign-in ────────────────────────────────────────────────────────
   Future<void> _googleSignIn() async {
-    setState(() { _loading = true; _error = null; });
+    _begin();
     try {
-      final gUser = await GoogleSignIn().signIn();
-      if (gUser == null) { setState(() => _loading = false); return; }
-      final gAuth  = await gUser.authentication;
-      final cred   = GoogleAuthProvider.credential(
-        accessToken: gAuth.accessToken, idToken: gAuth.idToken);
-      final result = await auth.signInWithCredential(cred);
-      final isNew  = await _isNewUser(result.user!);
-      if (isNew) {
-        if (mounted) Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (_) =>
-            UsernameSetupScreen(user: result.user!)));
-      } else { await _afterLogin(); }
+      final g     = await GoogleSignIn().signIn();
+      if (g == null) { _end(); return; }
+      final gAuth = await g.authentication;
+      final cred  = GoogleAuthProvider.credential(
+          accessToken: gAuth.accessToken, idToken: gAuth.idToken);
+      final res   = await auth.signInWithCredential(cred);
+      await _handleOAuth(res.user!);
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = _errMsg(e.code));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+      _err(_authErr(e.code));
+    } finally { _end(); }
   }
 
-  // ── GitHub sign-in ────────────────────────────────────────────────────────
   Future<void> _githubSignIn() async {
-    setState(() { _loading = true; _error = null; });
+    _begin();
     try {
-      final result = await auth.signInWithProvider(GithubAuthProvider());
-      final isNew  = await _isNewUser(result.user!);
-      if (isNew) {
-        if (mounted) Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (_) =>
-            UsernameSetupScreen(user: result.user!)));
-      } else { await _afterLogin(); }
+      final res = await auth.signInWithProvider(GithubAuthProvider());
+      await _handleOAuth(res.user!);
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = _errMsg(e.code));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+      _err(_authErr(e.code));
+    } finally { _end(); }
   }
 
-  // ── Phone OTP ─────────────────────────────────────────────────────────────
   Future<void> _sendOtp() async {
-    if (_phoneCtrl.text.isEmpty) {
-      setState(() => _error = 'Enter phone number'); return;
+    if (_phoneCtrl.text.trim().isEmpty) {
+      _err('Enter your phone number'); return;
     }
-    setState(() { _loading = true; _error = null; });
+    _begin();
     await auth.verifyPhoneNumber(
       phoneNumber: _phoneCtrl.text.trim(),
       verificationCompleted: (cred) async {
-        final r    = await auth.signInWithCredential(cred);
-        final isNew = await _isNewUser(r.user!);
-        if (isNew) {
-          if (mounted) Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (_) =>
-              UsernameSetupScreen(user: r.user!)));
-        } else { await _afterLogin(); }
+        final r = await auth.signInWithCredential(cred);
+        await _handleOAuth(r.user!);
       },
-      verificationFailed: (e) =>
-        setState(() { _error = _errMsg(e.code); _loading = false; }),
-      codeSent: (vId, _) =>
-        setState(() { _verificationId = vId; _otpSent = true; _loading = false; }),
-      codeAutoRetrievalTimeout: (_) {});
+      verificationFailed: (e) {
+        _err(_authErr(e.code)); _end();
+      },
+      codeSent: (vId, _) {
+        setState(() { _verificationId = vId; _otpSent = true; });
+        _end();
+      },
+      codeAutoRetrievalTimeout: (_) {},
+    );
   }
 
   Future<void> _verifyOtp() async {
     if (_otpCtrl.text.isEmpty || _verificationId == null) return;
-    setState(() { _loading = true; _error = null; });
+    _begin();
     try {
       final cred = PhoneAuthProvider.credential(
-        verificationId: _verificationId!, smsCode: _otpCtrl.text.trim());
-      final r    = await auth.signInWithCredential(cred);
-      final isNew = await _isNewUser(r.user!);
-      if (isNew) {
-        if (mounted) Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (_) =>
-            UsernameSetupScreen(user: r.user!)));
-      } else { await _afterLogin(); }
+          verificationId: _verificationId!, smsCode: _otpCtrl.text.trim());
+      final r = await auth.signInWithCredential(cred);
+      await _handleOAuth(r.user!);
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = _errMsg(e.code));
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
+      _err(_authErr(e.code));
+    } finally { _end(); }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  String _errMsg(String code) {
-    switch (code) {
-      case 'user-not-found':    return 'No account with this email.';
-      case 'wrong-password':    return 'Wrong password.';
-      case 'invalid-credential':return 'Invalid email or password.';
-      case 'invalid-email':     return 'Invalid email address.';
-      case 'too-many-requests': return 'Too many attempts. Try later.';
-      default:                  return 'Something went wrong.';
-    }
-  }
-
-  Future<bool> _isNewUser(User user) async {
+  Future<void> _handleOAuth(User user) async {
     final doc = await db.collection('users').doc(user.uid).get();
-    return !doc.exists;
+    if (!doc.exists && mounted) {
+      Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (_) => UsernameSetupScreen(user: user)));
+    } else {
+      await _done();
+    }
   }
 
-  Future<void> _afterLogin() async {
+  Future<void> _done() async {
     final uid = auth.currentUser?.uid;
     if (uid != null) {
       await db.collection('users').doc(uid).update({'isOnline': true});
     }
     if (mounted) Navigator.pushReplacement(
-      context, MaterialPageRoute(builder: (_) => const MainScreen()));
+        context, MaterialPageRoute(builder: (_) => const MainScreen()));
   }
 
-  void _forgotPass() {
-    final c = TextEditingController(text: _emailCtrl.text);
-    showDialog(context: context, builder: (_) => AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Text('Reset Password',
-        style: TextStyle(fontWeight: FontWeight.bold)),
-      content: TextField(
-        controller: c,
-        decoration: InputDecoration(
-          hintText: 'Your email address',
-          prefixIcon: const Icon(Icons.email_outlined),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: kGreen)))),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel')),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: kGreen,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10))),
-          onPressed: () async {
-            if (c.text.isNotEmpty) {
-              await auth.sendPasswordResetEmail(email: c.text.trim());
-              if (context.mounted) {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('Reset link sent to your email'),
-                  backgroundColor: kGreen));
-              }
-            }
-          },
-          child: const Text('Send', style: TextStyle(color: Colors.white))),
-      ]));
+  void _begin()       { if (mounted) setState(() { _loading = true;  _error = null; }); }
+  void _end()         { if (mounted) setState(() => _loading = false); }
+  void _err(String m) { if (mounted) setState(() { _error = m; _loading = false; }); }
+
+  String _authErr(String code) => switch (code) {
+    'user-not-found'     => 'No account found with this email.',
+    'wrong-password'     => 'Incorrect password.',
+    'invalid-credential' => 'Invalid email or password.',
+    'invalid-email'      => 'Invalid email address.',
+    'too-many-requests'  => 'Too many attempts. Please try again later.',
+    _                    => 'Something went wrong. Please try again.',
+  };
+
+  void _forgotPassword() {
+    final ctrl = TextEditingController(text: _emailCtrl.text);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: kCard,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+              top: Radius.circular(kSheetRadius))),
+      builder: (_) => Padding(
+        padding: EdgeInsets.only(
+            left: 24, right: 24, top: 24,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 32),
+        child: Column(mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(width: 36, height: 4,
+              decoration: BoxDecoration(color: kTextTertiary,
+                  borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          const Text('Reset password', style: TextStyle(
+              fontSize: 20, fontWeight: FontWeight.w700, color: kTextPrimary)),
+          const SizedBox(height: 6),
+          const Text('Enter your email to receive a reset link.',
+              style: TextStyle(color: kTextSecondary, fontSize: 13)),
+          const SizedBox(height: 20),
+          _inputField(ctrl: ctrl, hint: 'Email address',
+              icon: Icons.email_outlined, type: TextInputType.emailAddress),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity, height: 50,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: kAccent, elevation: 0,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12))),
+              onPressed: () async {
+                if (ctrl.text.isNotEmpty) {
+                  await auth.sendPasswordResetEmail(email: ctrl.text.trim());
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Reset link sent to your email'),
+                          backgroundColor: kAccent,
+                          behavior: SnackBarBehavior.floating));
+                  }
+                }
+              },
+              child: const Text('Send Reset Link',
+                  style: TextStyle(color: Colors.white,
+                      fontWeight: FontWeight.w600)),
+            ),
+          ),
+        ]),
+      ),
+    );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ═════════════════════════════════════════════════════════════════════
+  // BUILD
+  // ═════════════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final size   = MediaQuery.of(context).size;
-
     return Scaffold(
+      backgroundColor: kDark,
       resizeToAvoidBottomInset: true,
-      backgroundColor: isDark ? kDark : Colors.white,
-      body: FadeTransition(
-        opacity: _fadeAnim,
-        child: SingleChildScrollView(
-          child: Column(children: [
-            // ── Header with gradient ─────────────────────────────────────
-            Container(
-              width: double.infinity,
-              height: size.height * 0.32,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  colors: [
-                    kGreen.withOpacity(isDark ? 0.3 : 0.9),
-                    kGreen.withOpacity(isDark ? 0.1 : 0.5),
-                    isDark ? kDark : Colors.white,
-                  ],
-                  stops: const [0.0, 0.6, 1.0])),
-              child: SafeArea(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Logo circle
-                    Container(
-                      width: 72, height: 72,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.3), width: 2)),
-                      child: const Center(
-                        child: Text('C',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900)))),
-                    const SizedBox(height: 12),
-                    const Text('Convo',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 2)),
-                    const SizedBox(height: 4),
-                    Text('Connect with everyone',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 13)),
-                  ]))),
-
-            // ── Form area ────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnim,
+          child: SlideTransition(
+            position: _slideAnim,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  crossAxisAlignment: CrossAxisAlignment.start, children: [
 
-                Text(_showPhone ? 'Sign in with Phone' : 'Welcome back',
+                const SizedBox(height: 52),
+
+                // ── Brand ──────────────────────────────────────────────
+                _brand(),
+                const SizedBox(height: 48),
+
+                // ── Mode title ─────────────────────────────────────────
+                Text(
+                  _usePhone ? 'Sign in with phone' : 'Welcome back',
                   style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text(_showPhone
-                  ? 'Enter your phone number to continue'
-                  : 'Sign in to your account',
-                  style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-                const SizedBox(height: 20),
+                      fontSize: 28, fontWeight: FontWeight.w700,
+                      color: kTextPrimary, letterSpacing: -0.5, height: 1.2),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _usePhone
+                      ? 'Enter your phone number to continue'
+                      : 'Sign in to your account',
+                  style: const TextStyle(
+                      fontSize: 14, color: kTextSecondary, height: 1.5),
+                ),
+                const SizedBox(height: 28),
 
-                // Error
+                // ── Error ──────────────────────────────────────────────
                 if (_error != null) ...[
-                  _errorBox(_error!),
-                  const SizedBox(height: 12),
+                  _errorCard(_error!),
+                  const SizedBox(height: 16),
                 ],
 
-                // ── Email/password fields ─────────────────────────────
-                if (!_showPhone) ...[
+                // ── Email form ─────────────────────────────────────────
+                if (!_usePhone) ...[
                   _inputField(
-                    hint: 'Email address',
+                    ctrl: _emailCtrl, hint: 'Email address',
                     icon: Icons.email_outlined,
-                    ctrl: _emailCtrl,
-                    isDark: isDark,
-                    type: TextInputType.emailAddress),
+                    type: TextInputType.emailAddress,
+                  ),
                   const SizedBox(height: 12),
-                  _passField(),
+                  _inputField(
+                    ctrl: _passCtrl, hint: 'Password',
+                    icon: Icons.lock_outline_rounded,
+                    obscure: _obscure,
+                    suffix: IconButton(
+                      icon: Icon(
+                          _obscure ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 20, color: kTextSecondary),
+                      onPressed: () => setState(() => _obscure = !_obscure),
+                    ),
+                  ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: _forgotPass,
+                      onPressed: _forgotPassword,
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 4, horizontal: 0)),
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 8, horizontal: 0)),
                       child: const Text('Forgot password?',
-                        style: TextStyle(
-                          color: kGreen, fontSize: 13)))),
-                  const SizedBox(height: 4),
+                          style: TextStyle(color: kAccent, fontSize: 13)),
+                    ),
+                  ),
                   _primaryBtn(
-                    label: 'Sign In',
-                    onTap: _loading ? null : _signIn,
-                    loading: _loading),
+                      label: 'Sign In',
+                      onTap: _loading ? null : _emailSignIn),
                 ],
 
-                // ── Phone OTP ─────────────────────────────────────────
-                if (_showPhone && !_otpSent) ...[
+                // ── Phone form ─────────────────────────────────────────
+                if (_usePhone && !_otpSent) ...[
                   _inputField(
-                    hint: '+880 1XXXXXXXXX',
+                    ctrl: _phoneCtrl, hint: '+880 1XXXXXXXXX',
                     icon: Icons.phone_outlined,
-                    ctrl: _phoneCtrl,
-                    isDark: isDark,
-                    type: TextInputType.phone),
+                    type: TextInputType.phone,
+                  ),
                   const SizedBox(height: 16),
                   _primaryBtn(
-                    label: 'Send OTP',
-                    onTap: _loading ? null : _sendOtp,
-                    loading: _loading),
+                      label: 'Send OTP',
+                      onTap: _loading ? null : _sendOtp),
                 ],
 
-                if (_showPhone && _otpSent) ...[
-                  // OTP sent info
+                if (_usePhone && _otpSent) ...[
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: kGreen.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(12)),
+                      color: kAccent.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: kAccent.withOpacity(0.2)),
+                    ),
                     child: Row(children: [
-                      const Icon(Icons.sms_rounded, color: kGreen, size: 20),
+                      const Icon(Icons.sms_rounded, color: kAccent, size: 18),
                       const SizedBox(width: 10),
-                      Expanded(child: Text(
-                        'OTP sent to ${_phoneCtrl.text}',
-                        style: const TextStyle(
-                          color: kGreen, fontSize: 13))),
-                    ])),
+                      Expanded(child: Text('Code sent to ${_phoneCtrl.text}',
+                          style: const TextStyle(
+                              color: kAccent, fontSize: 13))),
+                    ]),
+                  ),
                   const SizedBox(height: 12),
                   _inputField(
-                    hint: '6-digit OTP',
-                    icon: Icons.lock_outline,
-                    ctrl: _otpCtrl,
-                    isDark: isDark,
-                    type: TextInputType.number),
+                    ctrl: _otpCtrl, hint: '6-digit OTP',
+                    icon: Icons.pin_outlined,
+                    type: TextInputType.number,
+                  ),
                   const SizedBox(height: 16),
                   _primaryBtn(
-                    label: 'Verify & Sign In',
-                    onTap: _loading ? null : _verifyOtp,
-                    loading: _loading),
-                  const SizedBox(height: 8),
+                      label: 'Verify & Sign In',
+                      onTap: _loading ? null : _verifyOtp),
                   Center(child: TextButton(
                     onPressed: () => setState(() {
                       _otpSent = false; _verificationId = null;
                     }),
                     child: const Text('Resend OTP',
-                      style: TextStyle(color: kGreen)))),
+                        style: TextStyle(color: kAccent, fontSize: 13)),
+                  )),
                 ],
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
 
-                // ── Toggle phone/email ────────────────────────────────
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: kGreen),
-                    minimumSize: const Size(double.infinity, 50),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14))),
-                  icon: Icon(
-                    _showPhone ? Icons.email_outlined : Icons.phone_outlined,
-                    color: kGreen, size: 18),
-                  label: Text(
-                    _showPhone ? 'Use Email Instead' : 'Continue with Phone',
-                    style: const TextStyle(
-                      color: kGreen, fontWeight: FontWeight.w600,
-                      fontSize: 14)),
-                  onPressed: () => setState(() {
-                    _showPhone = !_showPhone;
+                // ── Toggle phone/email ─────────────────────────────────
+                _ghostBtn(
+                  icon: _usePhone
+                      ? Icons.email_outlined : Icons.phone_outlined,
+                  label: _usePhone
+                      ? 'Use email instead' : 'Continue with phone',
+                  onTap: () => setState(() {
+                    _usePhone = !_usePhone;
                     _error = null; _otpSent = false;
-                  })),
+                  }),
+                ),
 
-                // ── Divider ───────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20),
-                  child: Row(children: [
-                    Expanded(child: Divider(
-                      color: isDark ? Colors.white12 : Colors.grey.shade300)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: Text('or continue with',
-                        style: TextStyle(
-                          color: Colors.grey[500], fontSize: 12))),
-                    Expanded(child: Divider(
-                      color: isDark ? Colors.white12 : Colors.grey.shade300)),
-                  ])),
+                // ── Divider ────────────────────────────────────────────
+                _orDivider(),
 
-                // ── OAuth buttons ─────────────────────────────────────
+                // ── OAuth buttons ──────────────────────────────────────
                 Row(children: [
                   Expanded(child: _oauthBtn(
                     icon: Icons.g_mobiledata_rounded,
                     iconColor: const Color(0xFFDB4437),
                     label: 'Google',
-                    isDark: isDark,
-                    onTap: _loading ? null : _googleSignIn)),
+                    onTap: _loading ? null : _googleSignIn,
+                  )),
                   const SizedBox(width: 12),
                   Expanded(child: _oauthBtn(
                     icon: Icons.code_rounded,
-                    iconColor: isDark ? Colors.white : Colors.black87,
+                    iconColor: kTextPrimary,
                     label: 'GitHub',
-                    isDark: isDark,
-                    onTap: _loading ? null : _githubSignIn)),
+                    onTap: _loading ? null : _githubSignIn,
+                  )),
                 ]),
 
-                // ── Register link ─────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.only(top: 28, bottom: 8),
-                  child: Row(
+                // ── Register link ──────────────────────────────────────
+                const SizedBox(height: 36),
+                Center(child: Row(
                     mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Text("Don't have an account? ",
-                      style: TextStyle(
-                        color: Colors.grey[500], fontSize: 14)),
-                    GestureDetector(
-                      onTap: () => Navigator.push(context,
+                  const Text("Don't have an account?  ",
+                      style: TextStyle(color: kTextSecondary, fontSize: 14)),
+                  GestureDetector(
+                    onTap: () => Navigator.push(context,
                         MaterialPageRoute(
-                          builder: (_) => const RegisterScreen())),
-                      child: const Text('Create account',
+                            builder: (_) => const RegisterScreen())),
+                    child: const Text('Create account',
                         style: TextStyle(
-                          color: kGreen,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14))),
-                  ])),
-              ])),
-          ]))));
+                            color: kAccent,
+                            fontWeight: FontWeight.w700, fontSize: 14)),
+                  ),
+                ])),
+                const SizedBox(height: 40),
+              ]),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  // ── Widget helpers ────────────────────────────────────────────────────────
+  // ── Brand widget ───────────────────────────────────────────────────────
+  Widget _brand() => Row(children: [
+    Container(
+      width: 42, height: 42,
+      decoration: BoxDecoration(
+        color: kAccent.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: kAccent.withOpacity(0.3)),
+      ),
+      child: const Center(
+        child: Text('C', style: TextStyle(
+            color: kAccent, fontSize: 22, fontWeight: FontWeight.w900)),
+      ),
+    ),
+    const SizedBox(width: 12),
+    const Text('Convo', style: TextStyle(
+        color: kTextPrimary, fontSize: 22,
+        fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+  ]);
+
+  // ── Input field ────────────────────────────────────────────────────────
   Widget _inputField({
+    required TextEditingController ctrl,
     required String hint,
     required IconData icon,
-    required TextEditingController ctrl,
-    required bool isDark,
     TextInputType? type,
+    bool obscure = false,
+    Widget? suffix,
   }) {
-    final bg = isDark ? kCard : Colors.grey.shade100;
-    return Container(
-      decoration: BoxDecoration(
-        color: bg, borderRadius: BorderRadius.circular(14)),
-      child: TextField(
-        controller: ctrl,
-        keyboardType: type,
-        style: TextStyle(
-          color: isDark ? Colors.white : Colors.black87, fontSize: 15),
-        decoration: InputDecoration(
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey[500]),
-          prefixIcon: Icon(icon, color: Colors.grey[500], size: 20),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none),
-          filled: true,
-          fillColor: Colors.transparent,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16))));
+    return _FocusField(
+      ctrl: ctrl, hint: hint, icon: icon,
+      type: type, obscure: obscure, suffix: suffix,
+    );
   }
 
-  Widget _passField() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bg     = isDark ? kCard : Colors.grey.shade100;
-    return Container(
-      decoration: BoxDecoration(
-        color: bg, borderRadius: BorderRadius.circular(14)),
-      child: TextField(
-        controller: _passCtrl,
-        obscureText: _obscure,
-        style: TextStyle(
-          color: isDark ? Colors.white : Colors.black87, fontSize: 15),
-        onSubmitted: (_) => _signIn(),
-        decoration: InputDecoration(
-          hintText: 'Password',
-          hintStyle: TextStyle(color: Colors.grey[500]),
-          prefixIcon: Icon(Icons.lock_outline, color: Colors.grey[500], size: 20),
-          suffixIcon: IconButton(
-            icon: Icon(
-              _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-              color: Colors.grey[500], size: 20),
-            onPressed: () => setState(() => _obscure = !_obscure)),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-            borderSide: BorderSide.none),
-          filled: true,
-          fillColor: Colors.transparent,
-          contentPadding: const EdgeInsets.symmetric(vertical: 16))));
-  }
+  Widget _primaryBtn({required String label, required VoidCallback? onTap}) =>
+      SizedBox(
+        width: double.infinity, height: 54,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: kAccent, elevation: 0,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+          ),
+          onPressed: onTap,
+          child: _loading
+              ? const SizedBox(width: 22, height: 22,
+              child: CircularProgressIndicator(
+                  color: Colors.white, strokeWidth: 2.5))
+              : Text(label, style: const TextStyle(
+              color: Colors.white, fontSize: 16,
+              fontWeight: FontWeight.w600)),
+        ),
+      );
 
-  Widget _primaryBtn({
+  Widget _ghostBtn({
+    required IconData icon,
     required String label,
     required VoidCallback? onTap,
-    bool loading = false,
-  }) => SizedBox(
-    width: double.infinity, height: 54,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: kGreen,
-        elevation: 0,
-        shadowColor: kGreen.withOpacity(0.4),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14))),
-      onPressed: onTap,
-      child: loading
-        ? const SizedBox(width: 22, height: 22,
-            child: CircularProgressIndicator(
-              color: Colors.white, strokeWidth: 2.5))
-        : Text(label, style: const TextStyle(
-            color: Colors.white,
-            fontSize: 16, fontWeight: FontWeight.bold))));
+  }) =>
+      SizedBox(
+        width: double.infinity, height: 50,
+        child: OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            side: BorderSide(color: kDivider),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14)),
+          ),
+          icon: Icon(icon, color: kTextSecondary, size: 18),
+          label: Text(label, style: const TextStyle(
+              color: kTextSecondary, fontSize: 14,
+              fontWeight: FontWeight.w500)),
+          onPressed: onTap,
+        ),
+      );
 
   Widget _oauthBtn({
     required IconData icon,
     required Color iconColor,
     required String label,
-    required bool isDark,
     required VoidCallback? onTap,
-  }) => SizedBox(
-    height: 52,
-    child: ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: isDark ? kCard : Colors.grey.shade100,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: BorderSide(
-            color: isDark ? Colors.white12 : Colors.grey.shade300))),
-      onPressed: onTap,
-      child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-        Icon(icon, color: iconColor, size: 24),
-        const SizedBox(width: 8),
-        Text(label, style: TextStyle(
-          color: isDark ? Colors.white : Colors.black87,
-          fontSize: 14, fontWeight: FontWeight.w600)),
-      ])));
+  }) =>
+      SizedBox(
+        height: 52,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: kCard, elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+              side: BorderSide(color: kDivider),
+            ),
+          ),
+          onPressed: onTap,
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 8),
+            Text(label, style: const TextStyle(
+                color: kTextPrimary, fontSize: 14,
+                fontWeight: FontWeight.w600)),
+          ]),
+        ),
+      );
 
-  Widget _errorBox(String msg) => Container(
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: Colors.red.withOpacity(0.08),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.red.withOpacity(0.3))),
+  Widget _orDivider() => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 22),
     child: Row(children: [
-      const Icon(Icons.error_outline_rounded, color: Colors.red, size: 18),
+      Expanded(child: Container(height: 1, color: kDivider)),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: const Text('or', style: TextStyle(
+            color: kTextTertiary, fontSize: 12, fontWeight: FontWeight.w500)),
+      ),
+      Expanded(child: Container(height: 1, color: kDivider)),
+    ]),
+  );
+
+  Widget _errorCard(String msg) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: kRed.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: kRed.withOpacity(0.3)),
+    ),
+    child: Row(children: [
+      const Icon(Icons.error_outline_rounded, color: kRed, size: 16),
       const SizedBox(width: 8),
       Expanded(child: Text(msg,
-        style: const TextStyle(color: Colors.red, fontSize: 13))),
-    ]));
+          style: const TextStyle(color: kRed, fontSize: 13))),
+    ]),
+  );
+}
+
+// ── Focus-aware animated input ─────────────────────────────────────────────
+class _FocusField extends StatefulWidget {
+  final TextEditingController ctrl;
+  final String hint;
+  final IconData icon;
+  final TextInputType? type;
+  final bool obscure;
+  final Widget? suffix;
+
+  const _FocusField({
+    required this.ctrl, required this.hint, required this.icon,
+    this.type, this.obscure = false, this.suffix,
+  });
+
+  @override
+  State<_FocusField> createState() => _FocusFieldState();
+}
+
+class _FocusFieldState extends State<_FocusField> {
+  late final FocusNode _fn;
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fn = FocusNode()..addListener(() {
+      if (mounted) setState(() => _focused = _fn.hasFocus);
+    });
+  }
+
+  @override
+  void dispose() { _fn.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) => AnimatedContainer(
+    duration: const Duration(milliseconds: 180),
+    decoration: BoxDecoration(
+      color: kCard,
+      borderRadius: BorderRadius.circular(14),
+      border: Border.all(
+        color: _focused ? kAccent.withOpacity(0.7) : kDivider,
+        width: _focused ? 1.5 : 1,
+      ),
+    ),
+    child: TextField(
+      controller: widget.ctrl,
+      focusNode: _fn,
+      obscureText: widget.obscure,
+      keyboardType: widget.type,
+      style: const TextStyle(color: kTextPrimary, fontSize: 15),
+      decoration: InputDecoration(
+        hintText: widget.hint,
+        hintStyle: const TextStyle(color: kTextSecondary, fontSize: 15),
+        prefixIcon: Icon(widget.icon, color: kTextSecondary, size: 20),
+        suffixIcon: widget.suffix,
+        border: InputBorder.none,
+        contentPadding: const EdgeInsets.symmetric(vertical: 16),
+      ),
+    ),
+  );
 }
