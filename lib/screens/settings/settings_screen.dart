@@ -188,7 +188,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: isDark ? kTextPrimary : kLightText),
                       overflow: TextOverflow.ellipsis)),
                     if (isVerified) ...[ const SizedBox(width: 5),
-                      const Icon(Icons.verified_rounded, color: kAccent, size: 17)],
+                      Icon(Icons.verified_rounded, color: kAccent, size: 17)],
                   ]),
                   if (username.isNotEmpty) ...[ const SizedBox(height: 2),
                     Text('@$username', style: TextStyle(
@@ -199,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     decoration: BoxDecoration(
                       color: kAccent.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(8)),
-                    child: const Text('View Profile', style: TextStyle(
+                    child: Text('View Profile', style: TextStyle(
                       color: kAccent, fontSize: 11, fontWeight: FontWeight.w700))),
                 ])),
                 Icon(Icons.arrow_forward_ios_rounded,
@@ -434,8 +434,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       trailing: Switch.adaptive(
         value: value, onChanged: onChanged, activeColor: kAccent));
 
-        value: value, onChanged: onChanged, activeColor: kAccent));
-
   // ─── Email change ──────────────────────────────────────────────────────
   void _changeEmail(BuildContext context) {
 
@@ -501,7 +499,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: kAccent.withOpacity(0.3))),
                 child: Row(children: [
-                  const Icon(Icons.mail_outline_rounded, color: kAccent),
+                  Icon(Icons.mail_outline_rounded, color: kAccent),
                   const SizedBox(width: 12),
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -524,13 +522,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   });
                   if (ctx.mounted) {
                     Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                       content: Text('Email updated!'),
                       backgroundColor: kAccent));
                   }
                 } else {
                   if (ctx.mounted) ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Not verified yet.'),
+                    SnackBar(content: Text('Not verified yet.'),
                       backgroundColor: kOrange));
                 }
               }),
@@ -620,7 +618,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             width: 64, height: 64,
             decoration: BoxDecoration(
               color: kAccent.withOpacity(0.15), shape: BoxShape.circle),
-            child: const Icon(Icons.verified_rounded, color: kAccent, size: 36)),
+            child: Icon(Icons.verified_rounded, color: kAccent, size: 36)),
           const SizedBox(height: 16),
           Text(verified ? 'You are Verified!' : 'Get Verified',
             style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold,
@@ -643,7 +641,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'joinedAt': FieldValue.serverTimestamp()});
               if (mounted) {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                   content: Text('Added to waitlist!'),
                   backgroundColor: kAccent));
                 _load();
@@ -672,7 +670,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Center(child: Text('Appearance', style: TextStyle(
               fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? kTextPrimary : kLightText))),
             const SizedBox(height: 24),
-            const Text('THEME', style: TextStyle(color: kAccent, fontSize: 11,
+            Text('THEME', style: TextStyle(color: kAccent, fontSize: 11,
               fontWeight: FontWeight.bold, letterSpacing: 1.4)),
             const SizedBox(height: 10),
             Row(children: [
@@ -737,7 +735,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           borderSide: BorderSide.none),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: kAccent))));
+          borderSide: BorderSide(color: kAccent))));
 
   Widget _actionButton(String label, VoidCallback onTap) =>
     SizedBox(width: double.infinity,
