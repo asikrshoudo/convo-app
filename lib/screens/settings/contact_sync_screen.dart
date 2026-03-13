@@ -5,6 +5,24 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/constants.dart';
 import '../profile/profile_screen.dart';
 
+class _ContactResult {
+  final String uid;
+  final String name;
+  final String username;
+  final String avatar;
+  final String contactName;
+  final bool isOnline;
+
+  const _ContactResult({
+    required this.uid,
+    required this.name,
+    required this.username,
+    required this.avatar,
+    required this.contactName,
+    required this.isOnline,
+  });
+}
+
 class ContactSyncScreen extends StatefulWidget {
   const ContactSyncScreen({super.key});
   @override State<ContactSyncScreen> createState() => _ContactSyncScreenState();
