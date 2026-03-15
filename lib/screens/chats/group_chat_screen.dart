@@ -409,7 +409,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
             return ListView.builder(
               controller: _scrollCtrl,
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 110),
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 90),
               itemCount: msgs.length,
               itemBuilder: (_, i) {
                 final data    = msgs[i].data() as Map<String, dynamic>;
@@ -450,12 +450,12 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     isMe ? (isLast ? 5 : 20) : 20),
                 );
 
+                // Hide deleted messages completely
+                if (deleted) return const SizedBox.shrink();
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Skip deleted messages entirely
-                    if (deleted) return const SizedBox.shrink();
-
                     // ── Instagram-style time divider ──────────────────────
                     if (showTimeDivider) _timeDivider(_fmt(ts)),
 
