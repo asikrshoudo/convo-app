@@ -33,7 +33,7 @@ if (keyPropertiesFile.exists()) {
 
 android {
     namespace "com.thekami.convo"
-    compileSdk 34
+    compileSdk 35
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

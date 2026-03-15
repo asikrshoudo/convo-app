@@ -926,7 +926,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ])),          // Row (pill contents)
             ),                  // Container (pill)
           ]),                   // Column (reply + pill)
-        ),                      // Padding
-      ]));                      // Positioned + Stack + Scaffold
+        ),                      // Padding + Positioned
+      ]));                      // Stack + Scaffold
   }
 }
