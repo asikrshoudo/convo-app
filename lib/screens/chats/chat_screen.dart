@@ -1,10 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
 import '../../core/active_status.dart';
+import '../../core/chat_theme.dart';
 import '../../widgets/chat_bubble.dart';
 import '../../widgets/typing_dots.dart';
 import '../profile/profile_screen.dart';
@@ -41,9 +45,14 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isFriend      = false;
   bool _statusLoaded  = false;
   bool _sendAnimating = false;
+  bool _hasText       = false; // tracks if input has text for Instagram-style morph
 
   // Track which message IDs have already been shown — only NEW ones animate
   final Set<String> _shownMsgIds = {};
+
+  // ── Chat theme ────────────────────────────────────────────────────────────
+  ChatThemeData _theme     = kChatThemes.first; // default
+  String?       _customBgPath;                  // user-picked local photo path
 
   static const _notifyUrl = 'https://convo-notify.onrender.com/notify/dm';
 
@@ -62,6 +71,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _markMessagesSeenSafe();
     _loadDisappearSetting();
     _loadRelationshipStatus();
+    _loadChatTheme();
     _msgCtrl.addListener(_onTyping);
   }
 
@@ -110,7 +120,47 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  // ── Theme helpers ─────────────────────────────────────────────────────────
+  Future<void> _loadChatTheme() async {
+    try {
+      final doc = await db
+          .collection('users').doc(_myUid)
+          .collection('chatThemes').doc(widget.chatId).get();
+      final themeId = (doc.data() as Map?)?['themeId'] as String?;
+      final prefs   = await SharedPreferences.getInstance();
+      final bgPath  = prefs.getString('chat_bg_${widget.chatId}');
+      if (mounted) setState(() {
+        _theme        = themeById(themeId);
+        _customBgPath = bgPath;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _saveChatTheme(String themeId) async {
+    setState(() => _theme = themeById(themeId));
+    await db.collection('users').doc(_myUid)
+        .collection('chatThemes').doc(widget.chatId)
+        .set({'themeId': themeId}, SetOptions(merge: true));
+  }
+
+  Future<void> _pickCustomBackground() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('chat_bg_${widget.chatId}', picked.path);
+    if (mounted) setState(() => _customBgPath = picked.path);
+  }
+
+  Future<void> _removeCustomBackground() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('chat_bg_${widget.chatId}');
+    if (mounted) setState(() => _customBgPath = null);
+  }
+
   void _onTyping() {
+    final hasText = _msgCtrl.text.trim().isNotEmpty;
+    if (hasText != _hasText) setState(() => _hasText = hasText);
     _typingTimer?.cancel();
     _setTyping(true);
     _typingTimer =
@@ -232,72 +282,204 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showChatSettings() {
-
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark ? kCard : kLightCard,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(
               top: Radius.circular(kSheetRadius))),
       builder: (_) => StatefulBuilder(
-        builder: (ctx, setSt) => Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 36, height: 4,
-              decoration: BoxDecoration(
-                  color: isDark ? kTextTertiary : kLightTextSub,
-                  borderRadius: BorderRadius.circular(2))),
-            const SizedBox(height: 20),
-            const Text('Chat Settings',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 16),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Disappearing Messages',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14,
+        builder: (ctx, setSt) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.75,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, scroll) => Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: ListView(controller: scroll, children: [
+
+              // Handle
+              Center(child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Container(width: 36, height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? kTextTertiary : kLightTextSub,
+                    borderRadius: BorderRadius.circular(2))))),
+
+              const Text('Chat Settings',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 20),
+
+              // ── Chat Appearance ─────────────────────────────────────
+              Align(alignment: Alignment.centerLeft,
+                child: Text('Chat Appearance',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14,
                     color: isDark ? kTextSecondary : kLightTextSub))),
-            const SizedBox(height: 10),
-            ..._disappearOptions.map((opt) => RadioListTile<int?>(
-              value: opt['seconds'] as int?,
-              groupValue: _disappearSeconds,
-              activeColor: kAccent,
-              title: Text(opt['label'] as String),
-              onChanged: (v) async {
-                setSt(() {});
-                setState(() => _disappearSeconds = v);
-                await db.collection('chats').doc(widget.chatId)
-                  .set({'disappearSeconds': v}, SetOptions(merge: true));
-              })).toList(),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.badge_outlined, color: kAccent),
-              title: const Text('Set Nickname'),
-              subtitle: Text('Give this chat a nickname',
-                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
-              onTap: () {
-                Navigator.pop(context);
-                final c = TextEditingController();
-                showDialog(
-                  context: context,
-                  builder: (_) => AlertDialog(
-                    title: const Text('Set Nickname'),
-                    content: TextField(controller: c,
-                      decoration: InputDecoration(hintText: 'Nickname...')),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Cancel')),
-                      ElevatedButton(
-                        onPressed: () async {
-                          await db.collection('chats').doc(widget.chatId)
-                            .set({'nickname_$_myUid': c.text.trim()},
-                                SetOptions(merge: true));
-                          if (context.mounted) Navigator.pop(context);
-                        },
-                        child: const Text('Save')),
-                    ]));
-              }),
-          ]))));
+              const SizedBox(height: 12),
+
+              // Theme grid
+              SizedBox(
+                height: 96,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: kChatThemes.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 10),
+                  itemBuilder: (_, i) {
+                    final t       = kChatThemes[i];
+                    final selected = _theme.id == t.id;
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _saveChatTheme(t.id);
+                      },
+                      child: Column(children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          width: 60, height: 60,
+                          decoration: BoxDecoration(
+                            color: isDark ? t.bgDark : t.bgLight,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: selected ? kAccent : Colors.transparent,
+                              width: 2.5),
+                            boxShadow: [BoxShadow(
+                              color: Colors.black.withOpacity(0.18),
+                              blurRadius: 8, offset: const Offset(0, 3))]),
+                          child: Stack(children: [
+                            // Bubble preview
+                            Positioned(right: 8, top: 10,
+                              child: Container(
+                                width: 28, height: 12,
+                                decoration: BoxDecoration(
+                                  color: t.bubbleMe,
+                                  borderRadius: BorderRadius.circular(6)))),
+                            Positioned(left: 8, bottom: 10,
+                              child: Container(
+                                width: 22, height: 12,
+                                decoration: BoxDecoration(
+                                  color: isDark
+                                    ? t.bubbleOtherDark
+                                    : t.bubbleOtherLight,
+                                  borderRadius: BorderRadius.circular(6)))),
+                            if (selected)
+                              Positioned(right: 2, bottom: 2,
+                                child: Container(
+                                  width: 16, height: 16,
+                                  decoration: const BoxDecoration(
+                                    color: kAccent,
+                                    shape: BoxShape.circle),
+                                  child: const Icon(Icons.check_rounded,
+                                    color: Colors.white, size: 10))),
+                          ])),
+                        const SizedBox(height: 6),
+                        Text(t.name,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: selected
+                              ? FontWeight.w700 : FontWeight.normal,
+                            color: selected ? kAccent
+                              : isDark ? kTextSecondary : kLightTextSub)),
+                      ]));
+                  })),
+
+              const SizedBox(height: 16),
+
+              // Custom background
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: kAccent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.wallpaper_rounded,
+                    color: kAccent, size: 20)),
+                title: const Text('Custom Background',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: Text(_customBgPath != null
+                  ? 'Custom photo set' : 'Pick from gallery',
+                  style: TextStyle(fontSize: 12,
+                    color: isDark ? kTextSecondary : kLightTextSub)),
+                trailing: _customBgPath != null
+                  ? GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _removeCustomBackground();
+                      },
+                      child: Icon(Icons.close_rounded,
+                        color: isDark ? kTextSecondary : kLightTextSub,
+                        size: 18))
+                  : null,
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickCustomBackground();
+                }),
+
+              Divider(color: isDark ? kDivider : kLightDivider, height: 24),
+
+              // ── Disappearing Messages ────────────────────────────────
+              Align(alignment: Alignment.centerLeft,
+                child: Text('Disappearing Messages',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14,
+                    color: isDark ? kTextSecondary : kLightTextSub))),
+              const SizedBox(height: 6),
+              ..._disappearOptions.map((opt) => RadioListTile<int?>(
+                contentPadding: EdgeInsets.zero,
+                value: opt['seconds'] as int?,
+                groupValue: _disappearSeconds,
+                activeColor: kAccent,
+                title: Text(opt['label'] as String),
+                onChanged: (v) async {
+                  setSt(() {});
+                  setState(() => _disappearSeconds = v);
+                  await db.collection('chats').doc(widget.chatId)
+                    .set({'disappearSeconds': v}, SetOptions(merge: true));
+                })).toList(),
+
+              Divider(color: isDark ? kDivider : kLightDivider, height: 24),
+
+              // ── Nickname ─────────────────────────────────────────────
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: kAccent.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.badge_outlined,
+                    color: kAccent, size: 20)),
+                title: const Text('Set Nickname',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: Text('Give this chat a nickname',
+                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub,
+                    fontSize: 12)),
+                onTap: () {
+                  Navigator.pop(context);
+                  final c = TextEditingController();
+                  showDialog(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('Set Nickname'),
+                      content: TextField(controller: c,
+                        decoration: const InputDecoration(
+                          hintText: 'Nickname...')),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel')),
+                        ElevatedButton(
+                          onPressed: () async {
+                            await db.collection('chats').doc(widget.chatId)
+                              .set({'nickname_$_myUid': c.text.trim()},
+                                  SetOptions(merge: true));
+                            if (context.mounted) Navigator.pop(context);
+                          },
+                          child: const Text('Save')),
+                      ]));
+                }),
+            ])))));
   }
 
   // ── Status banner ────────────────────────────────────────────────────────
@@ -387,11 +569,16 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Resolve active bg — custom photo > theme asset > theme solid colour
+    final themeBg      = isDark ? _theme.bgDark : _theme.bgLight;
+    final bubbleMe     = _theme.bubbleMe;
+    final bubbleOther  = isDark ? _theme.bubbleOtherDark : _theme.bubbleOtherLight;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: isDark ? kDark : kLightBg,
+      backgroundColor: themeBg,
       appBar: AppBar(
-        backgroundColor: isDark ? kDark : kLightBg,
+        backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
         forceMaterialTransparency: true,
         shadowColor: Colors.transparent,
@@ -467,7 +654,27 @@ class _ChatScreenState extends State<ChatScreen> {
             onPressed: _showChatSettings),
         ]),
 
-      body: Column(children: [
+      body: Stack(children: [
+
+        // ── Background layer ─────────────────────────────────────────
+        Positioned.fill(child: Builder(builder: (_) {
+          // 1. Custom user photo (local file)
+          if (_customBgPath != null) {
+            return Image.file(File(_customBgPath!),
+              fit: BoxFit.cover, gaplessPlayback: true);
+          }
+          // 2. Preset theme asset photo
+          if (_theme.bgAsset != null) {
+            return Image.asset(_theme.bgAsset!,
+              fit: BoxFit.cover, gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink());
+          }
+          // 3. Solid colour (already set as Scaffold bg)
+          return const SizedBox.shrink();
+        })),
+
+        // ── Foreground content ────────────────────────────────────────
+        Column(children: [
         // Status banner (block / request / non-friend)
         if (_buildStatusBanner() != null) _buildStatusBanner()!,
 
@@ -570,6 +777,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       data: data, isMe: isMe, isFirst: isFirst, isLast: isLast,
                       myUid: _myUid, otherUid: widget.otherUid,
                       isNew: isNew,
+                      themeBubbleMe:    bubbleMe,
+                      themeBubbleOther: bubbleOther,
                       onReply: (id, text, sender) {
                         if (!_canSend) return;
                         setState(() {
@@ -582,131 +791,138 @@ class _ChatScreenState extends State<ChatScreen> {
               });
           })),
 
-        // Input bar — Telegram style
+        // ── Instagram-style floating island input ────────────────────
         if (_replyToId != null || _canSend)
           Padding(
             padding: EdgeInsets.only(
-              left: 8, right: 8,
+              left: 12, right: 12,
               bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                ? MediaQuery.of(context).viewInsets.bottom + 6
-                : MediaQuery.of(context).padding.bottom + 10),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                ? MediaQuery.of(context).viewInsets.bottom + 8
+                : MediaQuery.of(context).padding.bottom + 12),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-              // Pill (reply + text field)
-              Expanded(
-                child: Container(
+              // Reply strip
+              if (_replyToId != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
                   decoration: BoxDecoration(
                     color: isDark ? kCard : kLightCard,
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [BoxShadow(
+                      color: Colors.black.withOpacity(0.12),
+                      blurRadius: 12, offset: const Offset(0, 4))]),
+                  child: Row(children: [
+                    Container(width: 3, height: 26,
+                      decoration: BoxDecoration(
+                        color: kAccent,
+                        borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_replyToSender ?? '',
+                          style: const TextStyle(color: kAccent,
+                            fontSize: 11, fontWeight: FontWeight.w700)),
+                        Text(_replyToText ?? '',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark ? kTextSecondary : kLightTextSub,
+                            fontSize: 12)),
+                      ])),
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _replyToId = _replyToText = _replyToSender = null;
+                      }),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(Icons.close_rounded, size: 16,
+                          color: isDark ? kTextTertiary : kLightTextSub))),
+                  ])),
 
-                    // Reply preview strip
-                    if (_replyToId != null)
-                      Container(
-                        padding: const EdgeInsets.fromLTRB(14, 8, 4, 6),
-                        decoration: BoxDecoration(
-                          border: Border(bottom: BorderSide(
-                            color: isDark ? kDivider : kLightDivider,
-                            width: 0.5))),
-                        child: Row(children: [
-                          Container(width: 3, height: 28,
-                            decoration: BoxDecoration(
-                              color: kAccent,
-                              borderRadius: BorderRadius.circular(2))),
-                          const SizedBox(width: 8),
-                          Expanded(child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(_replyToSender ?? '',
-                                style: const TextStyle(
-                                  color: kAccent, fontSize: 11,
-                                  fontWeight: FontWeight.w700)),
-                              Text(_replyToText ?? '',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: isDark ? kTextSecondary : kLightTextSub,
-                                  fontSize: 12)),
-                            ])),
-                          GestureDetector(
-                            onTap: () => setState(() {
-                              _replyToId = null;
-                              _replyToText = null;
-                              _replyToSender = null;
-                            }),
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Icon(Icons.close_rounded, size: 15,
-                                color: isDark ? kTextTertiary : kLightTextSub))),
-                        ])),
+              // Floating pill
+              Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
+                      blurRadius: 20,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 4)),
+                  ]),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
 
-                    // Text row
-                    Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      // Emoji icon inside pill
-                      Padding(
-                        padding: const EdgeInsets.only(left: 12, bottom: 10),
-                        child: Icon(Icons.mood_rounded,
-                          size: 22,
+                    // Emoji
+                    GestureDetector(
+                      onTap: () {},
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 0, 4, 12),
+                        child: Icon(Icons.mood_rounded, size: 26,
                           color: isDark
-                            ? kTextTertiary
-                            : Colors.black.withOpacity(0.3))),
-                      const SizedBox(width: 6),
-                      Expanded(child: TextField(
+                            ? Colors.white.withOpacity(0.5)
+                            : Colors.black.withOpacity(0.4)))),
+
+                    // Text field
+                    Expanded(
+                      child: TextField(
                         controller: _msgCtrl,
                         textCapitalization: TextCapitalization.sentences,
-                        maxLines: 5, minLines: 1,
+                        maxLines: 6, minLines: 1,
                         style: TextStyle(
-                          color: isDark ? kTextPrimary : kLightText,
-                          fontSize: 15),
+                          color: isDark ? Colors.white : Colors.black,
+                          fontSize: 15, height: 1.45),
                         decoration: InputDecoration(
                           hintText: 'Message...',
                           hintStyle: TextStyle(
-                            color: isDark ? kTextTertiary : kLightTextSub,
+                            color: isDark
+                              ? Colors.white.withOpacity(0.3)
+                              : Colors.black.withOpacity(0.3),
                             fontSize: 15),
                           border: InputBorder.none,
                           enabledBorder: InputBorder.none,
                           focusedBorder: InputBorder.none,
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
-                            vertical: 10)))),
-                      const SizedBox(width: 8),
-                    ]),
+                            vertical: 13)))),
+
+                    // Send button — morphs in when typing
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeOutCubic,
+                      child: _hasText
+                        ? GestureDetector(
+                            onTap: () async {
+                              final text = _msgCtrl.text;
+                              if (text.trim().isEmpty || !_canSend) return;
+                              setState(() => _sendAnimating = true);
+                              await Future.delayed(
+                                const Duration(milliseconds: 100));
+                              if (mounted) setState(() => _sendAnimating = false);
+                              _send(text);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(6, 0, 8, 8),
+                              child: AnimatedScale(
+                                scale: _sendAnimating ? 0.82 : 1.0,
+                                duration: const Duration(milliseconds: 90),
+                                curve: Curves.easeOut,
+                                child: Container(
+                                  width: 34, height: 34,
+                                  decoration: BoxDecoration(
+                                    color: kAccent,
+                                    shape: BoxShape.circle),
+                                  child: const Icon(Icons.send_rounded,
+                                    color: Colors.white, size: 17)))))
+                        : const SizedBox(width: 8)),
 
                   ])),
-              ),
-
-              const SizedBox(width: 8),
-
-              // Send button — floating circle outside pill
-              GestureDetector(
-                onTap: () async {
-                  final text = _msgCtrl.text;
-                  if (text.trim().isEmpty || !_canSend) return;
-                  setState(() => _sendAnimating = true);
-                  await Future.delayed(const Duration(milliseconds: 110));
-                  if (mounted) setState(() => _sendAnimating = false);
-                  _send(text);
-                },
-                child: AnimatedScale(
-                  scale: _sendAnimating ? 0.80 : 1.0,
-                  duration: const Duration(milliseconds: 100),
-                  curve: Curves.easeOut,
-                  child: Container(
-                    width: 46, height: 46,
-                    decoration: BoxDecoration(
-                      color: kAccent,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: kAccent.withOpacity(0.4),
-                          blurRadius: 10,
-                          offset: const Offset(0, 3)),
-                      ]),
-                    child: const Icon(Icons.send_rounded,
-                      color: Colors.white, size: 20)))),
-
             ]))
-      ]));
+        ]),        // Column (foreground)
+      ]));         // Stack + Scaffold
   }
 }

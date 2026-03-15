@@ -10,10 +10,14 @@ class ChatBubble extends StatefulWidget {
   final String msgId, chatId;
   final Map<String, dynamic> data;
   final bool isMe, isFirst, isLast;
-  final bool isNew; // true = animate entrance, false = show instantly
+  final bool isNew;
   final void Function(String id, String text, String sender) onReply;
   final String myUid;
   final String? otherUid;
+
+  // Theme overrides — null = use default kBubbleMe / kBubbleOther
+  final Color? themeBubbleMe;
+  final Color? themeBubbleOther;
 
   const ChatBubble({
     super.key,
@@ -27,6 +31,8 @@ class ChatBubble extends StatefulWidget {
     required this.myUid,
     this.otherUid,
     this.isNew = false,
+    this.themeBubbleMe,
+    this.themeBubbleOther,
   });
 
   @override
@@ -471,7 +477,10 @@ class _ChatBubbleState extends State<ChatBubble>
     );
 
     final bubbleColor = widget.isMe
-        ? kBubbleMe : (isDark ? kBubbleOther : kLightCard);
+        ? (widget.themeBubbleMe ?? kBubbleMe)
+        : (isDark
+            ? (widget.themeBubbleOther ?? kBubbleOther)
+            : (widget.themeBubbleOther ?? kLightCard));
     final textColor = widget.isMe
         ? Colors.white : (isDark ? kTextPrimary : kLightText);
     final subtleColor = isDark ? kTextSecondary : kLightTextSub;
@@ -605,25 +614,39 @@ class _ChatBubbleState extends State<ChatBubble>
                     bottom: -13,
                     right: widget.isMe ? null : 6,
                     left:  widget.isMe ? 6   : null,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isDark ? kCard2 : kLightCard2,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                            color: isDark ? kDivider : kLightDivider,
-                            width: 0.5),
-                        boxShadow: kElevation1),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: reactionCounts.entries.map((e) =>
-                          Padding(
-                            padding: const EdgeInsets.only(right: 2),
-                            child: Text(
-                              '${e.key}${e.value > 1 ? ' ${e.value}' : ''}',
-                              style: const TextStyle(
-                                  fontSize: 12)))).toList()))),
+                    child: GestureDetector(
+                      onTap: () {
+                        // Tap the chip row → toggle my current reaction off
+                        final myReaction = reactions[widget.myUid] as String?;
+                        if (myReaction != null) _addReaction(myReaction);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: isDark ? kCard2 : kLightCard2,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                              color: isDark ? kDivider : kLightDivider,
+                              width: 0.5),
+                          boxShadow: kElevation1),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: reactionCounts.entries.map((e) {
+                            final isMine = reactions[widget.myUid] == e.key;
+                            return GestureDetector(
+                              onTap: () => _addReaction(e.key),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 3, vertical: 1),
+                                decoration: isMine ? BoxDecoration(
+                                  color: kAccent.withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(8),
+                                ) : null,
+                                child: Text(
+                                  '${e.key}${e.value > 1 ? ' ${e.value}' : ''}',
+                                  style: const TextStyle(fontSize: 12))));
+                          }).toList())))),
               ]),
 
               // ── isLast: tick + seen ────────────────────────────────
