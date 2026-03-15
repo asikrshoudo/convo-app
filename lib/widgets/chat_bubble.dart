@@ -681,7 +681,6 @@ class _ChatBubbleState extends State<ChatBubble>
                           letterSpacing: 0.1)))
                   : const SizedBox.shrink()),
 
-            ]))));
-      }));
+            ]))))));  // ] Column ) Align ) Padding ) GestureDetector ) SlideTransition ) FadeTransition
   }
 }
