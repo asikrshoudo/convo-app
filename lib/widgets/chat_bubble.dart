@@ -32,13 +32,18 @@ class ChatBubble extends StatefulWidget {
 }
 
 class _ChatBubbleState extends State<ChatBubble>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
 
   // ── Swipe-to-reply ─────────────────────────────────────────────────────
   double _dragOffset     = 0;
   bool   _replyTriggered = false;
   late final AnimationController _snapCtrl;
   late       Animation<double>   _snapAnim;
+
+  // ── Entrance animation ─────────────────────────────────────────────────
+  late final AnimationController _entranceCtrl;
+  late final Animation<double>   _entranceFade;
+  late final Animation<Offset>   _entranceSlide;
 
   // ── Single-tap time toggle ─────────────────────────────────────────────
   bool _showTime = false;
@@ -54,6 +59,24 @@ class _ChatBubbleState extends State<ChatBubble>
     _snapAnim = Tween<double>(begin: 0, end: 0).animate(
         CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
     _snapCtrl.addListener(() => setState(() {}));
+
+    // Entrance animation — only plays for new/just-sent messages
+    _entranceCtrl = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 320));
+    _entranceFade = CurvedAnimation(
+        parent: _entranceCtrl, curve: Curves.easeOut);
+    _entranceSlide = Tween<Offset>(
+      begin: Offset(widget.isMe ? 0.25 : -0.25, 0.04),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+        parent: _entranceCtrl, curve: Curves.easeOutCubic));
+
+    if (_isNewMessage) {
+      _entranceCtrl.forward();
+    } else {
+      _entranceCtrl.value = 1.0; // skip for old messages
+    }
+
     _maybeStartSeenTimer();
   }
 
@@ -72,9 +95,17 @@ class _ChatBubbleState extends State<ChatBubble>
         (_) { if (mounted) setState(() {}); });
   }
 
+  // ── New message check ─────────────────────────────────────────────────
+  bool get _isNewMessage {
+    final ts = widget.data['timestamp'] as Timestamp?;
+    if (ts == null) return true; // just sent, no server ts yet
+    return DateTime.now().difference(ts.toDate()).inSeconds < 6;
+  }
+
   @override
   void dispose() {
     _snapCtrl.dispose();
+    _entranceCtrl.dispose();
     _seenTimer?.cancel();
     super.dispose();
   }
@@ -453,7 +484,11 @@ class _ChatBubbleState extends State<ChatBubble>
         ? Colors.white : (isDark ? kTextPrimary : kLightText);
     final subtleColor = isDark ? kTextSecondary : kLightTextSub;
 
-    return GestureDetector(
+    return FadeTransition(
+      opacity: _entranceFade,
+      child: SlideTransition(
+        position: _entranceSlide,
+        child: GestureDetector(
       onHorizontalDragUpdate: _onDragUpdate,
       onHorizontalDragEnd:    _onDragEnd,
       onTap: () { if (ts != null) setState(() => _showTime = !_showTime); },
@@ -647,5 +682,6 @@ class _ChatBubbleState extends State<ChatBubble>
                   : const SizedBox.shrink()),
 
             ]))));
+      }));
   }
 }

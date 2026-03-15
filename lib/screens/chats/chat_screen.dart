@@ -40,6 +40,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _theyBlockedMe = false;
   bool _isFriend      = false;
   bool _statusLoaded  = false;
+  bool _sendAnimating = false;
 
   static const _notifyUrl = 'https://convo-notify.onrender.com/notify/dm';
 
@@ -385,9 +386,9 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: isDark ? kDark : kLightBg,
+      backgroundColor: isDark ? const Color(0xFF111318) : kLightBg,
       appBar: AppBar(
-        backgroundColor: isDark ? kDark : kLightBg,
+        backgroundColor: isDark ? const Color(0xFF111318) : kLightBg,
         titleSpacing: 0,
         elevation: 0,
         leading: IconButton(
@@ -641,13 +642,32 @@ class _ChatScreenState extends State<ChatScreen> {
                           contentPadding: const EdgeInsets.symmetric(vertical: 8)))),
                       const SizedBox(width: 6),
                       GestureDetector(
-                        onTap: () => _send(_msgCtrl.text),
-                        child: Container(
-                          width: 34, height: 34,
-                          decoration: const BoxDecoration(
-                            color: kAccent, shape: BoxShape.circle),
-                          child: const Icon(Icons.arrow_upward_rounded,
-                            color: Colors.white, size: 18))),
+                        onTap: () async {
+                          final text = _msgCtrl.text;
+                          if (text.trim().isEmpty || !_canSend) return;
+                          setState(() => _sendAnimating = true);
+                          await Future.delayed(const Duration(milliseconds: 120));
+                          if (mounted) setState(() => _sendAnimating = false);
+                          _send(text);
+                        },
+                        child: AnimatedScale(
+                          scale: _sendAnimating ? 0.80 : 1.0,
+                          duration: const Duration(milliseconds: 100),
+                          curve: Curves.easeOut,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 100),
+                            width: 34, height: 34,
+                            decoration: BoxDecoration(
+                              color: _sendAnimating
+                                  ? kAccent.withOpacity(0.75) : kAccent,
+                              shape: BoxShape.circle,
+                              boxShadow: _sendAnimating ? [] : [
+                                BoxShadow(
+                                  color: kAccent.withOpacity(0.35),
+                                  blurRadius: 8, offset: const Offset(0, 2)),
+                              ]),
+                            child: const Icon(Icons.arrow_upward_rounded,
+                              color: Colors.white, size: 18)))),
                     ])),
               ])))
       ]));
