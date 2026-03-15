@@ -384,7 +384,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: true,
+      resizeToAvoidBottomInset: false,
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
         backgroundColor: isDark ? kDark : kLightBg,
@@ -532,7 +532,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
             return ListView.builder(
               controller: _scrollCtrl,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+              padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 90),
               itemCount: msgs.length,
               itemBuilder: (_, i) {
                 final data     = msgs[i].data() as Map<String, dynamic>;
@@ -570,66 +570,86 @@ class _ChatScreenState extends State<ChatScreen> {
               });
           })),
 
-        // Reply preview
-        if (_replyToId != null)
-          Container(
-            color: isDark ? kCard : kLightCard,
-            padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
-            child: Row(children: [
-              Container(width: 3, height: 36,
-                decoration: BoxDecoration(
-                  color: kAccent, borderRadius: BorderRadius.circular(2))),
-              const SizedBox(width: 10),
-              Expanded(child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(_replyToSender ?? '',
-                  style: const TextStyle(
-                    color: kAccent, fontSize: 12, fontWeight: FontWeight.w700)),
-                Text(_replyToText ?? '',
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
-              ])),
-              IconButton(
-                icon: Icon(Icons.close_rounded,
-                  size: 18, color: isDark ? kTextSecondary : kLightTextSub),
-                onPressed: () => setState(() {
-                  _replyToId = null; _replyToText = null; _replyToSender = null;
-                })),
-            ])),
+        // Floating reply + input bar
+        if (_replyToId != null || _canSend)
+          Padding(
+            padding: EdgeInsets.only(
+              left: 10, right: 10,
+              bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                ? MediaQuery.of(context).viewInsets.bottom + 8
+                : MediaQuery.of(context).padding.bottom + 8),
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? kCard : kLightCard,
+                borderRadius: BorderRadius.circular(26),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.35 : 0.12),
+                    blurRadius: 20, offset: const Offset(0, 4)),
+                ]),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-        // Input bar — only shown when _canSend
-        if (_canSend)
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-            decoration: BoxDecoration(
-              color: isDark ? kCard : kLightCard,
-              border: Border(top: BorderSide(color: isDark ? kDivider : kLightDivider, width: 0.5))),
-            child: Row(children: [
-              Expanded(child: Container(
-                constraints: const BoxConstraints(maxHeight: 120),
-                decoration: BoxDecoration(
-                  color: isDark ? kCard2 : kLightCard2, borderRadius: BorderRadius.circular(22)),
-                child: TextField(
-                  controller: _msgCtrl,
-                  textCapitalization: TextCapitalization.sentences,
-                  maxLines: null, minLines: 1,
-                  style: TextStyle(color: isDark ? kTextPrimary : kLightText, fontSize: 15),
-                  decoration: InputDecoration(
-                    hintText: 'Message...',
-                    hintStyle: TextStyle(color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10))))),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => _send(_msgCtrl.text),
-                child: Container(
-                  width: 36, height: 36,
-                  decoration: const BoxDecoration(
-                    color: kAccent, shape: BoxShape.circle),
-                  child: const Icon(Icons.arrow_upward_rounded,
-                    color: Colors.white, size: 18))),
-            ])),
+                // Reply preview
+                if (_replyToId != null)
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 10, 4, 6),
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(
+                        color: isDark ? kDivider : kLightDivider, width: 0.5))),
+                    child: Row(children: [
+                      Container(width: 3, height: 32,
+                        decoration: BoxDecoration(
+                          color: kAccent, borderRadius: BorderRadius.circular(2))),
+                      const SizedBox(width: 10),
+                      Expanded(child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text(_replyToSender ?? '',
+                          style: const TextStyle(
+                            color: kAccent, fontSize: 12, fontWeight: FontWeight.w700)),
+                        Text(_replyToText ?? '',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
+                      ])),
+                      IconButton(
+                        icon: Icon(Icons.close_rounded, size: 16,
+                          color: isDark ? kTextSecondary : kLightTextSub),
+                        onPressed: () => setState(() {
+                          _replyToId = null;
+                          _replyToText = null;
+                          _replyToSender = null;
+                        })),
+                    ])),
+
+                // Input row
+                if (_canSend)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+                    child: Row(children: [
+                      Expanded(child: TextField(
+                        controller: _msgCtrl,
+                        textCapitalization: TextCapitalization.sentences,
+                        maxLines: null, minLines: 1,
+                        style: TextStyle(
+                          color: isDark ? kTextPrimary : kLightText, fontSize: 15),
+                        decoration: InputDecoration(
+                          hintText: 'Message...',
+                          hintStyle: TextStyle(
+                            color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(vertical: 8)))),
+                      const SizedBox(width: 6),
+                      GestureDetector(
+                        onTap: () => _send(_msgCtrl.text),
+                        child: Container(
+                          width: 34, height: 34,
+                          decoration: const BoxDecoration(
+                            color: kAccent, shape: BoxShape.circle),
+                          child: const Icon(Icons.arrow_upward_rounded,
+                            color: Colors.white, size: 18))),
+                    ])),
+              ])))
       ]));
   }
 }
