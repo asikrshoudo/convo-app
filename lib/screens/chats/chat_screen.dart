@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants.dart';
@@ -11,6 +12,7 @@ import '../../core/active_status.dart';
 import '../../core/chat_theme.dart';
 import '../../widgets/chat_bubble.dart';
 import '../../widgets/typing_dots.dart';
+import '../../widgets/gif_picker.dart';
 import '../profile/profile_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -44,8 +46,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _theyBlockedMe = false;
   bool _isFriend      = false;
   bool _statusLoaded  = false;
-  bool _sendAnimating = false;
-  bool _hasText       = false; // tracks if input has text for Instagram-style morph
+  bool _showEmoji     = false; // emoji picker overlay
 
   // Track which message IDs have already been shown — only NEW ones animate
   final Set<String> _shownMsgIds = {};
@@ -158,9 +159,18 @@ class _ChatScreenState extends State<ChatScreen> {
     if (mounted) setState(() => _customBgPath = null);
   }
 
+  Future<void> _openGifPicker() async {
+    final gifUrl = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const GifPicker());
+    if (gifUrl != null && gifUrl.isNotEmpty && _canSend) {
+      _send(gifUrl);
+    }
+  }
+
   void _onTyping() {
-    final hasText = _msgCtrl.text.trim().isNotEmpty;
-    if (hasText != _hasText) setState(() => _hasText = hasText);
     _typingTimer?.cancel();
     _setTyping(true);
     _typingTimer =
@@ -793,135 +803,183 @@ class _ChatScreenState extends State<ChatScreen> {
         if (_replyToId != null || _canSend)
           Positioned(
             left: 0, right: 0, bottom: 0,
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: 12, right: 12,
-                bottom: MediaQuery.of(context).padding.bottom + 12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-              // Reply strip
-              if (_replyToId != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
-                  decoration: BoxDecoration(
-                    color: isDark ? kCard : kLightCard,
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 12, offset: const Offset(0, 4))]),
-                  child: Row(children: [
-                    Container(width: 3, height: 26,
+              // Emoji picker panel
+              if (_showEmoji)
+                SizedBox(
+                  height: 280,
+                  child: EmojiPicker(
+                    textEditingController: _msgCtrl,
+                    onEmojiSelected: (_, __) {},
+                    config: Config(
+                      height: 280,
+                      checkPlatformCompatibility: true,
+                      emojiViewConfig: EmojiViewConfig(
+                        emojiSizeMax: 28,
+                        backgroundColor: isDark ? kCard : kLightCard),
+                      skinToneConfig: const SkinToneConfig(),
+                      categoryViewConfig: CategoryViewConfig(
+                        backgroundColor: isDark ? kCard : kLightCard,
+                        iconColor: isDark ? kTextSecondary : kLightTextSub,
+                        iconColorSelected: kAccent,
+                        indicatorColor: kAccent)))),
+
+              // Pill + reply
+              Padding(
+                padding: EdgeInsets.only(
+                  left: 12, right: 12,
+                  bottom: MediaQuery.of(context).padding.bottom + 12),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+
+                  // Reply strip
+                  if (_replyToId != null)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 6),
+                      padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
                       decoration: BoxDecoration(
-                        color: kAccent,
-                        borderRadius: BorderRadius.circular(2))),
-                    const SizedBox(width: 10),
-                    Expanded(child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(_replyToSender ?? '',
-                          style: const TextStyle(color: kAccent,
-                            fontSize: 11, fontWeight: FontWeight.w700)),
-                        Text(_replyToText ?? '',
-                          maxLines: 1, overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: isDark ? kTextSecondary : kLightTextSub,
-                            fontSize: 12)),
+                        color: isDark ? kCard : kLightCard,
+                        borderRadius: BorderRadius.circular(18),
+                        boxShadow: [BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 12, offset: const Offset(0, 4))]),
+                      child: Row(children: [
+                        Container(width: 3, height: 26,
+                          decoration: BoxDecoration(
+                            color: kAccent,
+                            borderRadius: BorderRadius.circular(2))),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(_replyToSender ?? '',
+                              style: const TextStyle(color: kAccent,
+                                fontSize: 11, fontWeight: FontWeight.w700)),
+                            Text(_replyToText ?? '',
+                              maxLines: 1, overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: isDark ? kTextSecondary : kLightTextSub,
+                                fontSize: 12)),
+                          ])),
+                        GestureDetector(
+                          onTap: () => setState(() {
+                            _replyToId = _replyToText = _replyToSender = null;
+                          }),
+                          child: Padding(
+                            padding: const EdgeInsets.all(6),
+                            child: Icon(Icons.close_rounded, size: 16,
+                              color: isDark ? kTextTertiary : kLightTextSub))),
                       ])),
-                    GestureDetector(
-                      onTap: () => setState(() {
-                        _replyToId = _replyToText = _replyToSender = null;
-                      }),
-                      child: Padding(
-                        padding: const EdgeInsets.all(6),
-                        child: Icon(Icons.close_rounded, size: 16,
-                          color: isDark ? kTextTertiary : kLightTextSub))),
-                  ])),
 
-              // Floating pill
-              Container(
-                constraints: const BoxConstraints(minHeight: 48),
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
-                      blurRadius: 20,
-                      spreadRadius: 0,
-                      offset: const Offset(0, 4)),
-                  ]),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
+                  // Pill
+                  Container(
+                    constraints: const BoxConstraints(minHeight: 50),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                      borderRadius: BorderRadius.circular(28),
+                      boxShadow: [BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
+                        blurRadius: 20, spreadRadius: 0,
+                        offset: const Offset(0, 4))]),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
 
-                    // Emoji
-                    GestureDetector(
-                      onTap: () {},
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 0, 4, 12),
-                        child: Icon(Icons.mood_rounded, size: 26,
-                          color: isDark
-                            ? Colors.white.withOpacity(0.5)
-                            : Colors.black.withOpacity(0.4)))),
+                        // Emoji button
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _showEmoji = !_showEmoji);
+                            if (_showEmoji) FocusScope.of(context).unfocus();
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 12),
+                            child: Icon(
+                              _showEmoji
+                                ? Icons.keyboard_rounded
+                                : Icons.mood_rounded,
+                              size: 24,
+                              color: _showEmoji
+                                ? kAccent
+                                : isDark
+                                  ? Colors.white.withOpacity(0.45)
+                                  : Colors.black.withOpacity(0.38)))),
 
-                    // Text field
-                    Expanded(
-                      child: TextField(
-                        controller: _msgCtrl,
-                        textCapitalization: TextCapitalization.sentences,
-                        maxLines: 6, minLines: 1,
-                        style: TextStyle(
-                          color: isDark ? Colors.white : Colors.black,
-                          fontSize: 15, height: 1.45),
-                        decoration: InputDecoration(
-                          hintText: 'Message...',
-                          hintStyle: TextStyle(
-                            color: isDark
-                              ? Colors.white.withOpacity(0.3)
-                              : Colors.black.withOpacity(0.3),
-                            fontSize: 15),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 13)))),
-
-                    // Send button — morphs in when typing
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOutCubic,
-                      child: _hasText
-                        ? GestureDetector(
-                            onTap: () async {
-                              final text = _msgCtrl.text;
-                              if (text.trim().isEmpty || !_canSend) return;
-                              setState(() => _sendAnimating = true);
-                              await Future.delayed(
-                                const Duration(milliseconds: 100));
-                              if (mounted) setState(() => _sendAnimating = false);
-                              _send(text);
+                        // Text field
+                        Expanded(
+                          child: TextField(
+                            controller: _msgCtrl,
+                            textCapitalization: TextCapitalization.sentences,
+                            maxLines: 6, minLines: 1,
+                            onTap: () {
+                              if (_showEmoji)
+                                setState(() => _showEmoji = false);
                             },
-                            child: Padding(
-                              padding: const EdgeInsets.fromLTRB(6, 0, 8, 8),
-                              child: AnimatedScale(
-                                scale: _sendAnimating ? 0.82 : 1.0,
-                                duration: const Duration(milliseconds: 90),
-                                curve: Curves.easeOut,
-                                child: Container(
-                                  width: 34, height: 34,
-                                  decoration: BoxDecoration(
-                                    color: kAccent,
-                                    shape: BoxShape.circle),
-                                  child: const Icon(Icons.send_rounded,
-                                    color: Colors.white, size: 17)))))
-                        : const SizedBox(width: 8)),
+                            style: TextStyle(
+                              color: isDark ? Colors.white : Colors.black,
+                              fontSize: 15, height: 1.45),
+                            decoration: InputDecoration(
+                              hintText: 'Message...',
+                              hintStyle: TextStyle(
+                                color: isDark
+                                  ? Colors.white.withOpacity(0.3)
+                                  : Colors.black.withOpacity(0.3),
+                                fontSize: 15),
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              isDense: true,
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 12)))),
 
-                  ])),          // Row children + Row() + Container(pill)
-          ]),                   // Column children + Column()
-        ),                      // Padding()
-      ),                        // Positioned()
-      ]));                      // Stack children + Stack() + Scaffold body
+                        // GIF button
+                        GestureDetector(
+                          onTap: _openGifPicker,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 12),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: isDark
+                                    ? Colors.white.withOpacity(0.3)
+                                    : Colors.black.withOpacity(0.25),
+                                  width: 1.2),
+                                borderRadius: BorderRadius.circular(5)),
+                              child: Text('GIF',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: isDark
+                                    ? Colors.white.withOpacity(0.5)
+                                    : Colors.black.withOpacity(0.4),
+                                  letterSpacing: 0.5))))),
+
+                        // Send button — always visible, no animation
+                        GestureDetector(
+                          onTap: () {
+                            final text = _msgCtrl.text;
+                            if (text.trim().isEmpty || !_canSend) return;
+                            _send(text);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 4, right: 10),
+                            child: Container(
+                              width: 36, height: 36,
+                              decoration: BoxDecoration(
+                                color: kAccent,
+                                shape: BoxShape.circle,
+                                boxShadow: [BoxShadow(
+                                  color: kAccent.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2))]),
+                              child: const Icon(Icons.send_rounded,
+                                color: Colors.white, size: 17)))),
+                      ])),     // Row + Container pill
+                ])),           // Column (pill + reply)
+            ])),               // Column (emoji + pill) + Positioned
+      ]));                     // Stack + Scaffold
   }
 }

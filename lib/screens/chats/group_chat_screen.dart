@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import '../../core/constants.dart';
 import '../../widgets/typing_dots.dart';
 import '../../widgets/markdown_text.dart';
 import '../../widgets/link_preview.dart';
+import '../../widgets/gif_picker.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final String groupId, groupName;
@@ -23,8 +25,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   String? _replyToId, _replyToText, _replyToSender;
   late String _myUid, _myName;
   Timer? _typingTimer;
-  bool _sendAnimating = false;
-  bool _hasText       = false;
+  bool _showEmoji = false;
 
   static const _notifyUrl = 'https://convo-notify.onrender.com/notify/group';
 
@@ -52,8 +53,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       .set({'unread_$_myUid': 0}, SetOptions(merge: true));
 
   void _onTyping() {
-    final hasText = _msgCtrl.text.trim().isNotEmpty;
-    if (hasText != _hasText) setState(() => _hasText = hasText);
     _typingTimer?.cancel();
     _setTyping(true);
     _typingTimer = Timer(const Duration(seconds: 3), () => _setTyping(false));
@@ -68,7 +67,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final t = text.trim();
     if (t.isEmpty) return;
     _msgCtrl.clear();
-    setState(() => _hasText = false);
     _setTyping(false);
 
     final reply = _replyToId != null
@@ -120,6 +118,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           duration: const Duration(milliseconds: 200), curve: Curves.easeOut);
       }
     });
+  }
+
+  Future<void> _openGifPicker() async {
+    final gifUrl = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const GifPicker());
+    if (gifUrl != null && gifUrl.isNotEmpty) _send(gifUrl);
   }
 
   void _showMsgMenu(BuildContext ctx, String msgId, String text, String senderName, {bool isSender = false}) {
@@ -688,132 +695,184 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       // ── Floating input island ─────────────────────────────────────
       Positioned(
         left: 0, right: 0, bottom: 0,
-        child: Padding(
-          padding: EdgeInsets.only(
-            left: 12, right: 12,
-            bottom: MediaQuery.of(context).padding.bottom + 12),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-            // Reply strip
-            if (_replyToId != null)
+          // Emoji picker panel
+          if (_showEmoji)
+            SizedBox(
+              height: 280,
+              child: EmojiPicker(
+                textEditingController: _msgCtrl,
+                onEmojiSelected: (_, __) {},
+                config: Config(
+                  height: 280,
+                  checkPlatformCompatibility: true,
+                  emojiViewConfig: EmojiViewConfig(
+                    emojiSizeMax: 28,
+                    backgroundColor: isDark ? kCard : kLightCard),
+                  skinToneConfig: const SkinToneConfig(),
+                  categoryViewConfig: CategoryViewConfig(
+                    backgroundColor: isDark ? kCard : kLightCard,
+                    iconColor: isDark ? kTextSecondary : kLightTextSub,
+                    iconColorSelected: kAccent,
+                    indicatorColor: kAccent)))),
+
+          // Pill + reply
+          Padding(
+            padding: EdgeInsets.only(
+              left: 12, right: 12,
+              bottom: MediaQuery.of(context).padding.bottom + 12),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+
+              // Reply strip
+              if (_replyToId != null)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? kCard : kLightCard,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 12, offset: const Offset(0, 4))]),
+                  child: Row(children: [
+                    Container(width: 3, height: 26,
+                      decoration: BoxDecoration(
+                        color: kAccent,
+                        borderRadius: BorderRadius.circular(2))),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(_replyToSender ?? '',
+                          style: const TextStyle(color: kAccent,
+                            fontSize: 11, fontWeight: FontWeight.w700)),
+                        Text(_replyToText ?? '',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: isDark ? kTextSecondary : kLightTextSub,
+                            fontSize: 12)),
+                      ])),
+                    GestureDetector(
+                      onTap: () => setState(() {
+                        _replyToId = _replyToText = _replyToSender = null;
+                      }),
+                      child: Padding(
+                        padding: const EdgeInsets.all(6),
+                        child: Icon(Icons.close_rounded, size: 16,
+                          color: isDark ? kTextTertiary : kLightTextSub))),
+                  ])),
+
+              // Floating pill
               Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+                constraints: const BoxConstraints(minHeight: 50),
                 decoration: BoxDecoration(
-                  color: isDark ? kCard : kLightCard,
-                  borderRadius: BorderRadius.circular(18),
+                  color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
+                  borderRadius: BorderRadius.circular(28),
                   boxShadow: [BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 12, offset: const Offset(0, 4))]),
-                child: Row(children: [
-                  Container(width: 3, height: 26,
-                    decoration: BoxDecoration(
-                      color: kAccent,
-                      borderRadius: BorderRadius.circular(2))),
-                  const SizedBox(width: 10),
-                  Expanded(child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(_replyToSender ?? '',
-                        style: const TextStyle(color: kAccent,
-                          fontSize: 11, fontWeight: FontWeight.w700)),
-                      Text(_replyToText ?? '',
-                        maxLines: 1, overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: isDark ? kTextSecondary : kLightTextSub,
-                          fontSize: 12)),
-                    ])),
-                  GestureDetector(
-                    onTap: () => setState(() {
-                      _replyToId = _replyToText = _replyToSender = null;
-                    }),
-                    child: Padding(
-                      padding: const EdgeInsets.all(6),
-                      child: Icon(Icons.close_rounded, size: 16,
-                        color: isDark ? kTextTertiary : kLightTextSub))),
-                ])),
+                    color: Colors.black.withOpacity(isDark ? 0.5 : 0.15),
+                    blurRadius: 20, spreadRadius: 0,
+                    offset: const Offset(0, 4))]),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
 
-            // Floating pill
-            Container(
-              constraints: const BoxConstraints(minHeight: 50),
-              decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
-                borderRadius: BorderRadius.circular(28),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.55 : 0.18),
-                    blurRadius: 24, spreadRadius: 0,
-                    offset: const Offset(0, 6)),
-                ]),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  // Emoji
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 0, 4, 13),
-                    child: Icon(Icons.mood_rounded, size: 24,
-                      color: isDark
-                        ? Colors.white.withOpacity(0.45)
-                        : Colors.black.withOpacity(0.38))),
-                  // Text field
-                  Expanded(
-                    child: TextField(
-                      controller: _msgCtrl,
-                      textCapitalization: TextCapitalization.sentences,
-                      maxLines: 6, minLines: 1,
-                      style: TextStyle(
-                        color: isDark ? Colors.white : Colors.black,
-                        fontSize: 15, height: 1.45),
-                      decoration: InputDecoration(
-                        hintText: 'Message...',
-                        hintStyle: TextStyle(
-                          color: isDark
-                            ? Colors.white.withOpacity(0.28)
-                            : Colors.black.withOpacity(0.28),
-                          fontSize: 15),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 14)))),
-                  // Send morphs in on typing
-                  AnimatedSize(
-                    duration: const Duration(milliseconds: 180),
-                    curve: Curves.easeOutCubic,
-                    child: _hasText
-                      ? GestureDetector(
-                          onTap: () async {
-                            final text = _msgCtrl.text;
-                            if (text.trim().isEmpty) return;
-                            setState(() => _sendAnimating = true);
-                            await Future.delayed(
-                              const Duration(milliseconds: 100));
-                            if (mounted)
-                              setState(() => _sendAnimating = false);
-                            _send(text);
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(6, 0, 8, 8),
-                            child: AnimatedScale(
-                              scale: _sendAnimating ? 0.80 : 1.0,
-                              duration: const Duration(milliseconds: 90),
-                              curve: Curves.easeOut,
-                              child: Container(
-                                width: 36, height: 36,
-                                decoration: BoxDecoration(
-                                  color: kAccent,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [BoxShadow(
-                                    color: kAccent.withOpacity(0.4),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 2))]),
-                                child: const Icon(Icons.send_rounded,
-                                  color: Colors.white, size: 17)))))
-                      : const SizedBox(width: 10)),
-                ])),
-          ]))),   // Positioned
-      ]));        // Stack + Scaffold
+                    // Emoji toggle button
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _showEmoji = !_showEmoji);
+                        if (_showEmoji) FocusScope.of(context).unfocus();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                        child: Icon(
+                          _showEmoji
+                            ? Icons.keyboard_rounded
+                            : Icons.mood_rounded,
+                          size: 24,
+                          color: _showEmoji
+                            ? kAccent
+                            : isDark
+                              ? Colors.white.withOpacity(0.45)
+                              : Colors.black.withOpacity(0.38)))),
+
+                    // Text field
+                    Expanded(
+                      child: TextField(
+                        controller: _msgCtrl,
+                        textCapitalization: TextCapitalization.sentences,
+                        maxLines: 6, minLines: 1,
+                        onTap: () {
+                          if (_showEmoji)
+                            setState(() => _showEmoji = false);
+                        },
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black,
+                          fontSize: 15, height: 1.45),
+                        decoration: InputDecoration(
+                          hintText: 'Message...',
+                          hintStyle: TextStyle(
+                            color: isDark
+                              ? Colors.white.withOpacity(0.3)
+                              : Colors.black.withOpacity(0.3),
+                            fontSize: 15),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          isDense: true,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12)))),
+
+                    // GIF button
+                    GestureDetector(
+                      onTap: _openGifPicker,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 12),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: isDark
+                                ? Colors.white.withOpacity(0.3)
+                                : Colors.black.withOpacity(0.25),
+                              width: 1.2),
+                            borderRadius: BorderRadius.circular(5)),
+                          child: Text('GIF',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              color: isDark
+                                ? Colors.white.withOpacity(0.5)
+                                : Colors.black.withOpacity(0.4),
+                              letterSpacing: 0.5))))),
+
+                    // Send button — always visible, no animation
+                    GestureDetector(
+                      onTap: () {
+                        final text = _msgCtrl.text;
+                        if (text.trim().isEmpty) return;
+                        _send(text);
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: 4, right: 10),
+                        child: Container(
+                          width: 36, height: 36,
+                          decoration: BoxDecoration(
+                            color: kAccent,
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(
+                              color: kAccent.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2))]),
+                          child: const Icon(Icons.send_rounded,
+                            color: Colors.white, size: 17)))),
+                  ])),         // Row + Container pill
+            ]),               // Column children
+          )),                 // Padding + Positioned child Column
+      ]));                    // Stack + Scaffold
   }
 
   void _showGroupInfo(BuildContext context) {
