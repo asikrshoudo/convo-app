@@ -790,15 +790,18 @@ class _ChatScreenState extends State<ChatScreen> {
                   ]);
               });
           })),
+        ]),        // Column (foreground) — messages only, no input here
 
-        // ── Instagram-style floating island input ────────────────────
+        // ── Floating input island — truly over messages ───────────────
         if (_replyToId != null || _canSend)
-          Padding(
-            padding: EdgeInsets.only(
-              left: 12, right: 12,
-              bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                ? MediaQuery.of(context).viewInsets.bottom + 8
-                : MediaQuery.of(context).padding.bottom + 12),
+          Positioned(
+            left: 0, right: 0, bottom: 0,
+            child: Padding(
+              padding: EdgeInsets.only(
+                left: 12, right: 12,
+                bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                  ? MediaQuery.of(context).viewInsets.bottom + 8
+                  : MediaQuery.of(context).padding.bottom + 12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
 
               // Reply strip
@@ -920,9 +923,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                     color: Colors.white, size: 17)))))
                         : const SizedBox(width: 8)),
 
-                  ])),
-            ]))
-        ]),        // Column (foreground)
-      ]));         // Stack + Scaffold
+                  ])),          // Row (pill contents)
+            ),                  // Container (pill)
+          ]),                   // Column (reply + pill)
+        ),                      // Padding
+      ]));                      // Positioned + Stack + Scaffold
   }
 }

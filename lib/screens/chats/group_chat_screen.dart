@@ -23,6 +23,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   String? _replyToId, _replyToText, _replyToSender;
   late String _myUid, _myName;
   Timer? _typingTimer;
+  bool _sendAnimating = false;
+  bool _hasText       = false;
 
   static const _notifyUrl = 'https://convo-notify.onrender.com/notify/group';
 
@@ -50,6 +52,8 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       .set({'unread_$_myUid': 0}, SetOptions(merge: true));
 
   void _onTyping() {
+    final hasText = _msgCtrl.text.trim().isNotEmpty;
+    if (hasText != _hasText) setState(() => _hasText = hasText);
     _typingTimer?.cancel();
     _setTyping(true);
     _typingTimer = Timer(const Duration(seconds: 3), () => _setTyping(false));
@@ -64,6 +68,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final t = text.trim();
     if (t.isEmpty) return;
     _msgCtrl.clear();
+    setState(() => _hasText = false);
     _setTyping(false);
 
     final reply = _replyToId != null
@@ -318,6 +323,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
         backgroundColor: isDark ? kDark : kLightBg,
+        surfaceTintColor: Colors.transparent,
+        forceMaterialTransparency: true,
+        shadowColor: Colors.transparent,
         titleSpacing: 0,
         elevation: 0,
         scrolledUnderElevation: 0,
@@ -356,23 +364,26 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             onPressed: () => _showGroupInfo(context)),
         ]),
 
-      body: Column(children: [
-        // ── Messages ──────────────────────────────────────────────────────
-        Expanded(child: StreamBuilder<QuerySnapshot>(
-          stream: db.collection('groups').doc(widget.groupId)
-            .collection('messages').orderBy('timestamp').snapshots(),
-          builder: (_, snap) {
-            if (!snap.hasData) return const Center(
-              child: CircularProgressIndicator(color: kAccent, strokeWidth: 2));
-            final msgs = snap.data!.docs;
+      body: Stack(children: [
 
-            if (msgs.isEmpty) return Center(child: Column(
-              mainAxisAlignment: MainAxisAlignment.center, children: [
-              Container(
-                width: 64, height: 64,
-                decoration: BoxDecoration(
-                  color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
-                child: const Icon(Icons.group_rounded,
+        // ── Messages — full screen, bottom padding for input ──────────
+        Positioned.fill(
+          child: Column(children: [
+            Expanded(child: StreamBuilder<QuerySnapshot>(
+              stream: db.collection('groups').doc(widget.groupId)
+                .collection('messages').orderBy('timestamp').snapshots(),
+              builder: (_, snap) {
+                if (!snap.hasData) return const Center(
+                  child: CircularProgressIndicator(color: kAccent, strokeWidth: 2));
+                final msgs = snap.data!.docs;
+
+                if (msgs.isEmpty) return Center(child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Container(
+                    width: 64, height: 64,
+                    decoration: BoxDecoration(
+                      color: kAccent.withOpacity(0.1), shape: BoxShape.circle),
+                    child: const Icon(Icons.group_rounded,
                   size: 30, color: kAccent)),
               const SizedBox(height: 16),
               Text('Say hi to the group!',
@@ -669,85 +680,140 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
               ]));
           }),
 
-        // ── Floating reply + input bar ─────────────────────────────────────
-        Padding(
+        const SizedBox(height: 80), // space for floating input
+      ])),  // Positioned.fill Column
+
+      // ── Floating input island ─────────────────────────────────────
+      Positioned(
+        left: 0, right: 0, bottom: 0,
+        child: Padding(
           padding: EdgeInsets.only(
-            left: 10, right: 10,
+            left: 12, right: 12,
             bottom: MediaQuery.of(context).viewInsets.bottom > 0
               ? MediaQuery.of(context).viewInsets.bottom + 8
-              : MediaQuery.of(context).padding.bottom + 8),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDark ? kCard : kLightCard,
-              borderRadius: BorderRadius.circular(26),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.35 : 0.12),
-                  blurRadius: 20, offset: const Offset(0, 4)),
-              ]),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              : MediaQuery.of(context).padding.bottom + 12),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
 
-              // Reply preview
-              if (_replyToId != null)
-                Container(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 4, 6),
-                  decoration: BoxDecoration(
-                    border: Border(bottom: BorderSide(
-                      color: isDark ? kDivider : kLightDivider, width: 0.5))),
-                  child: Row(children: [
-                    Container(width: 3, height: 32,
-                      decoration: BoxDecoration(
-                        color: kAccent, borderRadius: BorderRadius.circular(2))),
-                    const SizedBox(width: 10),
-                    Expanded(child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start, children: [
+            // Reply strip
+            if (_replyToId != null)
+              Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+                decoration: BoxDecoration(
+                  color: isDark ? kCard : kLightCard,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 12, offset: const Offset(0, 4))]),
+                child: Row(children: [
+                  Container(width: 3, height: 26,
+                    decoration: BoxDecoration(
+                      color: kAccent,
+                      borderRadius: BorderRadius.circular(2))),
+                  const SizedBox(width: 10),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(_replyToSender ?? '',
-                        style: const TextStyle(
-                          color: kAccent, fontSize: 12, fontWeight: FontWeight.w700)),
+                        style: const TextStyle(color: kAccent,
+                          fontSize: 11, fontWeight: FontWeight.w700)),
                       Text(_replyToText ?? '',
                         maxLines: 1, overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: isDark ? kTextSecondary : kLightTextSub, fontSize: 12)),
+                          color: isDark ? kTextSecondary : kLightTextSub,
+                          fontSize: 12)),
                     ])),
-                    IconButton(
-                      icon: Icon(Icons.close_rounded, size: 16,
-                        color: isDark ? kTextSecondary : kLightTextSub),
-                      onPressed: () => setState(() {
-                        _replyToId = null;
-                        _replyToText = null;
-                        _replyToSender = null;
-                      })),
-                  ])),
-
-              // Input row
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
-                child: Row(children: [
-                  Expanded(child: TextField(
-                    controller: _msgCtrl,
-                    textCapitalization: TextCapitalization.sentences,
-                    maxLines: null, minLines: 1,
-                    style: TextStyle(
-                      color: isDark ? kTextPrimary : kLightText, fontSize: 15),
-                    decoration: InputDecoration(
-                      hintText: 'Message...',
-                      hintStyle: TextStyle(
-                        color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15),
-                      border: InputBorder.none,
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8)))),
-                  const SizedBox(width: 6),
                   GestureDetector(
-                    onTap: () => _send(_msgCtrl.text),
-                    child: Container(
-                      width: 34, height: 34,
-                      decoration: const BoxDecoration(
-                        color: kAccent, shape: BoxShape.circle),
-                      child: const Icon(Icons.arrow_upward_rounded,
-                        color: Colors.white, size: 18))),
+                    onTap: () => setState(() {
+                      _replyToId = _replyToText = _replyToSender = null;
+                    }),
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(Icons.close_rounded, size: 16,
+                        color: isDark ? kTextTertiary : kLightTextSub))),
                 ])),
-            ]))),
-      ]));
+
+            // Floating pill
+            Container(
+              constraints: const BoxConstraints(minHeight: 50),
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(isDark ? 0.55 : 0.18),
+                    blurRadius: 24, spreadRadius: 0,
+                    offset: const Offset(0, 6)),
+                ]),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  // Emoji
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 0, 4, 13),
+                    child: Icon(Icons.mood_rounded, size: 24,
+                      color: isDark
+                        ? Colors.white.withOpacity(0.45)
+                        : Colors.black.withOpacity(0.38))),
+                  // Text field
+                  Expanded(
+                    child: TextField(
+                      controller: _msgCtrl,
+                      textCapitalization: TextCapitalization.sentences,
+                      maxLines: 6, minLines: 1,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black,
+                        fontSize: 15, height: 1.45),
+                      decoration: InputDecoration(
+                        hintText: 'Message...',
+                        hintStyle: TextStyle(
+                          color: isDark
+                            ? Colors.white.withOpacity(0.28)
+                            : Colors.black.withOpacity(0.28),
+                          fontSize: 15),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 14)))),
+                  // Send morphs in on typing
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 180),
+                    curve: Curves.easeOutCubic,
+                    child: _hasText
+                      ? GestureDetector(
+                          onTap: () async {
+                            final text = _msgCtrl.text;
+                            if (text.trim().isEmpty) return;
+                            setState(() => _sendAnimating = true);
+                            await Future.delayed(
+                              const Duration(milliseconds: 100));
+                            if (mounted)
+                              setState(() => _sendAnimating = false);
+                            _send(text);
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(6, 0, 8, 8),
+                            child: AnimatedScale(
+                              scale: _sendAnimating ? 0.80 : 1.0,
+                              duration: const Duration(milliseconds: 90),
+                              curve: Curves.easeOut,
+                              child: Container(
+                                width: 36, height: 36,
+                                decoration: BoxDecoration(
+                                  color: kAccent,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [BoxShadow(
+                                    color: kAccent.withOpacity(0.4),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2))]),
+                                child: const Icon(Icons.send_rounded,
+                                  color: Colors.white, size: 17)))))
+                      : const SizedBox(width: 10)),
+                ])),
+          ]))),   // Positioned
+      ]));        // Stack + Scaffold
   }
 
   void _showGroupInfo(BuildContext context) {
