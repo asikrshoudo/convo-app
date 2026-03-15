@@ -393,6 +393,7 @@ class _ChatScreenState extends State<ChatScreen> {
       appBar: AppBar(
         backgroundColor: isDark ? kDark : kLightBg,
         surfaceTintColor: Colors.transparent,
+        forceMaterialTransparency: true,
         shadowColor: Colors.transparent,
         titleSpacing: 0,
         elevation: 0,
@@ -664,6 +665,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             color: isDark ? kTextTertiary : kLightTextSub,
                             fontSize: 15),
                           border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
                           isDense: true,
                           contentPadding: const EdgeInsets.symmetric(
                             vertical: 10)))),
