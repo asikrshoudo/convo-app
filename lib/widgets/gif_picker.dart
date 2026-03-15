@@ -24,6 +24,7 @@ class _GifPickerState extends State<GifPicker> {
   bool   _loading  = false;
   bool   _searched = false;
   String _query    = '';
+  String? _error;
 
   @override
   void initState() {
@@ -39,9 +40,10 @@ class _GifPickerState extends State<GifPicker> {
   }
 
   Future<void> _loadTrending() async {
-    setState(() { _loading = true; _searched = false; });
+    setState(() { _loading = true; _searched = false; _error = null; });
     try {
-      final url = '$_giphyBase/trending?api_key=$_giphyApiKey&limit=24&rating=g';
+      final key = _giphyApiKey;
+      final url = '$_giphyBase/trending?api_key=$key&limit=24&rating=g';
       final res = await http.get(Uri.parse(url))
           .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
@@ -51,16 +53,16 @@ class _GifPickerState extends State<GifPicker> {
           _loading = false;
         });
       } else {
-        setState(() => _loading = false);
+        setState(() { _loading = false; _error = 'API error ${res.statusCode}'; });
       }
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _loading = false; _error = e.toString(); });
     }
   }
 
   Future<void> _search(String q) async {
     if (q.trim().isEmpty) { _loadTrending(); return; }
-    setState(() { _loading = true; _searched = true; _query = q; _gifs = []; });
+    setState(() { _loading = true; _searched = true; _query = q; _gifs = []; _error = null; });
     try {
       final url = '$_giphyBase/search?api_key=$_giphyApiKey'
           '&q=${Uri.encodeComponent(q)}&limit=24&rating=g';
@@ -73,10 +75,10 @@ class _GifPickerState extends State<GifPicker> {
           _loading = false;
         });
       } else {
-        setState(() => _loading = false);
+        setState(() { _loading = false; _error = 'API error ${res.statusCode}'; });
       }
-    } catch (_) {
-      setState(() => _loading = false);
+    } catch (e) {
+      setState(() { _loading = false; _error = e.toString(); });
     }
   }
 
@@ -84,14 +86,18 @@ class _GifPickerState extends State<GifPicker> {
     final results = data['data'] as List? ?? [];
     return results.map((r) {
       final images = r['images'] as Map? ?? {};
-      // downsized for preview (faster), original for sending
       final preview = (images['downsized_medium'] as Map?)?['url'] as String?
           ?? (images['downsized'] as Map?)?['url'] as String?
           ?? (images['fixed_height'] as Map?)?['url'] as String? ?? '';
       final full = (images['original'] as Map?)?['url'] as String?
           ?? preview;
-      // Strip query params for clean .gif URL so link_preview detects it
-      final cleanUrl = full.split('?').first;
+      // Keep only the base URL — GIPHY .gif URLs work without query params
+      // e.g. https://media.giphy.com/media/xxx/giphy.gif
+      String cleanUrl = full.contains('?')
+          ? full.substring(0, full.indexOf('?'))
+          : full;
+      // Ensure it ends with .gif so link_preview detects it as image
+      if (!cleanUrl.toLowerCase().endsWith('.gif')) cleanUrl = full;
       return _GifItem(
         previewUrl: preview,
         fullUrl:    cleanUrl,
@@ -172,10 +178,13 @@ class _GifPickerState extends State<GifPicker> {
               color: kAccent, strokeWidth: 2))
           : _gifs.isEmpty
             ? Center(child: Text(
-                _searched ? 'No GIFs found' : 'Could not load GIFs',
+                _error != null
+                  ? 'Error: $_error'
+                  : _searched ? 'No GIFs found' : 'Could not load GIFs',
                 style: TextStyle(
                   color: isDark ? kTextSecondary : kLightTextSub,
-                  fontSize: 14)))
+                  fontSize: 13),
+                textAlign: TextAlign.center))
             : GridView.builder(
                 controller: _scrollCtrl,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
