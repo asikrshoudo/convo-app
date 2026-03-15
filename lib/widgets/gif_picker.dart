@@ -3,13 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
 
-// ── Tenor API key — replace with your own from tenor.com/developer ────────────
-const _tenorApiKey = 'AIzaSyAyimkuYQYF_FXVALexPzkcsvZpe4h9EMQ'; // demo key
-const _tenorBase   = 'https://tenor.googleapis.com/v2';
+// Replace with your GIPHY API key from developers.giphy.com (free)
+const _giphyApiKey = String.fromEnvironment('GIPHY_API_KEY',
+    defaultValue: 'dc6zaTOxFJmzC'); // public beta key for testing
+const _giphyBase = 'https://api.giphy.com/v1/gifs';
 
 class GifPicker extends StatefulWidget {
   const GifPicker({super.key});
-
   @override
   State<GifPicker> createState() => _GifPickerState();
 }
@@ -20,16 +20,15 @@ class _GifPickerState extends State<GifPicker> {
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
-  List<_GifItem> _gifs = [];
+  List<_GifItem> _gifs    = [];
   bool   _loading  = false;
   bool   _searched = false;
   String _query    = '';
-  String? _nextPos; // Tenor pagination
 
   @override
   void initState() {
     super.initState();
-    _loadFeatured();
+    _loadTrending();
   }
 
   @override
@@ -39,17 +38,16 @@ class _GifPickerState extends State<GifPicker> {
     super.dispose();
   }
 
-  Future<void> _loadFeatured() async {
+  Future<void> _loadTrending() async {
     setState(() { _loading = true; _searched = false; });
     try {
-      final url = '$_tenorBase/featured?key=$_tenorApiKey&limit=24&media_filter=gif';
+      final url = '$_giphyBase/trending?api_key=$_giphyApiKey&limit=24&rating=g';
       final res = await http.get(Uri.parse(url))
           .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         setState(() {
-          _gifs    = _parseGifs(data);
-          _nextPos = data['next'] as String?;
+          _gifs    = _parse(data);
           _loading = false;
         });
       } else {
@@ -61,17 +59,17 @@ class _GifPickerState extends State<GifPicker> {
   }
 
   Future<void> _search(String q) async {
-    if (q.trim().isEmpty) { _loadFeatured(); return; }
+    if (q.trim().isEmpty) { _loadTrending(); return; }
     setState(() { _loading = true; _searched = true; _query = q; _gifs = []; });
     try {
-      final url = '$_tenorBase/search?key=$_tenorApiKey&q=${Uri.encodeComponent(q)}&limit=24&media_filter=gif';
+      final url = '$_giphyBase/search?api_key=$_giphyApiKey'
+          '&q=${Uri.encodeComponent(q)}&limit=24&rating=g';
       final res = await http.get(Uri.parse(url))
           .timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         setState(() {
-          _gifs    = _parseGifs(data);
-          _nextPos = data['next'] as String?;
+          _gifs    = _parse(data);
           _loading = false;
         });
       } else {
@@ -82,16 +80,21 @@ class _GifPickerState extends State<GifPicker> {
     }
   }
 
-  List<_GifItem> _parseGifs(Map<String, dynamic> data) {
-    final results = data['results'] as List? ?? [];
+  List<_GifItem> _parse(Map<String, dynamic> data) {
+    final results = data['data'] as List? ?? [];
     return results.map((r) {
-      final media = r['media_formats'] as Map? ?? {};
-      // Prefer tinygif for fast load, fallback to gif
-      final tiny = (media['tinygif'] as Map?)?['url'] as String?;
-      final full = (media['gif'] as Map?)?['url'] as String?;
+      final images = r['images'] as Map? ?? {};
+      // downsized for preview (faster), original for sending
+      final preview = (images['downsized_medium'] as Map?)?['url'] as String?
+          ?? (images['downsized'] as Map?)?['url'] as String?
+          ?? (images['fixed_height'] as Map?)?['url'] as String? ?? '';
+      final full = (images['original'] as Map?)?['url'] as String?
+          ?? preview;
+      // Strip query params for clean .gif URL so link_preview detects it
+      final cleanUrl = full.split('?').first;
       return _GifItem(
-        previewUrl: tiny ?? full ?? '',
-        fullUrl:    full ?? tiny ?? '',
+        previewUrl: preview,
+        fullUrl:    cleanUrl,
         id: r['id'] as String? ?? '',
       );
     }).where((g) => g.previewUrl.isNotEmpty).toList();
@@ -130,8 +133,7 @@ class _GifPickerState extends State<GifPicker> {
                 textInputAction: TextInputAction.search,
                 onSubmitted: _search,
                 style: TextStyle(
-                  color: isDark ? kTextPrimary : kLightText,
-                  fontSize: 14),
+                  color: isDark ? kTextPrimary : kLightText, fontSize: 14),
                 decoration: InputDecoration(
                   hintText: 'Search GIFs...',
                   hintStyle: TextStyle(
@@ -143,17 +145,14 @@ class _GifPickerState extends State<GifPicker> {
                     horizontal: 10, vertical: 10)))),
               if (_searchCtrl.text.isNotEmpty)
                 GestureDetector(
-                  onTap: () {
-                    _searchCtrl.clear();
-                    _loadFeatured();
-                  },
+                  onTap: () { _searchCtrl.clear(); _loadTrending(); },
                   child: Padding(
                     padding: const EdgeInsets.only(right: 10),
                     child: Icon(Icons.close_rounded, size: 18,
                       color: isDark ? kTextSecondary : kLightTextSub))),
             ]))),
 
-        // Label
+        // Label row
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
           child: Row(children: [
@@ -162,8 +161,7 @@ class _GifPickerState extends State<GifPicker> {
                 fontSize: 12, fontWeight: FontWeight.w600,
                 color: isDark ? kTextSecondary : kLightTextSub)),
             const Spacer(),
-            // Tenor credit
-            Text('via Tenor', style: TextStyle(
+            Text('via GIPHY', style: TextStyle(
               fontSize: 10,
               color: isDark ? kTextTertiary : kLightTextSub)),
           ])),
@@ -180,7 +178,7 @@ class _GifPickerState extends State<GifPicker> {
                   fontSize: 14)))
             : GridView.builder(
                 controller: _scrollCtrl,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 6,
@@ -209,6 +207,9 @@ class _GifPickerState extends State<GifPicker> {
                           child: const Icon(Icons.gif_rounded,
                             color: kAccent, size: 32)))));
                 })),
+
+        // Safe area padding
+        SizedBox(height: MediaQuery.of(context).padding.bottom),
       ]));
   }
 }
