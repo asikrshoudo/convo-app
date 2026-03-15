@@ -70,10 +70,12 @@ jobs:
           sed -i "s/^version: .*/version: ${VERSION}+${{ github.run_number }}/" pubspec.yaml
 
       - name: Build APK
+        env:
+          GIPHY_API_KEY: ${{ secrets.GIPHY_API_KEY }}
         run: |
           flutter pub get
           dart run flutter_launcher_icons
-          flutter build apk --release --target-platform android-arm64 --split-per-abi
+          flutter build apk --release --target-platform android-arm64 --split-per-abi --dart-define=GIPHY_API_KEY=$GIPHY_API_KEY
 
       - name: Get commit message
         id: commit
