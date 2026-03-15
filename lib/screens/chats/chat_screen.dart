@@ -923,10 +923,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                     color: Colors.white, size: 17)))))
                         : const SizedBox(width: 8)),
 
-                  ])),          // Row (pill contents)
-            ),                  // Container (pill)
-          ]),                   // Column (reply + pill)
-        ),                      // Padding + Positioned
-      ]));                      // Stack + Scaffold
+                  ])),          // Row children + Row() + Container(pill)
+          ]),                   // Column children + Column()
+        ),                      // Padding()
+      ),                        // Positioned()
+      ]));                      // Stack children + Stack() + Scaffold body
   }
 }
