@@ -575,7 +575,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final bubbleOther  = isDark ? _theme.bubbleOtherDark : _theme.bubbleOtherLight;
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       backgroundColor: themeBg,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -656,26 +656,20 @@ class _ChatScreenState extends State<ChatScreen> {
 
       body: Stack(children: [
 
-        // ── Background layer ─────────────────────────────────────────
+        // ── Background ────────────────────────────────────────────────
         Positioned.fill(child: Builder(builder: (_) {
-          // 1. Custom user photo (local file)
-          if (_customBgPath != null) {
+          if (_customBgPath != null)
             return Image.file(File(_customBgPath!),
               fit: BoxFit.cover, gaplessPlayback: true);
-          }
-          // 2. Preset theme asset photo
-          if (_theme.bgAsset != null) {
+          if (_theme.bgAsset != null)
             return Image.asset(_theme.bgAsset!,
               fit: BoxFit.cover, gaplessPlayback: true,
               errorBuilder: (_, __, ___) => const SizedBox.shrink());
-          }
-          // 3. Solid colour (already set as Scaffold bg)
           return const SizedBox.shrink();
         })),
 
-        // ── Foreground content ────────────────────────────────────────
+        // ── Messages — fills full available height (keyboard already handled by Scaffold) ──
         Column(children: [
-        // Status banner (block / request / non-friend)
         if (_buildStatusBanner() != null) _buildStatusBanner()!,
 
         // Disappearing messages banner
@@ -746,7 +740,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
             return ListView.builder(
               controller: _scrollCtrl,
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 90),
+              padding: EdgeInsets.only(
+                left: 8, right: 8, top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                  ? 80 : 90),
               itemCount: msgs.length,
               itemBuilder: (_, i) {
                 final data     = msgs[i].data() as Map<String, dynamic>;
@@ -792,16 +789,14 @@ class _ChatScreenState extends State<ChatScreen> {
           })),
         ]),        // Column (foreground) — messages only, no input here
 
-        // ── Floating input island — truly over messages ───────────────
+        // ── Floating input island ─────────────────────────────────────
         if (_replyToId != null || _canSend)
           Positioned(
             left: 0, right: 0, bottom: 0,
             child: Padding(
               padding: EdgeInsets.only(
                 left: 12, right: 12,
-                bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                  ? MediaQuery.of(context).viewInsets.bottom + 8
-                  : MediaQuery.of(context).padding.bottom + 12),
+                bottom: MediaQuery.of(context).padding.bottom + 12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
 
               // Reply strip
@@ -847,7 +842,7 @@ class _ChatScreenState extends State<ChatScreen> {
               Container(
                 constraints: const BoxConstraints(minHeight: 48),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                  color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(

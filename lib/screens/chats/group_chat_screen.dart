@@ -319,7 +319,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       backgroundColor: isDark ? kDark : kLightBg,
       appBar: AppBar(
         backgroundColor: isDark ? kDark : kLightBg,
@@ -400,7 +400,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
             return ListView.builder(
               controller: _scrollCtrl,
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 90),
+              padding: EdgeInsets.only(
+                left: 8, right: 8, top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom > 0 ? 80 : 90),
               itemCount: msgs.length,
               itemBuilder: (_, i) {
                 final data    = msgs[i].data() as Map<String, dynamic>;
@@ -689,9 +691,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
         child: Padding(
           padding: EdgeInsets.only(
             left: 12, right: 12,
-            bottom: MediaQuery.of(context).viewInsets.bottom > 0
-              ? MediaQuery.of(context).viewInsets.bottom + 8
-              : MediaQuery.of(context).padding.bottom + 12),
+            bottom: MediaQuery.of(context).padding.bottom + 12),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
 
             // Reply strip
@@ -737,7 +737,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             Container(
               constraints: const BoxConstraints(minHeight: 50),
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+                color: isDark ? const Color(0xFF2C2C2E) : Colors.white,
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
