@@ -42,6 +42,9 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _statusLoaded  = false;
   bool _sendAnimating = false;
 
+  // Track which message IDs have already been shown — only NEW ones animate
+  final Set<String> _shownMsgIds = {};
+
   static const _notifyUrl = 'https://convo-notify.onrender.com/notify/dm';
 
   static const _disappearOptions = [
@@ -386,9 +389,11 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       resizeToAvoidBottomInset: false,
-      backgroundColor: isDark ? const Color(0xFF111318) : kLightBg,
+      backgroundColor: isDark ? const Color(0xFF17212B) : kLightBg,
       appBar: AppBar(
-        backgroundColor: isDark ? const Color(0xFF111318) : kLightBg,
+        backgroundColor: isDark ? const Color(0xFF17212B) : kLightBg,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: Colors.transparent,
         titleSpacing: 0,
         elevation: 0,
         leading: IconButton(
@@ -419,7 +424,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF34C759),
                         shape: BoxShape.circle,
-                        border: Border.all(color: isDark ? kDark : kLightBg, width: 1.5))));
+                        border: Border.all(color: isDark ? const Color(0xFF17212B) : kLightBg, width: 1.5))));
                 }),
             ]),
             const SizedBox(width: 10),
@@ -550,15 +555,20 @@ class _ChatScreenState extends State<ChatScreen> {
                 final currTs = data['timestamp'] as Timestamp?;
                 final showDiv = _shouldShowDivider(prevTs, currTs);
 
+                final msgId = msgs[i].id;
+                final isNew = !_shownMsgIds.contains(msgId);
+                if (isNew) _shownMsgIds.add(msgId);
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     if (showDiv && currTs != null)
                       _timeDivider(_dividerLabel(currTs)),
                     ChatBubble(
-                      msgId: msgs[i].id, chatId: widget.chatId,
+                      msgId: msgId, chatId: widget.chatId,
                       data: data, isMe: isMe, isFirst: isFirst, isLast: isLast,
                       myUid: _myUid, otherUid: widget.otherUid,
+                      isNew: isNew,
                       onReply: (id, text, sender) {
                         if (!_canSend) return;
                         setState(() {
@@ -575,18 +585,23 @@ class _ChatScreenState extends State<ChatScreen> {
         if (_replyToId != null || _canSend)
           Padding(
             padding: EdgeInsets.only(
-              left: 10, right: 10,
+              left: 8, right: 8,
               bottom: MediaQuery.of(context).viewInsets.bottom > 0
-                ? MediaQuery.of(context).viewInsets.bottom + 8
-                : MediaQuery.of(context).padding.bottom + 8),
+                ? MediaQuery.of(context).viewInsets.bottom + 6
+                : MediaQuery.of(context).padding.bottom + 10),
             child: Container(
               decoration: BoxDecoration(
-                color: isDark ? kCard : kLightCard,
-                borderRadius: BorderRadius.circular(26),
+                color: isDark ? const Color(0xFF1E2C3A) : kLightCard,
+                borderRadius: BorderRadius.circular(28),
+                border: Border.all(
+                  color: isDark
+                    ? Colors.white.withOpacity(0.07)
+                    : Colors.black.withOpacity(0.06),
+                  width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(isDark ? 0.35 : 0.12),
-                    blurRadius: 20, offset: const Offset(0, 4)),
+                    color: Colors.black.withOpacity(isDark ? 0.4 : 0.10),
+                    blurRadius: 24, offset: const Offset(0, 6)),
                 ]),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
 
@@ -625,49 +640,68 @@ class _ChatScreenState extends State<ChatScreen> {
                 // Input row
                 if (_canSend)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
-                    child: Row(children: [
+                    padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      // Emoji button
+                      IconButton(
+                        icon: Icon(Icons.mood_rounded,
+                          color: isDark
+                            ? Colors.white.withOpacity(0.4)
+                            : Colors.black.withOpacity(0.35),
+                          size: 24),
+                        onPressed: () {},
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        constraints: const BoxConstraints()),
+                      const SizedBox(width: 4),
+                      // Text field
                       Expanded(child: TextField(
                         controller: _msgCtrl,
                         textCapitalization: TextCapitalization.sentences,
-                        maxLines: null, minLines: 1,
+                        maxLines: 5, minLines: 1,
                         style: TextStyle(
                           color: isDark ? kTextPrimary : kLightText, fontSize: 15),
                         decoration: InputDecoration(
                           hintText: 'Message...',
                           hintStyle: TextStyle(
-                            color: isDark ? kTextSecondary : kLightTextSub, fontSize: 15),
+                            color: isDark
+                              ? Colors.white.withOpacity(0.3)
+                              : Colors.black.withOpacity(0.3),
+                            fontSize: 15),
                           border: InputBorder.none,
                           isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 8)))),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 4)))),
                       const SizedBox(width: 6),
-                      GestureDetector(
-                        onTap: () async {
-                          final text = _msgCtrl.text;
-                          if (text.trim().isEmpty || !_canSend) return;
-                          setState(() => _sendAnimating = true);
-                          await Future.delayed(const Duration(milliseconds: 120));
-                          if (mounted) setState(() => _sendAnimating = false);
-                          _send(text);
-                        },
-                        child: AnimatedScale(
-                          scale: _sendAnimating ? 0.80 : 1.0,
-                          duration: const Duration(milliseconds: 100),
-                          curve: Curves.easeOut,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 100),
-                            width: 34, height: 34,
-                            decoration: BoxDecoration(
-                              color: _sendAnimating
-                                  ? kAccent.withOpacity(0.75) : kAccent,
-                              shape: BoxShape.circle,
-                              boxShadow: _sendAnimating ? [] : [
-                                BoxShadow(
-                                  color: kAccent.withOpacity(0.35),
-                                  blurRadius: 8, offset: const Offset(0, 2)),
-                              ]),
-                            child: const Icon(Icons.arrow_upward_rounded,
-                              color: Colors.white, size: 18)))),
+                      // Send button
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 2, right: 2),
+                        child: GestureDetector(
+                          onTap: () async {
+                            final text = _msgCtrl.text;
+                            if (text.trim().isEmpty || !_canSend) return;
+                            setState(() => _sendAnimating = true);
+                            await Future.delayed(const Duration(milliseconds: 110));
+                            if (mounted) setState(() => _sendAnimating = false);
+                            _send(text);
+                          },
+                          child: AnimatedScale(
+                            scale: _sendAnimating ? 0.78 : 1.0,
+                            duration: const Duration(milliseconds: 90),
+                            curve: Curves.easeOut,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 90),
+                              width: 40, height: 40,
+                              decoration: BoxDecoration(
+                                color: _sendAnimating
+                                    ? kAccent.withOpacity(0.80) : kAccent,
+                                shape: BoxShape.circle,
+                                boxShadow: _sendAnimating ? [] : [
+                                  BoxShadow(
+                                    color: kAccent.withOpacity(0.45),
+                                    blurRadius: 10, offset: const Offset(0, 3)),
+                                ]),
+                              child: const Icon(Icons.send_rounded,
+                                color: Colors.white, size: 18))))),
                     ])),
               ])))
       ]));

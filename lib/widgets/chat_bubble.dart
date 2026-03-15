@@ -10,6 +10,7 @@ class ChatBubble extends StatefulWidget {
   final String msgId, chatId;
   final Map<String, dynamic> data;
   final bool isMe, isFirst, isLast;
+  final bool isNew; // true = animate entrance, false = show instantly
   final void Function(String id, String text, String sender) onReply;
   final String myUid;
   final String? otherUid;
@@ -25,6 +26,7 @@ class ChatBubble extends StatefulWidget {
     required this.onReply,
     required this.myUid,
     this.otherUid,
+    this.isNew = false,
   });
 
   @override
@@ -40,10 +42,10 @@ class _ChatBubbleState extends State<ChatBubble>
   late final AnimationController _snapCtrl;
   late       Animation<double>   _snapAnim;
 
-  // ── Entrance animation ─────────────────────────────────────────────────
+  // ── Entrance animation (scale + fade only, no slide) ───────────────────
   late final AnimationController _entranceCtrl;
+  late final Animation<double>   _entranceScale;
   late final Animation<double>   _entranceFade;
-  late final Animation<Offset>   _entranceSlide;
 
   // ── Single-tap time toggle ─────────────────────────────────────────────
   bool _showTime = false;
@@ -60,21 +62,18 @@ class _ChatBubbleState extends State<ChatBubble>
         CurvedAnimation(parent: _snapCtrl, curve: Curves.easeOut));
     _snapCtrl.addListener(() => setState(() {}));
 
-    // Entrance animation — only plays for new/just-sent messages
+    // Entrance: scale 0.88→1.0 + fade 0→1, only for new messages
     _entranceCtrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 320));
-    _entranceFade = CurvedAnimation(
-        parent: _entranceCtrl, curve: Curves.easeOut);
-    _entranceSlide = Tween<Offset>(
-      begin: Offset(widget.isMe ? 0.25 : -0.25, 0.04),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-        parent: _entranceCtrl, curve: Curves.easeOutCubic));
+        vsync: this, duration: const Duration(milliseconds: 220));
+    _entranceScale = Tween<double>(begin: 0.88, end: 1.0).animate(
+        CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOutBack));
+    _entranceFade = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _entranceCtrl, curve: Curves.easeOut));
 
-    if (_isNewMessage) {
+    if (widget.isNew) {
       _entranceCtrl.forward();
     } else {
-      _entranceCtrl.value = 1.0; // skip for old messages
+      _entranceCtrl.value = 1.0; // skip instantly
     }
 
     _maybeStartSeenTimer();
@@ -93,13 +92,6 @@ class _ChatBubbleState extends State<ChatBubble>
     _seenTimer?.cancel();
     _seenTimer = Timer.periodic(const Duration(seconds: 30),
         (_) { if (mounted) setState(() {}); });
-  }
-
-  // ── New message check ─────────────────────────────────────────────────
-  bool get _isNewMessage {
-    final ts = widget.data['timestamp'] as Timestamp?;
-    if (ts == null) return true; // just sent, no server ts yet
-    return DateTime.now().difference(ts.toDate()).inSeconds < 6;
   }
 
   @override
@@ -486,8 +478,9 @@ class _ChatBubbleState extends State<ChatBubble>
 
     return FadeTransition(
       opacity: _entranceFade,
-      child: SlideTransition(
-        position: _entranceSlide,
+      child: ScaleTransition(
+        scale: _entranceScale,
+        alignment: widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
         child: GestureDetector(
       onHorizontalDragUpdate: _onDragUpdate,
       onHorizontalDragEnd:    _onDragEnd,
@@ -681,6 +674,6 @@ class _ChatBubbleState extends State<ChatBubble>
                           letterSpacing: 0.1)))
                   : const SizedBox.shrink()),
 
-            ]))))));  // ] Column ) Align ) Padding ) GestureDetector ) SlideTransition ) FadeTransition
+            ]))))));  // ] Column ) Align ) Padding ) GestureDetector ) ScaleTransition ) FadeTransition
   }
 }
