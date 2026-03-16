@@ -3,10 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
 
-// Replace with your GIPHY API key from developers.giphy.com (free)
-const _giphyApiKey = String.fromEnvironment('GIPHY_API_KEY',
-    defaultValue: 'dc6zaTOxFJmzC'); // public beta key for testing
-const _giphyBase = 'https://api.giphy.com/v1/gifs';
+// Tenor V2 — Google's public demo key, no signup needed
+// Source: https://developers.google.com/tenor/guides/quickstart
+const _apiKey     = 'AIzaSyAyimkuYQYF_FXVALexPzkcsvZpe4h9EMQ';
+const _clientKey  = 'convo_app';
+const _base       = 'https://tenor.googleapis.com/v2';
 
 class GifPicker extends StatefulWidget {
   const GifPicker({super.key});
@@ -20,16 +21,16 @@ class _GifPickerState extends State<GifPicker> {
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
 
-  List<_GifItem> _gifs    = [];
-  bool   _loading  = false;
-  bool   _searched = false;
-  String _query    = '';
-  String? _error;
+  List<_GifItem> _gifs   = [];
+  bool    _loading = false;
+  bool    _searched = false;
+  String  _query   = '';
+  String? _next;
 
   @override
   void initState() {
     super.initState();
-    _loadTrending();
+    _loadFeatured();
   }
 
   @override
@@ -39,69 +40,62 @@ class _GifPickerState extends State<GifPicker> {
     super.dispose();
   }
 
-  Future<void> _loadTrending() async {
-    setState(() { _loading = true; _searched = false; _error = null; });
+  Future<void> _loadFeatured() async {
+    setState(() { _loading = true; _searched = false; _gifs = []; });
     try {
-      final key = _giphyApiKey;
-      final url = '$_giphyBase/trending?api_key=$key&limit=24&rating=g';
-      final res = await http.get(Uri.parse(url))
-          .timeout(const Duration(seconds: 8));
+      final uri = Uri.parse(
+          '$_base/featured?key=$_apiKey&client_key=$_clientKey&limit=24&media_filter=gif');
+      final res = await http.get(uri).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
+        final data = jsonDecode(res.body) as Map;
         setState(() {
           _gifs    = _parse(data);
+          _next    = data['next'] as String?;
           _loading = false;
         });
       } else {
-        setState(() { _loading = false; _error = 'API error ${res.statusCode}'; });
+        setState(() => _loading = false);
       }
-    } catch (e) {
-      setState(() { _loading = false; _error = e.toString(); });
+    } catch (_) {
+      setState(() => _loading = false);
     }
   }
 
   Future<void> _search(String q) async {
-    if (q.trim().isEmpty) { _loadTrending(); return; }
-    setState(() { _loading = true; _searched = true; _query = q; _gifs = []; _error = null; });
+    if (q.trim().isEmpty) { _loadFeatured(); return; }
+    setState(() { _loading = true; _searched = true; _query = q; _gifs = []; });
     try {
-      final url = '$_giphyBase/search?api_key=$_giphyApiKey'
-          '&q=${Uri.encodeComponent(q)}&limit=24&rating=g';
-      final res = await http.get(Uri.parse(url))
-          .timeout(const Duration(seconds: 8));
+      final uri = Uri.parse(
+          '$_base/search?key=$_apiKey&client_key=$_clientKey'
+          '&q=${Uri.encodeComponent(q)}&limit=24&media_filter=gif');
+      final res = await http.get(uri).timeout(const Duration(seconds: 8));
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
+        final data = jsonDecode(res.body) as Map;
         setState(() {
           _gifs    = _parse(data);
+          _next    = data['next'] as String?;
           _loading = false;
         });
       } else {
-        setState(() { _loading = false; _error = 'API error ${res.statusCode}'; });
+        setState(() => _loading = false);
       }
-    } catch (e) {
-      setState(() { _loading = false; _error = e.toString(); });
+    } catch (_) {
+      setState(() => _loading = false);
     }
   }
 
-  List<_GifItem> _parse(Map<String, dynamic> data) {
-    final results = data['data'] as List? ?? [];
+  List<_GifItem> _parse(Map data) {
+    final results = data['results'] as List? ?? [];
     return results.map((r) {
-      final images = r['images'] as Map? ?? {};
-      final preview = (images['downsized_medium'] as Map?)?['url'] as String?
-          ?? (images['downsized'] as Map?)?['url'] as String?
-          ?? (images['fixed_height'] as Map?)?['url'] as String? ?? '';
-      final full = (images['original'] as Map?)?['url'] as String?
-          ?? preview;
-      // Keep only the base URL — GIPHY .gif URLs work without query params
-      // e.g. https://media.giphy.com/media/xxx/giphy.gif
-      String cleanUrl = full.contains('?')
-          ? full.substring(0, full.indexOf('?'))
-          : full;
-      // Ensure it ends with .gif so link_preview detects it as image
-      if (!cleanUrl.toLowerCase().endsWith('.gif')) cleanUrl = full;
+      final formats = r['media_formats'] as Map? ?? {};
+      final tinygif = formats['tinygif'] as Map?;
+      final gif     = formats['gif']     as Map?;
+      final preview = (tinygif?['url'] ?? gif?['url'] ?? '') as String;
+      final full    = (gif?['url'] ?? tinygif?['url'] ?? '') as String;
       return _GifItem(
+        id:         r['id'] as String? ?? '',
         previewUrl: preview,
-        fullUrl:    cleanUrl,
-        id: r['id'] as String? ?? '',
+        fullUrl:    full,
       );
     }).where((g) => g.previewUrl.isNotEmpty).toList();
   }
@@ -123,7 +117,7 @@ class _GifPickerState extends State<GifPicker> {
             color: isDark ? kTextTertiary : kLightTextSub,
             borderRadius: BorderRadius.circular(2))),
 
-        // Search bar
+        // Search
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
           child: Container(
@@ -151,14 +145,14 @@ class _GifPickerState extends State<GifPicker> {
                     horizontal: 10, vertical: 10)))),
               if (_searchCtrl.text.isNotEmpty)
                 GestureDetector(
-                  onTap: () { _searchCtrl.clear(); _loadTrending(); },
+                  onTap: () { _searchCtrl.clear(); _loadFeatured(); },
                   child: Padding(
                     padding: const EdgeInsets.only(right: 10),
                     child: Icon(Icons.close_rounded, size: 18,
                       color: isDark ? kTextSecondary : kLightTextSub))),
             ]))),
 
-        // Label row
+        // Label
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
           child: Row(children: [
@@ -167,7 +161,7 @@ class _GifPickerState extends State<GifPicker> {
                 fontSize: 12, fontWeight: FontWeight.w600,
                 color: isDark ? kTextSecondary : kLightTextSub)),
             const Spacer(),
-            Text('via GIPHY', style: TextStyle(
+            Text('via Tenor', style: TextStyle(
               fontSize: 10,
               color: isDark ? kTextTertiary : kLightTextSub)),
           ])),
@@ -178,13 +172,10 @@ class _GifPickerState extends State<GifPicker> {
               color: kAccent, strokeWidth: 2))
           : _gifs.isEmpty
             ? Center(child: Text(
-                _error != null
-                  ? 'Error: $_error'
-                  : _searched ? 'No GIFs found' : 'Could not load GIFs',
+                _searched ? 'No GIFs found' : 'Could not load GIFs',
                 style: TextStyle(
                   color: isDark ? kTextSecondary : kLightTextSub,
-                  fontSize: 13),
-                textAlign: TextAlign.center))
+                  fontSize: 14)))
             : GridView.builder(
                 controller: _scrollCtrl,
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -203,8 +194,8 @@ class _GifPickerState extends State<GifPicker> {
                       child: Image.network(
                         gif.previewUrl,
                         fit: BoxFit.cover,
-                        loadingBuilder: (_, child, prog) =>
-                          prog == null ? child
+                        loadingBuilder: (_, child, prog) => prog == null
+                          ? child
                           : Container(
                               color: isDark ? kCard2 : kLightCard2,
                               child: const Center(child: SizedBox(
@@ -217,7 +208,6 @@ class _GifPickerState extends State<GifPicker> {
                             color: kAccent, size: 32)))));
                 })),
 
-        // Safe area padding
         SizedBox(height: MediaQuery.of(context).padding.bottom),
       ]));
   }
@@ -225,5 +215,9 @@ class _GifPickerState extends State<GifPicker> {
 
 class _GifItem {
   final String id, previewUrl, fullUrl;
-  const _GifItem({required this.id, required this.previewUrl, required this.fullUrl});
+  const _GifItem({
+    required this.id,
+    required this.previewUrl,
+    required this.fullUrl,
+  });
 }
