@@ -375,10 +375,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
       body: Stack(children: [
 
-        // ── Messages fill full screen ─────────────────────────────────────
-        Positioned.fill(
-          child: Column(children: [
-            Expanded(child: StreamBuilder<QuerySnapshot>(
+        // ── Messages — same as DM, direct Column child of Stack ─────────
+        Column(children: [
+          Expanded(child: StreamBuilder<QuerySnapshot>(
           stream: db.collection('groups').doc(widget.groupId)
             .collection('messages').orderBy('timestamp').snapshots(),
           builder: (_, snap) {
@@ -409,7 +408,10 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
             return ListView.builder(
               controller: _scrollCtrl,
-              padding: const EdgeInsets.only(left: 8, right: 8, top: 16, bottom: 90),
+              padding: EdgeInsets.only(
+                left: 8, right: 8, top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom > 0
+                  ? 80 : 90),
               itemCount: msgs.length,
               itemBuilder: (_, i) {
                 final data    = msgs[i].data() as Map<String, dynamic>;
@@ -693,8 +695,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           }),
 
           // Space so last message not hidden behind input
-          const SizedBox(height: 80),
-        ])),  // Positioned.fill Column
+        ]),  // Column messages
 
         // ── Floating input island ──────────────────────────────────────────
         Positioned(
